@@ -16,7 +16,7 @@ interface SelectedBundle extends Bundle {
 
 const WA_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP || '0200000000';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || '';
-const STORE_NAME = process.env.NEXT_PUBLIC_STORE_NAME || 'AM DATAFLOW';
+const STORE_NAME = process.env.NEXT_PUBLIC_STORE_NAME || 'ADOMUN';
 const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
 
 export default function MainStorePage() {
@@ -210,8 +210,8 @@ export default function MainStorePage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ width: 52, height: 52, borderRadius: 14, background: '#00d4aa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, color: '#000', fontFamily: 'sans-serif' }}>A</div>
         <div>
-          <div style={{ fontFamily: 'sans-serif', fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>AM DATAFLOW</div>
-          <div style={{ fontFamily: 'sans-serif', fontSize: 12, color: '#64748b', marginTop: 2 }}>Fast Data Bundles — Ghana</div>
+          <div style={{ fontFamily: 'sans-serif', fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>ADOMUN</div>
+          <div style={{ fontFamily: 'sans-serif', fontSize: 12, color: '#64748b', marginTop: 2 }}>Data</div>
         </div>
       </div>
       <svg viewBox="0 0 40 40" width="40" height="40" style={{ animation: 'spin 0.9s linear infinite' }}>

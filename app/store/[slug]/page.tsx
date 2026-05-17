@@ -42,7 +42,7 @@ export default function AgentStorePage() {
   const [trackRef, setTrackRef] = useState('');
   const [trackResult, setTrackResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const storeName = process.env.NEXT_PUBLIC_STORE_NAME || 'AM DATAFLOW';
+  const storeName = process.env.NEXT_PUBLIC_STORE_NAME || 'ADOMUN';
   const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
 
   useEffect(() => {

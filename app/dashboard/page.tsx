@@ -476,8 +476,8 @@ export default function DashboardPage() {
                 </div>
                 <div className="card-body">
                   {available < 20 && (
-                    <div className="alert alert-warn" style={{ marginBottom: 16, fontSize: 13, lineHeight: 1.6 }}>
-                      You need at least <strong style={{ display: 'inline', whiteSpace: 'nowrap' }}>GHS 20.00</strong> to request a withdrawal. Keep selling to accumulate earnings!
+                    <div className="alert alert-warn" style={{ marginBottom: 16, fontSize: 13 }}>
+                      Minimum withdrawal is <strong>GHS 20.00</strong>
                     </div>
                   )}
                   <div className="form-row">

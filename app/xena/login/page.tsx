@@ -56,7 +56,7 @@ export default function AdminLoginPage() {
           <div className="logo-mark" style={{ background: 'var(--accent2)' }}>A</div>
           <div className="logo-text">
             <strong>Admin Panel</strong>
-            <span>AM DATAFLOW</span>
+            <span>ADOMUN</span>
           </div>
         </div>
 

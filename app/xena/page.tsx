@@ -170,7 +170,7 @@ export default function AdminPage() {
       <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sidebar-logo">
           <div className="logo-mark" style={{ background: 'var(--accent2)' }}>A</div>
-          <div className="logo-text"><strong>Admin Panel</strong><span>DataFlow GH</span></div>
+          <div className="logo-text"><strong>Admin Panel</strong><span>ADOMUN</span></div>
         </div>
         <nav className="sidebar-nav">
           <div>
@@ -208,7 +208,7 @@ export default function AdminPage() {
           </button>
           <div>
             <div className="topbar-title">{navItems.find(n => n.id === tab)?.label}</div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>DataFlow GH — Admin</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>ADOMUN — Admin</div>
           </div>
         </div>
         <div className="topbar-right">
