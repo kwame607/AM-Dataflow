@@ -125,6 +125,17 @@ export default function AdminPage() {
     else toast('Failed', 'error');
   }
 
+  async function retryDelivery(orderId: string) {
+    toast('Retrying delivery…', 'info');
+    const res = await authFetch('/api/orders/retry-delivery', {
+      method: 'POST',
+      body: JSON.stringify({ orderId }),
+    });
+    const data = await res.json();
+    if (res.ok) { toast(data.message || 'Sent to Hubnet', 'success'); await loadAll(); }
+    else toast(data.message || 'Retry failed — check Hubnet wallet', 'error');
+  }
+
   async function resolveWithdrawal(id: string, status: string) {
     const res = await fetch('/api/withdrawals', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -316,9 +327,14 @@ export default function AdminPage() {
                               <td><StatusBadge status={o.status} /></td>
                               <td><DeliveryBadge status={o.delivery_status} /></td>
                               <td style={{ color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtDate(o.created_at)}</td>
-                              <td>{(!o.delivery_status || o.delivery_status === 'processing' || o.delivery_status === 'pending') && o.status === 'success' && (
-                                <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)', whiteSpace: 'nowrap' }} onClick={() => markDelivered(o.id)}>✓ Mark Delivered</button>
-                              )}</td>
+                              <td style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
+                                {o.delivery_status === 'failed' && o.status === 'success' && (
+                                  <button className="btn btn-sm" style={{ background: 'rgba(239,68,68,.15)', color: '#f87171', border: '1px solid rgba(239,68,68,.4)', whiteSpace: 'nowrap' }} onClick={() => retryDelivery(o.id)}>↺ Retry Delivery</button>
+                                )}
+                                {(!o.delivery_status || o.delivery_status === 'processing' || o.delivery_status === 'pending') && o.status === 'success' && (
+                                  <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)', whiteSpace: 'nowrap' }} onClick={() => markDelivered(o.id)}>✓ Mark Delivered</button>
+                                )}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
