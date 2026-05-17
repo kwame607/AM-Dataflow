@@ -285,10 +285,10 @@ export default function AdminPage() {
                               <td><DeliveryBadge status={o.delivery_status} /></td>
                               <td style={{ color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtDate(o.created_at)}</td>
                               <td style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
-                                {(['failed','pending','processing'].includes(o.delivery_status) || !o.delivery_status) && o.status === 'success' && (
+                                {(['failed','pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success' && (
                                   <button className="btn btn-sm" style={{ background: 'rgba(239,68,68,.15)', color: '#f87171', border: '1px solid rgba(239,68,68,.4)', whiteSpace: 'nowrap' }} onClick={() => retryDelivery(o.id)}>↺ Retry</button>
                                 )}
-                                {(['pending','processing'].includes(o.delivery_status) || !o.delivery_status) && o.status === 'success' && (
+                                {(['pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success' && (
                                   <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)', whiteSpace: 'nowrap' }} onClick={() => markDelivered(o.id)}>✓ Done</button>
                                 )}
                               </td>
@@ -336,10 +336,10 @@ export default function AdminPage() {
                               <td><DeliveryBadge status={o.delivery_status} /></td>
                               <td style={{ color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtDate(o.created_at)}</td>
                               <td style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
-                                {(['failed','pending','processing'].includes(o.delivery_status) || !o.delivery_status) && o.status === 'success' && (
+                                {(['failed','pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success' && (
                                   <button className="btn btn-sm" style={{ background: 'rgba(239,68,68,.15)', color: '#f87171', border: '1px solid rgba(239,68,68,.4)', whiteSpace: 'nowrap' }} onClick={() => retryDelivery(o.id)}>↺ Retry Delivery</button>
                                 )}
-                                {(['pending','processing'].includes(o.delivery_status) || !o.delivery_status) && o.status === 'success' && (
+                                {(['pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success' && (
                                   <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)', whiteSpace: 'nowrap' }} onClick={() => markDelivered(o.id)}>✓ Mark Delivered</button>
                                 )}
                               </td>

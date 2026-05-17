@@ -5,8 +5,8 @@ import { hubnetTransact } from '@/lib/hubnet';
 import { getBundleByKey, getHubnetNetwork } from '@/lib/bundles';
 
 export async function POST(req: NextRequest) {
-  const authError = await requireAdmin(req);
-  if (authError) return authError;
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const { orderId } = await req.json();
