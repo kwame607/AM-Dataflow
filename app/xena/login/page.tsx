@@ -42,7 +42,7 @@ export default function AdminLoginPage() {
         return;
       }
 
-      window.location.href = '/admin';
+      window.location.href = '/xena';
     } catch {
       setError('Something went wrong. Please try again.');
       setLoading(false);

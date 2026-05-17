@@ -56,7 +56,7 @@ export default function AdminPage() {
     loadAll();
   }, [loadAll]);
 
-  async function logout() { await getSupabaseClient().auth.signOut(); window.location.href = '/admin/login'; }
+  async function logout() { await getSupabaseClient().auth.signOut(); window.location.href = '/xena/login'; }
 
   async function authFetch(url: string, options: RequestInit = {}) {
     const { data: { session } } = await getSupabaseClient().auth.getSession();
