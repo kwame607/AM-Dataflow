@@ -270,7 +270,7 @@ export default function AdminPage() {
                     ? <div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No orders yet</div></div>
                     : (
                       <table>
-                        <thead><tr><th>Reference</th><th>Network</th><th>Bundle</th><th>Phone</th><th>Revenue</th><th>Profit</th><th>Source</th><th>Payment</th><th>Delivery</th><th>Date</th></tr></thead>
+                        <thead><tr><th>Reference</th><th>Network</th><th>Bundle</th><th>Phone</th><th>Revenue</th><th>Profit</th><th>Source</th><th>Payment</th><th>Delivery</th><th>Date</th><th>Action</th></tr></thead>
                         <tbody>
                           {orders.slice(0, 10).map(o => (
                             <tr key={o.id}>
@@ -284,6 +284,14 @@ export default function AdminPage() {
                               <td><StatusBadge status={o.status} /></td>
                               <td><DeliveryBadge status={o.delivery_status} /></td>
                               <td style={{ color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtDate(o.created_at)}</td>
+                              <td style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
+                                {(['failed','pending','processing'].includes(o.delivery_status) || !o.delivery_status) && o.status === 'success' && (
+                                  <button className="btn btn-sm" style={{ background: 'rgba(239,68,68,.15)', color: '#f87171', border: '1px solid rgba(239,68,68,.4)', whiteSpace: 'nowrap' }} onClick={() => retryDelivery(o.id)}>↺ Retry</button>
+                                )}
+                                {(['pending','processing'].includes(o.delivery_status) || !o.delivery_status) && o.status === 'success' && (
+                                  <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)', whiteSpace: 'nowrap' }} onClick={() => markDelivered(o.id)}>✓ Done</button>
+                                )}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
