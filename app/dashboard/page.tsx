@@ -39,7 +39,9 @@ export default function DashboardPage() {
   // Order filter
   const [orderFilter, setOrderFilter] = useState('all');
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL !== 'http://localhost:3000')
+    ? process.env.NEXT_PUBLIC_SITE_URL
+    : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
 
   const loadData = useCallback(async (agentId: string) => {
     const [ordersRes, agentPricesRes, adminPricesRes, withdrawalsRes] = await Promise.all([
@@ -535,6 +537,12 @@ export default function DashboardPage() {
           {/* ── MY STORE ── */}
           {tab === 'store' && agent && (
             <div>
+              {Object.keys(agentPrices).length === 0 && (
+                <div className="alert alert-warn" style={{ marginBottom: 16, fontSize: 13, lineHeight: 1.7 }}>
+                  <strong>⚠ Set your prices first!</strong><br />
+                  Your store link won&apos;t work until you configure your selling prices. Go to the <strong>My Prices</strong> tab, set your prices, and save — then share your store link.
+                </div>
+              )}
               <div className="card" style={{ marginBottom: 16 }}>
                 <div className="card-header"><div className="card-title">Store Details</div></div>
                 <div className="card-body">
