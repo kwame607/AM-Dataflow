@@ -16,7 +16,7 @@ interface SelectedBundle extends Bundle {
 
 const WA_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP || '0200000000';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || '';
-const STORE_NAME = process.env.NEXT_PUBLIC_STORE_NAME || 'ADOMUN';
+const STORE_NAME = 'ADOMUN';
 const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
 
 export default function MainStorePage() {
@@ -249,7 +249,7 @@ export default function MainStorePage() {
         <div className="store-hero-glow" />
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 100, padding: '6px 14px 6px 8px', fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 20 }}>
           <span className="live-dot" />
-          {STORE_NAME} — Verified Store
+          {STORE_NAME} — Data Store
         </div>
         <h1>Instant Data<br /><span className="hero-accent">Delivered Fast</span></h1>
         <p style={{ color: 'var(--text2)', fontSize: 14, maxWidth: 380, margin: '0 auto' }}>

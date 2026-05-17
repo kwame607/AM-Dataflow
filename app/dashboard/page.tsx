@@ -467,11 +467,11 @@ export default function DashboardPage() {
 
               <div className="card" style={{ marginBottom: 20 }}>
                 <div className="card-header">
-                    <div className="card-title">
-                      Request Withdrawal &nbsp;
-                      <span style={{ fontSize: 12, fontWeight: 600, color: available >= 20 ? 'var(--ok)' : 'var(--warn)' }}>
-                        ({available >= 20 ? `GHS ${available.toFixed(2)} available` : `GHS ${fmt(available)} of GHS 20.00 min`})
-                      </span>
+                    <div>
+                      <div className="card-title">Request Withdrawal</div>
+                      <div style={{ fontSize: 11, fontWeight: 600, marginTop: 2, color: available >= 20 ? 'var(--ok)' : 'var(--warn)' }}>
+                        {available >= 20 ? `GHS ${available.toFixed(2)} available` : `GHS ${fmt(available)} of GHS 20 min`}
+                      </div>
                     </div>
                 </div>
                 <div className="card-body">

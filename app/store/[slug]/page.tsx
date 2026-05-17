@@ -42,7 +42,7 @@ export default function AgentStorePage() {
   const [trackRef, setTrackRef] = useState('');
   const [trackResult, setTrackResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const storeName = process.env.NEXT_PUBLIC_STORE_NAME || 'ADOMUN';
+  const storeName = 'ADOMUN';
   const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
 
   useEffect(() => {
@@ -255,7 +255,7 @@ export default function AgentStorePage() {
         <div className="store-hero-glow" />
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 100, padding: '6px 14px 6px 8px', fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 20 }}>
           <span className="live-dot" />
-          {agent.store_name || agent.name} — Verified Agent Store
+          {agent.store_name || agent.name}
         </div>
         <h1>Instant Data<br /><span className="hero-accent">Delivered Fast</span></h1>
         <p style={{ color: 'var(--text2)', fontSize: 14, maxWidth: 380, margin: '0 auto' }}>

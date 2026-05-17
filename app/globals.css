@@ -387,23 +387,34 @@ tbody tr:hover td { background: rgba(255,255,255,0.02); }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
+  body { overflow-x: hidden; }
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); box-shadow: 20px 0 60px rgba(0,0,0,0.5); }
-  .topbar { left: 0; }
+  .topbar { left: 0; padding: 0 12px; }
+  .topbar-title { font-size: 15px; }
   .main-content { margin-left: 0; }
   .menu-btn { display: flex; }
-  .page-body { padding: 16px 12px 90px; }
+  .page-body { padding: 14px 10px 90px; }
+  .page-title { font-size: 18px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
+  .stat-card { padding: 14px 14px; }
+  .stat-val { font-size: 20px; }
+  .stat-icon { width: 32px; height: 32px; font-size: 16px; margin-bottom: 10px; }
   .form-row { grid-template-columns: 1fr; }
   .price-grid { grid-template-columns: 1fr; }
-  .price-card { flex-wrap: wrap; gap: 10px; }
-  .tab-nav { width: 100%; overflow-x: auto; }
+  .price-card { flex-wrap: wrap; gap: 8px; }
+  .tab-nav { width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .tab-btn { padding: 7px 12px; font-size: 12px; white-space: nowrap; }
+  .card-header { padding: 12px 14px; }
+  .card-body { padding: 14px; }
+  .card-title { font-size: 13px; flex-wrap: wrap; }
   .mobile-hide { display: none !important; }
-  .card-title { font-size: 14px; }
-  .stat-val { font-size: 22px; }
+  .table-wrap { font-size: 12px; }
+  thead th, tbody td { padding: 8px 10px; }
 }
 @media (max-width: 400px) {
   .stats-grid { grid-template-columns: 1fr; }
-  .page-body { padding: 12px 10px 90px; }
+  .page-body { padding: 10px 8px 90px; }
+  .topbar-right { gap: 6px; }
 }
 @media (min-width: 769px) { .desktop-hide { display: none !important; } }
