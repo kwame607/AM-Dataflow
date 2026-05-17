@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Login — DataFlow GH</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+
+<div class="auth-wrap">
+  <div class="auth-logo" style="justify-content:center;">
+    <div class="logo-mark">D</div>
+    <div class="logo-text"><strong>DataFlow GH</strong><span>Agent Portal</span></div>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-title">Welcome back</div>
+    <div class="auth-sub">Sign in to your reseller dashboard</div>
+
+    <div class="form-group">
+      <label class="form-label">Email Address</label>
+      <input class="form-input" id="login-email" type="email" placeholder="kwame@example.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <div style="position:relative;">
+        <input class="form-input" id="login-pass" type="password" placeholder="Your password" autocomplete="current-password" style="padding-right:44px;">
+        <button onclick="togglePass()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:12px;background:none;border:none;cursor:pointer;" id="pass-toggle">Show</button>
+      </div>
+    </div>
+
+    <div id="login-alert" class="alert alert-error hidden" style="margin-bottom:16px;"></div>
+
+    <button class="btn btn-primary btn-full btn-lg" id="login-btn" onclick="doLogin()">Sign In</button>
+
+    <div style="text-align:center;margin-top:14px;">
+      <a href="#" style="font-size:13px;color:var(--accent);">Forgot password?</a>
+    </div>
+  </div>
+
+  <div class="auth-footer">
+    Don't have an account? <a href="register.html">Register as Agent</a>
+  </div>
+  <div class="auth-footer" style="margin-top:8px;">
+    Admin? <a href="admin.html">Go to Admin Dashboard</a>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="shared.js"></script>
+<script>
+function togglePass() {
+  const input = document.getElementById('login-pass');
+  const btn = document.getElementById('pass-toggle');
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = 'Hide'; }
+  else { input.type = 'password'; btn.textContent = 'Show'; }
+}
+
+function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const btn   = document.getElementById('login-btn');
+
+  if (!email) return showAlert('login-alert','error','Enter your email address');
+  if (!pass)  return showAlert('login-alert','error','Enter your password');
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Signing in…';
+
+  setTimeout(() => {
+    const agents = getAgents();
+    const agent  = agents.find(a => a.email.toLowerCase() === email.toLowerCase());
+
+    if (!agent) {
+      showAlert('login-alert','error','No account found with this email. <a href="register.html" style="color:var(--accent);">Register here</a>');
+      btn.disabled = false; btn.innerHTML = 'Sign In'; return;
+    }
+
+    if (atob(agent.password) !== pass) {
+      showAlert('login-alert','error','Incorrect password. Please try again.');
+      btn.disabled = false; btn.innerHTML = 'Sign In'; return;
+    }
+
+    if (agent.status === 'pending') {
+      showAlert('login-alert','warn','Your account is awaiting admin approval. Please check back soon.');
+      btn.disabled = false; btn.innerHTML = 'Sign In'; return;
+    }
+
+    if (agent.status === 'suspended') {
+      showAlert('login-alert','error','Your account has been suspended. Contact support on WhatsApp.');
+      btn.disabled = false; btn.innerHTML = 'Sign In'; return;
+    }
+
+    // Successful login
+    setCurrentAgent(agent);
+    toast('Welcome back, ' + agent.firstName + '!', 'success');
+    setTimeout(() => window.location.href = 'agent-dashboard.html', 600);
+  }, 700);
+}
+
+// If already logged in, redirect
+document.addEventListener('DOMContentLoaded', () => {
+  const agent = getCurrentAgent();
+  if (agent) window.location.href = 'agent-dashboard.html';
+});
+
+// Allow Enter key
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>

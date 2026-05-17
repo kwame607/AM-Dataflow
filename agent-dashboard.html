@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Dashboard — DataFlow GH</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.profit-tag { font-size:11px;color:var(--ok);font-weight:700;margin-top:3px; }
+.floor-warn { font-size:11px;color:var(--err);margin-top:3px; }
+.withdraw-card { background:linear-gradient(135deg,rgba(0,212,170,.12),rgba(14,165,233,.07)); border:1px solid rgba(0,212,170,.25); border-radius:var(--radius-lg); padding:24px; margin-bottom:20px; }
+.earn-bal { font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:var(--accent); }
+.onboard-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:20px; margin-bottom:20px; }
+</style>
+</head>
+<body>
+
+<div class="sidebar-layout">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark" id="sb-logo">A</div>
+      <div class="logo-text">
+        <strong id="sb-store-name">My Store</strong>
+        <span>Agent Dashboard</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div>
+        <div class="nav-section-label">Main</div>
+        <button class="nav-item active" data-tab="overview" onclick="switchTab('overview')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          Overview
+        </button>
+        <button class="nav-item" data-tab="prices" onclick="switchTab('prices')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 10V5a2 2 0 012-2z"/></svg>
+          My Prices
+        </button>
+        <button class="nav-item" data-tab="orders" onclick="switchTab('orders')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          My Orders
+          <span class="nav-badge" id="orders-badge" style="display:none;"></span>
+        </button>
+      </div>
+      <div>
+        <div class="nav-section-label">Finance</div>
+        <button class="nav-item" data-tab="earnings" onclick="switchTab('earnings')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Earnings
+        </button>
+      </div>
+      <div>
+        <div class="nav-section-label">Store</div>
+        <button class="nav-item" data-tab="mystore" onclick="switchTab('mystore')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+          My Store
+        </button>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-balance">
+        <div class="sidebar-balance-label">Available Earnings</div>
+        <div class="sidebar-balance-val" id="sb-earnings">₵0.00</div>
+      </div>
+      <button class="nav-item" onclick="logout()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        Sign Out
+      </button>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- ── MAIN ── -->
+  <div class="main-content">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="menu-btn" id="menu-btn">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <span class="topbar-title" id="topbar-title">Overview</span>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-avatar" id="tb-avatar">A</div>
+        <div style="display:none;" class="mobile-hide">
+          <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;" id="tb-name">Agent</div>
+          <div style="font-size:11px;color:var(--text3);">Reseller</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-body">
+
+      <!-- ══ OVERVIEW TAB ══ -->
+      <div id="tab-overview" class="tab-panel">
+        <div class="page-header">
+          <div>
+            <div class="page-title" id="ov-welcome">Welcome back!</div>
+            <div class="page-subtitle">Here's your store performance</div>
+          </div>
+          <a id="ov-store-btn" href="#" target="_blank" class="btn btn-primary btn-sm">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            View My Store
+          </a>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-card accent">
+            <div class="stat-label">Available Earnings</div>
+            <div class="stat-val" id="ov-earnings">₵0.00</div>
+            <div class="stat-sub">Ready to withdraw</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Orders</div>
+            <div class="stat-val" id="ov-orders">0</div>
+            <div class="stat-sub">All time</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Revenue</div>
+            <div class="stat-val" id="ov-revenue">₵0.00</div>
+            <div class="stat-sub">Customer payments</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Profit</div>
+            <div class="stat-val" id="ov-profit">₵0.00</div>
+            <div class="stat-sub">All time earnings</div>
+          </div>
+        </div>
+
+        <!-- Onboarding checklist -->
+        <div class="onboard-card" id="onboard-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;">🚀 Get Started</div>
+            <div style="font-size:12px;color:var(--text3);" id="onboard-progress">0 / 3 done</div>
+          </div>
+          <div class="onboard-list">
+            <div class="onboard-step" id="ob-prices">
+              <div class="step-check">1</div>
+              <div><div class="step-text">Set your selling prices</div><div class="step-sub">Add profit to base prices for each network</div></div>
+              <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="switchTab('prices')">Set Prices</button>
+            </div>
+            <div class="onboard-step" id="ob-link">
+              <div class="step-check">2</div>
+              <div><div class="step-text">Copy your store link</div><div class="step-sub">Share it with customers to start selling</div></div>
+              <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="switchTab('mystore')">Get Link</button>
+            </div>
+            <div class="onboard-step" id="ob-order">
+              <div class="step-check">3</div>
+              <div><div class="step-text">Get your first order</div><div class="step-sub">When a customer buys, your profit is instant</div></div>
+              <span style="margin-left:auto;font-size:11px;color:var(--text3);" id="ob-order-status">Waiting…</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Store link -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-header"><div class="card-title">Your Store Link</div></div>
+          <div class="card-body">
+            <div class="copy-box">
+              <span class="copy-url" id="ov-store-url">—</span>
+              <button class="copy-btn" onclick="copyStoreLink()">Copy</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <a id="ov-wa-share" href="#" class="btn btn-sm" style="background:rgba(37,211,102,.15);border:1px solid rgba(37,211,102,.3);color:#25d366;">
+                <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+                Share on WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent orders -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Recent Orders</div>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('orders')">View All</button>
+          </div>
+          <div class="table-wrap">
+            <div id="ov-recent-orders"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ MY PRICES TAB ══ -->
+      <div id="tab-prices" class="tab-panel hidden">
+        <div class="page-header">
+          <div>
+            <div class="page-title">My Prices</div>
+            <div class="page-subtitle">Set your selling prices to earn profit on each sale</div>
+          </div>
+          <button class="btn btn-primary" onclick="savePrices()">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Save Prices
+          </button>
+        </div>
+
+        <div class="alert alert-info" style="margin-bottom:20px;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Your selling price must be <strong>at or above the base price</strong>. Your profit = Your Price − Base Price.
+        </div>
+
+        <!-- Bulk tools -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-header"><div class="card-title">Bulk Markup Tools</div></div>
+          <div class="card-body" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+            <select class="form-input" id="bulk-net" style="width:auto;">
+              <option value="all">All Networks</option>
+              <option value="mtn">MTN</option>
+              <option value="telecel">Telecel</option>
+              <option value="at">AirtelTigo</option>
+            </select>
+            <input class="form-input" id="bulk-amount" type="number" placeholder="Amount (₵)" style="width:130px;" min="0" step="0.5">
+            <button class="btn btn-secondary" onclick="bulkMarkup('fixed')">Add ₵ to All</button>
+            <input class="form-input" id="bulk-percent" type="number" placeholder="%" style="width:100px;" min="0" max="200">
+            <button class="btn btn-secondary" onclick="bulkMarkup('percent')">Add % to All</button>
+          </div>
+        </div>
+
+        <div class="tab-nav">
+          <button class="tab-btn active" onclick="filterPriceTab('all',this)">All</button>
+          <button class="tab-btn" onclick="filterPriceTab('mtn',this)">MTN</button>
+          <button class="tab-btn" onclick="filterPriceTab('telecel',this)">Telecel</button>
+          <button class="tab-btn" onclick="filterPriceTab('at',this)">AirtelTigo</button>
+        </div>
+
+        <div class="price-grid" id="agent-price-editor"></div>
+        <div id="prices-saved-alert" class="hidden" style="margin-top:16px;"></div>
+      </div>
+
+      <!-- ══ MY ORDERS TAB ══ -->
+      <div id="tab-orders" class="tab-panel hidden">
+        <div class="page-header">
+          <div class="page-title">My Orders</div>
+          <button class="btn btn-secondary btn-sm" onclick="exportOrdersCSV()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export CSV
+          </button>
+        </div>
+
+        <!-- Filters -->
+        <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+          <select class="form-input" id="filter-net" style="width:auto;" onchange="renderOrders()">
+            <option value="">All Networks</option>
+            <option value="mtn">MTN</option>
+            <option value="telecel">Telecel</option>
+            <option value="at">AirtelTigo</option>
+          </select>
+          <select class="form-input" id="filter-status" style="width:auto;" onchange="renderOrders()">
+            <option value="">All Statuses</option>
+            <option value="success">Success</option>
+            <option value="failed">Failed</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <div id="orders-table"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ EARNINGS TAB ══ -->
+      <div id="tab-earnings" class="tab-panel hidden">
+        <div class="page-header">
+          <div class="page-title">Earnings &amp; Withdrawals</div>
+        </div>
+
+        <div class="withdraw-card">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Available Balance</div>
+          <div class="earn-bal" id="earn-available">₵0.00</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:6px;" id="earn-sub">Total Earned: ₵0.00 · Withdrawn: ₵0.00</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;">
+          <div class="stat-card"><div class="stat-label">Total Earned</div><div class="stat-val" id="earn-total">₵0.00</div></div>
+          <div class="stat-card"><div class="stat-label">Total Withdrawn</div><div class="stat-val" id="earn-withdrawn">₵0.00</div></div>
+        </div>
+
+        <!-- Withdrawal Form -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-header"><div class="card-title">Request Withdrawal</div></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Amount (₵)</label>
+                <input class="form-input" id="wd-amount" type="number" placeholder="e.g. 50" min="10" step="0.5">
+                <div class="form-hint">Min ₵10 · Max: your available balance</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">MoMo Network</label>
+                <select class="form-input" id="wd-net">
+                  <option value="mtn">MTN MoMo</option>
+                  <option value="telecel">Telecel Cash</option>
+                  <option value="at">AirtelTigo Money</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">MoMo Number</label>
+                <input class="form-input" id="wd-number" type="tel" placeholder="0241234567" maxlength="10">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Account Name</label>
+                <input class="form-input" id="wd-name" placeholder="Name on MoMo account">
+              </div>
+            </div>
+            <div id="wd-alert" class="hidden" style="margin-bottom:12px;"></div>
+            <button class="btn btn-primary" onclick="requestWithdrawal()">Submit Withdrawal Request</button>
+            <p style="font-size:11px;color:var(--text3);margin-top:8px;">Requests are processed within 24 hours by admin.</p>
+          </div>
+        </div>
+
+        <!-- Withdrawal History -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Withdrawal History</div></div>
+          <div class="table-wrap" id="wd-history"></div>
+        </div>
+      </div>
+
+      <!-- ══ MY STORE TAB ══ -->
+      <div id="tab-mystore" class="tab-panel hidden">
+        <div class="page-header"><div class="page-title">My Store</div></div>
+
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-header"><div class="card-title">Store Details</div></div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:10px 16px;align-items:center;font-size:13px;margin-bottom:18px;">
+              <span style="color:var(--text3);">Store Name</span><span id="ms-name" style="font-weight:600;"></span>
+              <span style="color:var(--text3);">Agent Name</span><span id="ms-agent" style="font-weight:600;"></span>
+              <span style="color:var(--text3);">WhatsApp</span><span id="ms-wa" style="font-weight:600;"></span>
+              <span style="color:var(--text3);">Status</span><span><span class="badge badge-success"><span class="badge-dot"></span>Active</span></span>
+            </div>
+            <div class="form-label" style="margin-bottom:6px;">Your Store Link</div>
+            <div class="copy-box" style="margin-bottom:12px;">
+              <span class="copy-url" id="ms-url"></span>
+              <button class="copy-btn" onclick="copyText(document.getElementById('ms-url').textContent,this)">Copy</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <a id="ms-wa-share" href="#" class="btn btn-sm" style="background:rgba(37,211,102,.15);border:1px solid rgba(37,211,102,.3);color:#25d366;">Share on WhatsApp</a>
+              <a id="ms-open" href="#" target="_blank" class="btn btn-secondary btn-sm">Open Store</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- QR code placeholder -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Store QR Code</div></div>
+          <div class="card-body" style="text-align:center;">
+            <div id="qr-code" style="display:inline-block;background:white;padding:16px;border-radius:12px;"></div>
+            <p style="font-size:12px;color:var(--text3);margin-top:10px;">Customers can scan this to visit your store</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+
+  <!-- Mobile nav -->
+  <nav class="mobile-nav">
+    <button class="mob-btn active" data-tab="overview" onclick="switchTab('overview')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Home
+    </button>
+    <button class="mob-btn" data-tab="prices" onclick="switchTab('prices')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 10V5a2 2 0 012-2z"/></svg>
+      Prices
+    </button>
+    <button class="mob-btn" data-tab="orders" onclick="switchTab('orders')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      Orders
+    </button>
+    <button class="mob-btn" data-tab="earnings" onclick="switchTab('earnings')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Earnings
+    </button>
+    <button class="mob-btn" data-tab="mystore" onclick="switchTab('mystore')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+      Store
+    </button>
+  </nav>
+
+</div><!-- /sidebar-layout -->
+
+<div id="toast-container"></div>
+<script src="shared.js"></script>
+<script>
+let AGENT = null;
+let priceFilt = 'all';
+let agentPricesDraft = {};
+
+// ── AUTH CHECK ──
+document.addEventListener('DOMContentLoaded', () => {
+  AGENT = getCurrentAgent();
+  if (!AGENT) { window.location.href = 'login.html'; return; }
+
+  // Re-check status (admin may have changed it)
+  const fresh = getAgentBySlug(AGENT.slug);
+  if (fresh) AGENT = fresh;
+
+  if (AGENT.status !== 'active') {
+    clearCurrentAgent();
+    window.location.href = 'login.html';
+    return;
+  }
+
+  initDashboard();
+});
+
+function initDashboard() {
+  // Populate UI with agent info
+  document.getElementById('sb-logo').textContent        = AGENT.storeName[0].toUpperCase();
+  document.getElementById('sb-store-name').textContent  = AGENT.storeName;
+  document.getElementById('tb-avatar').textContent      = AGENT.firstName[0].toUpperCase();
+  document.getElementById('tb-name').textContent        = AGENT.firstName;
+  document.getElementById('ov-welcome').textContent     = 'Welcome, ' + AGENT.firstName + '!';
+
+  const url = `${window.location.origin.replace(/\/[^/]*$/,'')}/dataflow/index.html?agent=${AGENT.slug}`;
+  AGENT.storeUrl = url;
+
+  document.getElementById('ov-store-url').textContent   = url;
+  document.getElementById('ov-store-btn').href          = url;
+  document.getElementById('ov-wa-share').href           = `https://wa.me/?text=Buy fast data bundles from my store: ${encodeURIComponent(url)}`;
+  document.getElementById('ms-name').textContent        = AGENT.storeName;
+  document.getElementById('ms-agent').textContent       = AGENT.firstName + ' ' + AGENT.lastName;
+  document.getElementById('ms-wa').textContent          = AGENT.whatsapp;
+  document.getElementById('ms-url').textContent         = url;
+  document.getElementById('ms-open').href               = url;
+  document.getElementById('ms-wa-share').href           = `https://wa.me/?text=Buy fast data bundles from my store: ${encodeURIComponent(url)}`;
+
+  loadStats();
+  renderOverviewOrders();
+  renderOrders();
+  renderEarnings();
+  renderPriceEditor();
+  renderWithdrawals();
+  renderOnboarding();
+  loadQR();
+}
+
+// ── STATS ──
+function loadStats() {
+  const earn = agentEarnings(AGENT.slug);
+  const myOrders = getOrders().filter(o => o.agentSlug === AGENT.slug);
+  const revenue = myOrders.filter(o => o.status === 'success').reduce((s,o) => s + (o.agentPrice || o.adminPrice), 0);
+
+  document.getElementById('sb-earnings').textContent    = fmt(earn.available);
+  document.getElementById('ov-earnings').textContent    = fmt(earn.available);
+  document.getElementById('ov-orders').textContent      = myOrders.length;
+  document.getElementById('ov-revenue').textContent     = fmt(revenue);
+  document.getElementById('ov-profit').textContent      = fmt(earn.totalProfit);
+  document.getElementById('earn-available').textContent = fmt(earn.available);
+  document.getElementById('earn-total').textContent     = fmt(earn.totalProfit);
+  document.getElementById('earn-withdrawn').textContent = fmt(earn.withdrawn);
+  document.getElementById('earn-sub').textContent       = `Total Earned: ${fmt(earn.totalProfit)} · Withdrawn: ${fmt(earn.withdrawn)}`;
+
+  const badge = document.getElementById('orders-badge');
+  if (myOrders.length > 0) { badge.textContent = myOrders.length; badge.style.display = ''; }
+}
+
+// ── ONBOARDING ──
+function renderOnboarding() {
+  const allPrices = lsGet(LS.AGENT_PRICES, {});
+  const hasPrices = allPrices[AGENT.slug] && Object.keys(allPrices[AGENT.slug]).length > 0;
+  const hasOrders = getOrders().some(o => o.agentSlug === AGENT.slug);
+
+  if (hasPrices) document.getElementById('ob-prices').classList.add('done');
+  document.getElementById('ob-prices').querySelector('.step-check').textContent = hasPrices ? '✓' : '1';
+
+  if (hasPrices) document.getElementById('ob-link').classList.add('done');
+  document.getElementById('ob-link').querySelector('.step-check').textContent = hasPrices ? '✓' : '2';
+
+  if (hasOrders) {
+    document.getElementById('ob-order').classList.add('done');
+    document.getElementById('ob-order').querySelector('.step-check').textContent = '✓';
+    document.getElementById('ob-order-status').textContent = '✓ Done!';
+  }
+
+  const done = [hasPrices, hasPrices, hasOrders].filter(Boolean).length;
+  document.getElementById('onboard-progress').textContent = `${done} / 3 done`;
+  if (done === 3) document.getElementById('onboard-section').style.display = 'none';
+}
+
+// ── RECENT ORDERS (overview) ──
+function renderOverviewOrders() {
+  const orders = getOrders().filter(o => o.agentSlug === AGENT.slug).slice(0, 5);
+  const el = document.getElementById('ov-recent-orders');
+  if (!orders.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">No orders yet</div><div class="empty-text">Share your store link to start getting orders</div></div>'; return; }
+  el.innerHTML = ordersTableHTML(orders);
+}
+
+// ── ALL ORDERS ──
+function renderOrders() {
+  const netF    = document.getElementById('filter-net')?.value    || '';
+  const statF   = document.getElementById('filter-status')?.value || '';
+  let orders    = getOrders().filter(o => o.agentSlug === AGENT.slug);
+  if (netF)  orders = orders.filter(o => o.network === netF);
+  if (statF) orders = orders.filter(o => o.status === statF);
+  const el = document.getElementById('orders-table');
+  if (!orders.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-title">No orders found</div></div>'; return; }
+  el.innerHTML = ordersTableHTML(orders, true);
+}
+
+function ordersTableHTML(orders, showProfit = false) {
+  return `<table>
+    <thead><tr>
+      <th>Reference</th><th>Phone</th><th>Bundle</th>
+      ${showProfit ? '<th>Base Price</th><th>My Price</th><th>My Profit</th>' : '<th>Price</th>'}
+      <th>Status</th><th>Date</th>
+    </tr></thead>
+    <tbody>${orders.map(o => `<tr>
+      <td class="mono">${o.reference}</td>
+      <td>${o.phone}</td>
+      <td><span class="badge badge-${o.network}">${o.size}</span></td>
+      ${showProfit
+        ? `<td>${fmt(o.adminPrice)}</td><td>${fmt(o.agentPrice||o.adminPrice)}</td><td class="text-ok">${fmt(o.agentProfit||0)}</td>`
+        : `<td>${fmt(o.agentPrice||o.adminPrice)}</td>`}
+      <td><span class="badge badge-${o.status==='success'?'success':o.status==='failed'?'failed':'pending'}"><span class="badge-dot"></span>${o.status}</span></td>
+      <td style="color:var(--text3);font-size:12px;">${fmtDate(o.date)}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ── PRICE EDITOR ──
+function renderPriceEditor() {
+  const allPrices = lsGet(LS.AGENT_PRICES, {});
+  agentPricesDraft = { ...(allPrices[AGENT.slug] || {}) };
+  const nets = priceFilt === 'all' ? ['mtn','telecel','at'] : [priceFilt];
+  let html = '';
+  nets.forEach(net => {
+    BUNDLES[net].forEach(b => {
+      const adminP  = getAdminPrice(b.key, b.cost);
+      const agentP  = agentPricesDraft[b.key] !== undefined ? agentPricesDraft[b.key] : adminP;
+      const profit  = +(agentP - adminP).toFixed(2);
+      html += `<div class="price-card">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="net-badge ${net}" style="width:32px;height:32px;font-size:11px;border-radius:8px;">${NET_NAMES[net][0]}</span>
+            <div>
+              <div class="price-size">${b.size}</div>
+              <div class="price-meta">Base: ${fmt(adminP)} · ${b.validity}</div>
+              <div class="${profit >= 0 ? 'profit-tag' : 'floor-warn'}" id="profit-${b.key}">
+                ${profit >= 0 ? `Profit: ${fmt(profit)}` : `⚠ Below base price`}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="price-input-wrap">
+          <span class="price-prefix">₵</span>
+          <input class="price-field" type="number" step="0.5" min="${adminP}"
+            value="${agentP}" data-key="${b.key}" data-admin="${adminP}"
+            oninput="updateProfitTag(this)">
+        </div>
+      </div>`;
+    });
+  });
+  document.getElementById('agent-price-editor').innerHTML = html;
+}
+
+function updateProfitTag(input) {
+  const admin  = parseFloat(input.dataset.admin);
+  const val    = parseFloat(input.value) || 0;
+  const profit = +(val - admin).toFixed(2);
+  const tag    = document.getElementById(`profit-${input.dataset.key}`);
+  if (tag) {
+    tag.className = profit >= 0 ? 'profit-tag' : 'floor-warn';
+    tag.textContent = profit >= 0 ? `Profit: ${fmt(profit)}` : '⚠ Below base price';
+  }
+  agentPricesDraft[input.dataset.key] = val;
+}
+
+function filterPriceTab(net, btn) {
+  priceFilt = net;
+  document.querySelectorAll('.tab-nav .tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPriceEditor();
+}
+
+function bulkMarkup(type) {
+  const net = document.getElementById('bulk-net').value;
+  const amt = type === 'fixed' ? parseFloat(document.getElementById('bulk-amount').value) || 0
+                               : parseFloat(document.getElementById('bulk-percent').value) || 0;
+  if (!amt) return toast('Enter a value first', 'error');
+  document.querySelectorAll('.price-field').forEach(input => {
+    const admin = parseFloat(input.dataset.admin);
+    const netMatch = net === 'all' || input.dataset.key.startsWith(net === 'at' ? 'at' : net.substr(0,3));
+    if (netMatch) {
+      const newVal = type === 'fixed' ? +(admin + amt).toFixed(2) : +(admin * (1 + amt/100)).toFixed(2);
+      input.value = newVal;
+      updateProfitTag(input);
+    }
+  });
+}
+
+function savePrices() {
+  // Collect all current inputs
+  document.querySelectorAll('.price-field').forEach(input => {
+    agentPricesDraft[input.dataset.key] = parseFloat(input.value) || parseFloat(input.dataset.admin);
+  });
+  // Validate none below admin price
+  const invalid = Object.entries(agentPricesDraft).some(([key, val]) => {
+    const bundle = Object.values(BUNDLES).flat().find(b => b.key === key);
+    if (!bundle) return false;
+    return val < getAdminPrice(key, bundle.cost);
+  });
+  if (invalid) return toast('Some prices are below the base price. Please fix them.', 'error');
+
+  saveAgentPrices(AGENT.slug, agentPricesDraft);
+  toast('Prices saved successfully!', 'success');
+  renderOnboarding();
+}
+
+// ── EARNINGS ──
+function renderEarnings() {
+  loadStats();
+}
+
+function requestWithdrawal() {
+  const amount  = parseFloat(document.getElementById('wd-amount').value);
+  const net     = document.getElementById('wd-net').value;
+  const number  = document.getElementById('wd-number').value.trim();
+  const name    = document.getElementById('wd-name').value.trim();
+  const earn    = agentEarnings(AGENT.slug);
+
+  if (!amount || amount < 10)    return showAlert('wd-alert','error','Minimum withdrawal is ₵10');
+  if (amount > earn.available)   return showAlert('wd-alert','error',`You only have ${fmt(earn.available)} available`);
+  if (number.length !== 10)      return showAlert('wd-alert','error','Enter a valid 10-digit MoMo number');
+  if (!name)                     return showAlert('wd-alert','error','Enter the account name');
+
+  const wd = {
+    id: 'WD-' + Date.now(), type: 'agent', agentSlug: AGENT.slug,
+    agentName: AGENT.firstName + ' ' + AGENT.lastName,
+    amount, momoNet: net, momoNumber: number, momoName: name,
+    status: 'pending', requested: new Date().toISOString()
+  };
+  saveWithdrawal(wd);
+  ['wd-amount','wd-number','wd-name'].forEach(id => document.getElementById(id).value = '');
+  hideAlert('wd-alert');
+  loadStats();
+  renderWithdrawals();
+  toast('Withdrawal request submitted! Admin will process within 24 hours.', 'success');
+}
+
+function renderWithdrawals() {
+  const wds = getWithdrawals().filter(w => w.agentSlug === AGENT.slug);
+  const el  = document.getElementById('wd-history');
+  if (!wds.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">💸</div><div class="empty-title">No withdrawals yet</div></div>'; return; }
+  el.innerHTML = `<table>
+    <thead><tr><th>Date</th><th>Amount</th><th>MoMo Number</th><th>Network</th><th>Status</th></tr></thead>
+    <tbody>${wds.map(w => `<tr>
+      <td style="font-size:12px;color:var(--text3);">${fmtDate(w.requested)}</td>
+      <td style="font-weight:700;">${fmt(w.amount)}</td>
+      <td>${w.momoNumber}</td>
+      <td><span class="badge badge-${w.momoNet}">${NET_NAMES[w.momoNet]}</span></td>
+      <td><span class="badge badge-${w.status==='paid'?'success':w.status==='rejected'?'failed':'pending'}"><span class="badge-dot"></span>${w.status}</span></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ── QR CODE ──
+function loadQR() {
+  const url = AGENT.storeUrl;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=000000`;
+  document.getElementById('qr-code').innerHTML = `<img src="${qrUrl}" alt="QR Code" style="width:180px;height:180px;border-radius:8px;">`;
+}
+
+function copyStoreLink() {
+  copyText(document.getElementById('ov-store-url').textContent, null);
+}
+
+// ── CSV EXPORT ──
+function exportOrdersCSV() {
+  const orders = getOrders().filter(o => o.agentSlug === AGENT.slug);
+  if (!orders.length) return toast('No orders to export', 'error');
+  const headers = ['Reference','Phone','Buyer','Network','Bundle','Base Price','My Price','My Profit','Status','Date'];
+  const rows = orders.map(o => [o.reference,o.phone,o.buyerName,o.network,o.size,o.adminPrice,o.agentPrice||o.adminPrice,o.agentProfit||0,o.status,o.date]);
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = `orders-${AGENT.slug}-${Date.now()}.csv`;
+  a.click();
+}
+
+// ── LOGOUT ──
+function logout() {
+  clearCurrentAgent();
+  window.location.href = 'login.html';
+}
+
+// ── TAB OVERRIDE (update title) ──
+const TAB_TITLES = { overview:'Overview', prices:'My Prices', orders:'My Orders', earnings:'Earnings', mystore:'My Store' };
+const _origSwitch = switchTab;
+window.switchTab = function(tabId) {
+  _origSwitch(tabId);
+  const t = document.getElementById('topbar-title');
+  if (t) t.textContent = TAB_TITLES[tabId] || tabId;
+};
+</script>
+</body>
+</html>

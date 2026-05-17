@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Become a Reseller — DataFlow GH</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.reg-steps { display:flex; gap:0; margin-bottom:28px; }
+.reg-step { flex:1; text-align:center; position:relative; }
+.reg-step::after { content:''; position:absolute; top:14px; left:50%; width:100%; height:2px; background:var(--border); z-index:0; }
+.reg-step:last-child::after { display:none; }
+.reg-step-num { width:28px; height:28px; border-radius:50%; background:var(--surface2); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--text3); margin:0 auto 6px; position:relative; z-index:1; transition:all .3s; }
+.reg-step.active .reg-step-num { background:var(--accent); border-color:var(--accent); color:#060910; }
+.reg-step.done .reg-step-num { background:var(--ok); border-color:var(--ok); color:white; }
+.reg-step-label { font-size:10px; font-weight:600; color:var(--text3); }
+.reg-step.active .reg-step-label { color:var(--accent); }
+.benefits { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px; }
+.benefit { background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; }
+.benefit-icon { font-size:20px; margin-bottom:6px; }
+.benefit-title { font-size:12px; font-weight:700; margin-bottom:2px; }
+.benefit-text { font-size:11px; color:var(--text3); }
+</style>
+</head>
+<body class="auth-page" style="align-items:flex-start;padding:32px 20px;">
+
+<div style="width:100%;max-width:480px;margin:0 auto;">
+  <!-- Logo -->
+  <div class="auth-logo" style="justify-content:center;">
+    <div class="logo-mark">D</div>
+    <div class="logo-text"><strong>DataFlow GH</strong><span>Reseller Programme</span></div>
+  </div>
+
+  <!-- Benefits -->
+  <div class="auth-card" style="margin-bottom:20px;">
+    <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:6px;">Become a Reseller Agent</h2>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Get your own branded store and earn on every data sale.</p>
+    <div class="benefits">
+      <div class="benefit"><div class="benefit-icon">🏪</div><div class="benefit-title">Your Own Store</div><div class="benefit-text">Custom link to share with customers</div></div>
+      <div class="benefit"><div class="benefit-icon">💰</div><div class="benefit-title">Set Your Prices</div><div class="benefit-text">Add profit on top of base prices</div></div>
+      <div class="benefit"><div class="benefit-icon">📊</div><div class="benefit-title">Live Dashboard</div><div class="benefit-text">Track orders & earnings in real time</div></div>
+      <div class="benefit"><div class="benefit-icon">💸</div><div class="benefit-title">Easy Withdrawals</div><div class="benefit-text">Request payouts to your MoMo</div></div>
+    </div>
+  </div>
+
+  <!-- Registration Form -->
+  <div class="auth-card">
+    <!-- Steps -->
+    <div class="reg-steps" id="reg-steps">
+      <div class="reg-step active" id="rstep-1"><div class="reg-step-num">1</div><div class="reg-step-label">Personal</div></div>
+      <div class="reg-step" id="rstep-2"><div class="reg-step-num">2</div><div class="reg-step-label">Store</div></div>
+      <div class="reg-step" id="rstep-3"><div class="reg-step-num">3</div><div class="reg-step-label">Security</div></div>
+    </div>
+
+    <!-- Step 1: Personal Info -->
+    <div id="reg-step-1">
+      <h3 style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:18px;">Personal Information</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">First Name</label>
+          <input class="form-input" id="r-fname" placeholder="Kwame">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name</label>
+          <input class="form-input" id="r-lname" placeholder="Mensah">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input class="form-input" id="r-email" type="email" placeholder="kwame@example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone Number</label>
+        <input class="form-input" id="r-phone" type="tel" placeholder="0241234567" maxlength="10">
+      </div>
+      <div class="form-group">
+        <label class="form-label">WhatsApp Number (optional)</label>
+        <input class="form-input" id="r-whatsapp" type="tel" placeholder="Leave blank if same as phone" maxlength="10">
+      </div>
+      <div id="step1-err" class="alert alert-error hidden" style="margin-bottom:12px;"></div>
+      <button class="btn btn-primary btn-full" onclick="regNext(1)">Next →</button>
+    </div>
+
+    <!-- Step 2: Store Info -->
+    <div id="reg-step-2" class="hidden">
+      <h3 style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:18px;">Your Store</h3>
+      <div class="form-group">
+        <label class="form-label">Store / Brand Name</label>
+        <input class="form-input" id="r-storename" placeholder="e.g. Kofi Data Hub" oninput="autoSlug()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Store URL Slug</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="font-size:12px;color:var(--text3);white-space:nowrap;">store.html?agent=</span>
+          <input class="form-input" id="r-slug" placeholder="kofi-data" oninput="validateSlug()">
+        </div>
+        <div class="form-hint" id="slug-hint">Only lowercase letters, numbers, and hyphens</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Store Preview URL</label>
+        <div class="copy-box">
+          <span class="copy-url" id="store-preview-url">store.html?agent=your-slug</span>
+          <button class="copy-btn" onclick="copyText(document.getElementById('store-preview-url').textContent, this)">Copy</button>
+        </div>
+      </div>
+      <div id="step2-err" class="alert alert-error hidden" style="margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary" onclick="regBack(2)" style="flex:0 0 auto;">← Back</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="regNext(2)">Next →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Password -->
+    <div id="reg-step-3" class="hidden">
+      <h3 style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:18px;">Set Your Password</h3>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="r-pass" type="password" placeholder="Minimum 8 characters">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password</label>
+        <input class="form-input" id="r-pass2" type="password" placeholder="Repeat password">
+      </div>
+      <div class="form-group" style="flex-direction:row;align-items:flex-start;gap:10px;">
+        <input type="checkbox" id="r-terms" style="margin-top:3px;accent-color:var(--accent);">
+        <label for="r-terms" style="font-size:13px;color:var(--text2);">I agree to the <a href="#" style="color:var(--accent);">Terms &amp; Conditions</a></label>
+      </div>
+      <div id="step3-err" class="alert alert-error hidden" style="margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary" onclick="regBack(3)" style="flex:0 0 auto;">← Back</button>
+        <button class="btn btn-primary" style="flex:1;" id="submit-btn" onclick="registerAgent()">Create Account</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Success -->
+    <div id="reg-step-4" class="hidden" style="text-align:center;padding:20px 0;">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--ok-dim);border:2px solid var(--ok);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;">✓</div>
+      <h3 style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin-bottom:8px;">Registration Submitted!</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">Your account is awaiting admin approval. You'll be able to log in once approved.</p>
+      <div class="copy-box" style="margin-bottom:16px;">
+        <span class="copy-url" id="success-store-url"></span>
+        <button class="copy-btn" onclick="copyText(document.getElementById('success-store-url').textContent, this)">Copy</button>
+      </div>
+      <a href="login.html" class="btn btn-primary btn-full">Go to Login</a>
+    </div>
+  </div>
+
+  <div class="auth-footer">Already have an account? <a href="login.html">Sign in</a></div>
+</div>
+
+<div id="toast-container"></div>
+<script src="shared.js"></script>
+<script>
+function setRegStep(n) {
+  [1,2,3,4].forEach(i => document.getElementById(`reg-step-${i}`).classList.toggle('hidden', i !== n));
+  [1,2,3].forEach(i => {
+    const s = document.getElementById(`rstep-${i}`);
+    if (!s) return;
+    s.classList.toggle('active', i === n);
+    s.classList.toggle('done', i < n);
+  });
+}
+
+function regNext(step) {
+  if (step === 1) {
+    const fname = document.getElementById('r-fname').value.trim();
+    const lname = document.getElementById('r-lname').value.trim();
+    const email = document.getElementById('r-email').value.trim();
+    const phone = document.getElementById('r-phone').value.trim();
+    if (!fname || !lname) return showAlert('step1-err','error','Enter your full name');
+    if (!email || !email.includes('@')) return showAlert('step1-err','error','Enter a valid email');
+    if (phone.length !== 10) return showAlert('step1-err','error','Enter a valid 10-digit phone number');
+    hideAlert('step1-err');
+    setRegStep(2);
+  } else if (step === 2) {
+    const storename = document.getElementById('r-storename').value.trim();
+    const slug = document.getElementById('r-slug').value.trim();
+    if (!storename) return showAlert('step2-err','error','Enter your store name');
+    if (!slug || !/^[a-z0-9-]+$/.test(slug)) return showAlert('step2-err','error','Slug can only contain lowercase letters, numbers, hyphens');
+    if (getAgentBySlug(slug)) return showAlert('step2-err','error','This slug is already taken. Choose another.');
+    hideAlert('step2-err');
+    setRegStep(3);
+  }
+}
+
+function regBack(step) { setRegStep(step - 1); }
+
+function autoSlug() {
+  const name = document.getElementById('r-storename').value.trim();
+  const slug = name.toLowerCase().replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').substr(0,20);
+  document.getElementById('r-slug').value = slug;
+  updateStoreUrl(slug);
+}
+
+function validateSlug() {
+  const slug = document.getElementById('r-slug').value;
+  const clean = slug.toLowerCase().replace(/[^a-z0-9-]/g,'');
+  document.getElementById('r-slug').value = clean;
+  updateStoreUrl(clean);
+}
+
+function updateStoreUrl(slug) {
+  const url = `${window.location.origin}/dataflow/index.html?agent=${slug}`;
+  document.getElementById('store-preview-url').textContent = url;
+}
+
+function registerAgent() {
+  const pass = document.getElementById('r-pass').value;
+  const pass2 = document.getElementById('r-pass2').value;
+  const terms = document.getElementById('r-terms').checked;
+  if (pass.length < 8) return showAlert('step3-err','error','Password must be at least 8 characters');
+  if (pass !== pass2) return showAlert('step3-err','error','Passwords do not match');
+  if (!terms) return showAlert('step3-err','error','Please accept the Terms & Conditions');
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Creating…';
+
+  const slug = document.getElementById('r-slug').value.trim();
+  const agent = {
+    id: 'AG-' + Date.now(),
+    firstName: document.getElementById('r-fname').value.trim(),
+    lastName: document.getElementById('r-lname').value.trim(),
+    email: document.getElementById('r-email').value.trim(),
+    phone: document.getElementById('r-phone').value.trim(),
+    whatsapp: document.getElementById('r-whatsapp').value.trim() || document.getElementById('r-phone').value.trim(),
+    storeName: document.getElementById('r-storename').value.trim(),
+    slug,
+    password: btoa(pass), // NOTE: in production, use real hashing server-side
+    status: 'pending', // admin must approve
+    storeUrl: `${window.location.origin}/dataflow/index.html?agent=${slug}`,
+    created: new Date().toISOString()
+  };
+
+  const agents = getAgents();
+  agents.push(agent);
+  saveAgents(agents);
+
+  setTimeout(() => {
+    document.getElementById('success-store-url').textContent = agent.storeUrl;
+    setRegStep(4);
+  }, 800);
+}
+</script>
+</body>
+</html>

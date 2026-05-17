@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard — DataFlow GH</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.admin-login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+.low-bal-banner { background:var(--warn-dim); border:1px solid rgba(245,158,11,.3); border-radius:var(--radius); padding:12px 16px; display:flex; align-items:center; gap:10px; font-size:13px; color:#fcd34d; margin-bottom:20px; }
+.agent-status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.pending-highlight { background:rgba(245,158,11,.05); }
+</style>
+</head>
+<body>
+
+<!-- ══ ADMIN LOGIN ══ -->
+<div id="admin-login-screen" class="admin-login-wrap">
+  <div style="width:100%;max-width:400px;">
+    <div class="auth-logo" style="justify-content:center;margin-bottom:28px;">
+      <div class="logo-mark">D</div>
+      <div class="logo-text"><strong>DataFlow GH</strong><span>Admin Dashboard</span></div>
+    </div>
+    <div class="auth-card">
+      <div class="auth-title">Admin Login</div>
+      <div class="auth-sub">Enter your admin password to access the dashboard</div>
+      <div class="form-group">
+        <label class="form-label">Admin Password</label>
+        <input class="form-input" id="admin-pass-input" type="password" placeholder="Admin password" autocomplete="off">
+      </div>
+      <div id="admin-login-alert" class="alert alert-error hidden" style="margin-bottom:14px;"></div>
+      <button class="btn btn-primary btn-full btn-lg" onclick="adminLogin()">Access Dashboard</button>
+      <div style="text-align:center;margin-top:14px;font-size:13px;color:var(--text3);">
+        <a href="index.html" style="color:var(--accent);">← Back to Store</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADMIN DASHBOARD ══ -->
+<div id="admin-dashboard" style="display:none;">
+<div class="sidebar-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">D</div>
+      <div class="logo-text"><strong>DataFlow GH</strong><span>Admin</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div>
+        <div class="nav-section-label">Main</div>
+        <button class="nav-item active" data-tab="overview" onclick="switchTab('overview')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          Overview
+        </button>
+        <button class="nav-item" data-tab="orders" onclick="switchTab('orders')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          Orders
+          <span class="nav-badge" id="ad-orders-badge" style="display:none;"></span>
+        </button>
+        <button class="nav-item" data-tab="agents" onclick="switchTab('agents')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Agents
+          <span class="nav-badge" id="pending-badge" style="display:none;"></span>
+        </button>
+        <button class="nav-item" data-tab="prices" onclick="switchTab('prices')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 10V5a2 2 0 012-2z"/></svg>
+          Base Prices
+        </button>
+        <button class="nav-item" data-tab="withdrawals" onclick="switchTab('withdrawals')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+          Withdrawals
+          <span class="nav-badge" id="wd-pending-badge" style="display:none;"></span>
+        </button>
+      </div>
+      <div>
+        <div class="nav-section-label">Config</div>
+        <button class="nav-item" data-tab="settings" onclick="switchTab('settings')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+          Settings
+        </button>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-balance">
+        <div class="sidebar-balance-label">Hubnet Balance</div>
+        <div class="sidebar-balance-val" id="sb-hubnet-bal">₵—</div>
+        <button onclick="fetchHubnetBalance()" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;padding:4px 0 0;">↻ Refresh</button>
+      </div>
+      <button class="nav-item" onclick="adminLogout()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        Logout
+      </button>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- MAIN -->
+  <div class="main-content">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="menu-btn" id="menu-btn">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <span class="topbar-title" id="topbar-title">Overview</span>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-primary btn-sm" onclick="fetchHubnetBalance()">↻ Sync Balance</button>
+        <div class="topbar-avatar">A</div>
+      </div>
+    </header>
+
+    <div class="page-body">
+
+      <!-- ══ OVERVIEW ══ -->
+      <div id="tab-overview" class="tab-panel">
+        <div class="page-header">
+          <div><div class="page-title">Overview</div><div class="page-subtitle">Platform performance at a glance</div></div>
+        </div>
+
+        <!-- Low balance warning -->
+        <div id="low-bal-banner" class="low-bal-banner hidden">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          ⚠ Hubnet balance is low (below ₵100). Top up now to avoid failed orders.
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card accent">
+            <div class="stat-label">Hubnet Balance</div>
+            <div class="stat-val" id="stat-hubnet">₵—</div>
+            <div class="stat-sub">Available to fulfil orders</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Orders</div>
+            <div class="stat-val" id="stat-orders">0</div>
+            <div class="stat-sub">All time</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Active Agents</div>
+            <div class="stat-val" id="stat-agents">0</div>
+            <div class="stat-sub" id="stat-pending-agents">0 pending approval</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Revenue</div>
+            <div class="stat-val" id="stat-revenue">₵0.00</div>
+            <div class="stat-sub">From all stores</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Today's Orders</div>
+            <div class="stat-val" id="stat-today-orders">0</div>
+            <div class="stat-sub">Orders placed today</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Admin Profit</div>
+            <div class="stat-val" id="stat-profit">₵0.00</div>
+            <div class="stat-sub">Your earnings (all time)</div>
+          </div>
+        </div>
+
+        <!-- Pending approvals widget -->
+        <div id="pending-widget" class="alert alert-warn hidden" style="margin-bottom:20px;cursor:pointer;" onclick="switchTab('agents')">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span id="pending-widget-text"></span>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Recent Orders</div>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('orders')">View All</button>
+          </div>
+          <div class="table-wrap" id="ov-recent-orders"></div>
+        </div>
+      </div>
+
+      <!-- ══ ORDERS ══ -->
+      <div id="tab-orders" class="tab-panel hidden">
+        <div class="page-header">
+          <div class="page-title">All Orders</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="exportAllCSV()">Export CSV</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+          <select class="form-input" id="ad-filter-net" style="width:auto;" onchange="renderAllOrders()">
+            <option value="">All Networks</option>
+            <option value="mtn">MTN</option><option value="telecel">Telecel</option><option value="at">AirtelTigo</option>
+          </select>
+          <select class="form-input" id="ad-filter-status" style="width:auto;" onchange="renderAllOrders()">
+            <option value="">All Statuses</option>
+            <option value="success">Success</option><option value="failed">Failed</option><option value="pending">Pending</option>
+          </select>
+          <select class="form-input" id="ad-filter-agent" style="width:auto;" onchange="renderAllOrders()">
+            <option value="">All Sources</option>
+            <option value="main">Main Store</option>
+          </select>
+          <input class="form-input" id="ad-search" placeholder="Search ref or phone…" style="width:200px;" oninput="renderAllOrders()">
+        </div>
+        <div class="card">
+          <div class="table-wrap" id="all-orders-table"></div>
+        </div>
+      </div>
+
+      <!-- ══ AGENTS ══ -->
+      <div id="tab-agents" class="tab-panel hidden">
+        <div class="page-header">
+          <div class="page-title">Subagents</div>
+        </div>
+
+        <div class="stats-grid" style="margin-bottom:20px;">
+          <div class="stat-card"><div class="stat-label">Total Agents</div><div class="stat-val" id="ag-total">0</div></div>
+          <div class="stat-card accent"><div class="stat-label">Active</div><div class="stat-val" id="ag-active">0</div></div>
+          <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-val" id="ag-pending" style="color:var(--warn);">0</div></div>
+          <div class="stat-card"><div class="stat-label">Suspended</div><div class="stat-val" id="ag-suspended" style="color:var(--err);">0</div></div>
+        </div>
+
+        <div class="tab-nav">
+          <button class="tab-btn active" onclick="filterAgentsTab('all',this)">All</button>
+          <button class="tab-btn" onclick="filterAgentsTab('pending',this)">Pending</button>
+          <button class="tab-btn" onclick="filterAgentsTab('active',this)">Active</button>
+          <button class="tab-btn" onclick="filterAgentsTab('suspended',this)">Suspended</button>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap" id="agents-table"></div>
+        </div>
+      </div>
+
+      <!-- ══ BASE PRICES ══ -->
+      <div id="tab-prices" class="tab-panel hidden">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Base Selling Prices</div>
+            <div class="page-subtitle">These are your store prices and the floor for all agents</div>
+          </div>
+          <button class="btn btn-primary" onclick="saveAdminPricesUI()">Save All Prices</button>
+        </div>
+
+        <div class="alert alert-info" style="margin-bottom:20px;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Agents cannot set prices below these. Your profit = Your Price − Hubnet Cost.
+        </div>
+
+        <!-- Bulk tools -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-header"><div class="card-title">Bulk Pricing Tools</div></div>
+          <div class="card-body" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+            <select class="form-input" id="ad-bulk-net" style="width:auto;">
+              <option value="all">All Networks</option>
+              <option value="mtn">MTN</option><option value="telecel">Telecel</option><option value="at">AirtelTigo</option>
+            </select>
+            <input class="form-input" id="ad-bulk-pct" type="number" placeholder="% above cost" style="width:140px;" min="0">
+            <button class="btn btn-secondary" onclick="applyBulkPct()">Apply % Margin</button>
+            <button class="btn btn-secondary" onclick="resetToDefault()">Reset to Defaults</button>
+          </div>
+        </div>
+
+        <div class="tab-nav">
+          <button class="tab-btn active" onclick="filterAdminPriceTab('all',this)">All</button>
+          <button class="tab-btn" onclick="filterAdminPriceTab('mtn',this)">MTN</button>
+          <button class="tab-btn" onclick="filterAdminPriceTab('telecel',this)">Telecel</button>
+          <button class="tab-btn" onclick="filterAdminPriceTab('at',this)">AirtelTigo</button>
+        </div>
+
+        <div class="price-grid" id="admin-price-editor"></div>
+        <div id="admin-price-alert" class="hidden" style="margin-top:16px;"></div>
+      </div>
+
+      <!-- ══ WITHDRAWALS ══ -->
+      <div id="tab-withdrawals" class="tab-panel hidden">
+        <div class="page-header"><div class="page-title">Withdrawals</div></div>
+
+        <!-- Admin own balance -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="card-header"><div class="card-title">Admin Profit Balance</div></div>
+          <div class="card-body">
+            <div style="font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:var(--accent);margin-bottom:8px;" id="admin-avail-bal">₵0.00</div>
+            <div style="font-size:12px;color:var(--text3);">Available after withdrawals</div>
+          </div>
+        </div>
+
+        <div class="tab-nav">
+          <button class="tab-btn active" onclick="filterWdTab('all',this)">All</button>
+          <button class="tab-btn" onclick="filterWdTab('pending',this)">Pending</button>
+          <button class="tab-btn" onclick="filterWdTab('paid',this)">Paid</button>
+          <button class="tab-btn" onclick="filterWdTab('rejected',this)">Rejected</button>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap" id="admin-wd-table"></div>
+        </div>
+      </div>
+
+      <!-- ══ SETTINGS ══ -->
+      <div id="tab-settings" class="tab-panel hidden">
+        <div class="page-header"><div class="page-title">Settings</div></div>
+        <div style="max-width:540px;display:flex;flex-direction:column;gap:20px;">
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">Store Configuration</div></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label class="form-label">Store Name</label>
+                <input class="form-input" id="cfg-name" value="DataFlow GH">
+              </div>
+              <div class="form-group">
+                <label class="form-label">WhatsApp Support Number</label>
+                <input class="form-input" id="cfg-wa" placeholder="0200000000">
+              </div>
+              <button class="btn btn-primary" onclick="saveConfig()">Save Settings</button>
+              <div id="cfg-alert" class="hidden" style="margin-top:10px;"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">API Keys</div></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label class="form-label">Hubnet API Key</label>
+                <input class="form-input" id="cfg-hubnet" type="password" value="TU6YTjo48YAleMCiuftduIDADURA1zaG1gw">
+                <div class="form-hint">Used server-side only. Never expose in public code.</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Paystack Public Key</label>
+                <input class="form-input" id="cfg-paystack" placeholder="pk_live_...">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Admin Password</label>
+                <input class="form-input" id="cfg-adminpass" type="password" placeholder="Change admin password">
+              </div>
+              <button class="btn btn-primary" onclick="saveApiConfig()">Save API Config</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">Webhook & Callback URLs</div></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label class="form-label">Hubnet Webhook URL</label>
+                <div class="copy-box"><span class="copy-url">https://hubnet.app/v.1/webhook</span><button class="copy-btn" onclick="copyText('https://hubnet.app/v.1/webhook',this)">Copy</button></div>
+                <div class="form-hint">Paste this in your Hubnet dashboard → Webhook settings</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">E-Store Callback URL</label>
+                <div class="copy-box"><span class="copy-url">https://e-store.apisolution.net/v.1?id=OWR5JNMDKS18A6WS1MGRMRN1UGLBHWRRU9L</span><button class="copy-btn" onclick="copyText('https://e-store.apisolution.net/v.1?id=OWR5JNMDKS18A6WS1MGRMRN1UGLBHWRRU9L',this)">Copy</button></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">Main Store Link</div></div>
+            <div class="card-body">
+              <div class="copy-box">
+                <span class="copy-url" id="main-store-url">index.html</span>
+                <button class="copy-btn" onclick="copyText(document.getElementById('main-store-url').textContent,this)">Copy</button>
+              </div>
+              <div style="margin-top:10px;">
+                <a href="index.html" target="_blank" class="btn btn-secondary btn-sm">Open Main Store</a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+
+  <!-- Mobile nav -->
+  <nav class="mobile-nav">
+    <button class="mob-btn active" data-tab="overview" onclick="switchTab('overview')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Home
+    </button>
+    <button class="mob-btn" data-tab="orders" onclick="switchTab('orders')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      Orders
+    </button>
+    <button class="mob-btn" data-tab="agents" onclick="switchTab('agents')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Agents
+    </button>
+    <button class="mob-btn" data-tab="withdrawals" onclick="switchTab('withdrawals')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+      Withdrawals
+    </button>
+    <button class="mob-btn" data-tab="settings" onclick="switchTab('settings')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+      Settings
+    </button>
+  </nav>
+
+</div>
+</div><!-- /admin-dashboard -->
+
+<div id="toast-container"></div>
+<script src="shared.js"></script>
+<script>
+const ADMIN_DEFAULT_PASS = 'admin123'; // change this!
+let adminAuthenticated = false;
+let agentFilter = 'all';
+let wdFilter = 'all';
+let adminPriceFilt = 'all';
+let adminPricesDraft = {};
+
+// ── LOGIN ──
+function adminLogin() {
+  const pass = document.getElementById('admin-pass-input').value;
+  const stored = lsGet('df_admin_pass', ADMIN_DEFAULT_PASS);
+  if (pass === stored) {
+    adminAuthenticated = true;
+    sessionStorage.setItem('df_admin_auth', '1');
+    document.getElementById('admin-login-screen').style.display = 'none';
+    document.getElementById('admin-dashboard').style.display = 'block';
+    initAdmin();
+  } else {
+    showAlert('admin-login-alert','error','Incorrect password');
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && !adminAuthenticated) adminLogin(); });
+
+function adminLogout() {
+  sessionStorage.removeItem('df_admin_auth');
+  adminAuthenticated = false;
+  document.getElementById('admin-login-screen').style.display = 'flex';
+  document.getElementById('admin-dashboard').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (sessionStorage.getItem('df_admin_auth') === '1') {
+    adminAuthenticated = true;
+    document.getElementById('admin-login-screen').style.display = 'none';
+    document.getElementById('admin-dashboard').style.display = 'block';
+    initAdmin();
+  }
+});
+
+// ── INIT ──
+function initAdmin() {
+  fetchHubnetBalance();
+  loadOverviewStats();
+  renderOverviewOrders();
+  renderAllOrders();
+  renderAgentsTable();
+  renderAdminPriceEditor();
+  renderAdminWithdrawals();
+  updateAgentFilterDropdown();
+  document.getElementById('main-store-url').textContent = window.location.origin + '/dataflow/index.html';
+}
+
+// ── HUBNET BALANCE ──
+async function fetchHubnetBalance() {
+  document.getElementById('sb-hubnet-bal').textContent = '…';
+  document.getElementById('stat-hubnet').textContent   = '…';
+  try {
+    const res = await fetch(`${CONFIG.HUBNET_BASE}/check_balance`, {
+      headers: { 'token': `Bearer ${CONFIG.HUBNET_API_KEY}`, 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    const bal = data.balance !== undefined ? parseFloat(data.balance) : null;
+    if (bal !== null) {
+      const fbal = fmt(bal);
+      document.getElementById('sb-hubnet-bal').textContent = fbal;
+      document.getElementById('stat-hubnet').textContent   = fbal;
+      if (bal < 100) {
+        document.getElementById('low-bal-banner').classList.remove('hidden');
+      }
+    } else {
+      document.getElementById('sb-hubnet-bal').textContent = 'Error';
+      document.getElementById('stat-hubnet').textContent   = 'Check API key';
+    }
+  } catch(e) {
+    document.getElementById('sb-hubnet-bal').textContent = 'Error';
+    toast('Could not fetch Hubnet balance', 'error');
+  }
+}
+
+// ── STATS ──
+function loadOverviewStats() {
+  const orders  = getOrders();
+  const agents  = getAgents();
+  const earn    = adminEarnings();
+  const today   = new Date().toDateString();
+  const todayOrders = orders.filter(o => new Date(o.date).toDateString() === today);
+  const pending = agents.filter(a => a.status === 'pending');
+  const active  = agents.filter(a => a.status === 'active');
+
+  document.getElementById('stat-orders').textContent        = orders.length;
+  document.getElementById('stat-agents').textContent        = active.length;
+  document.getElementById('stat-pending-agents').textContent = `${pending.length} pending approval`;
+  document.getElementById('stat-revenue').textContent       = fmt(earn.totalRevenue);
+  document.getElementById('stat-today-orders').textContent  = todayOrders.length;
+  document.getElementById('stat-profit').textContent        = fmt(earn.totalProfit);
+  document.getElementById('admin-avail-bal').textContent    = fmt(earn.available);
+  document.getElementById('ag-total').textContent           = agents.length;
+  document.getElementById('ag-active').textContent          = active.length;
+  document.getElementById('ag-pending').textContent         = pending.length;
+  document.getElementById('ag-suspended').textContent       = agents.filter(a => a.status === 'suspended').length;
+
+  if (orders.length > 0) { document.getElementById('ad-orders-badge').textContent = orders.length; document.getElementById('ad-orders-badge').style.display = ''; }
+  if (pending.length > 0) {
+    document.getElementById('pending-badge').textContent = pending.length; document.getElementById('pending-badge').style.display = '';
+    document.getElementById('pending-widget').classList.remove('hidden');
+    document.getElementById('pending-widget-text').textContent = `${pending.length} agent registration${pending.length>1?'s':''} awaiting approval. Click to review.`;
+  }
+  const pendingWds = getWithdrawals().filter(w => w.status === 'pending');
+  if (pendingWds.length > 0) { document.getElementById('wd-pending-badge').textContent = pendingWds.length; document.getElementById('wd-pending-badge').style.display = ''; }
+}
+
+// ── OVERVIEW ORDERS ──
+function renderOverviewOrders() {
+  const orders = getOrders().slice(0, 8);
+  const el = document.getElementById('ov-recent-orders');
+  if (!orders.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">No orders yet</div></div>'; return; }
+  el.innerHTML = adminOrdersTable(orders);
+}
+
+// ── ALL ORDERS ──
+function renderAllOrders() {
+  const netF   = document.getElementById('ad-filter-net')?.value    || '';
+  const statF  = document.getElementById('ad-filter-status')?.value || '';
+  const agF    = document.getElementById('ad-filter-agent')?.value  || '';
+  const search = (document.getElementById('ad-search')?.value || '').toLowerCase();
+  let orders   = getOrders();
+  if (netF)   orders = orders.filter(o => o.network === netF);
+  if (statF)  orders = orders.filter(o => o.status  === statF);
+  if (agF === 'main') orders = orders.filter(o => o.source === 'main');
+  else if (agF) orders = orders.filter(o => o.agentSlug === agF);
+  if (search) orders = orders.filter(o => o.reference.toLowerCase().includes(search) || o.phone.includes(search));
+  const el = document.getElementById('all-orders-table');
+  if (!orders.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><div class="empty-title">No orders found</div></div>'; return; }
+  el.innerHTML = adminOrdersTable(orders, true);
+}
+
+function adminOrdersTable(orders, full = false) {
+  return `<table>
+    <thead><tr>
+      <th>Reference</th><th>Phone</th><th>Bundle</th>
+      ${full ? '<th>Hubnet Cost</th><th>Admin Price</th><th>Agent Price</th><th>Admin Profit</th><th>Agent</th>' : '<th>Price</th>'}
+      <th>Status</th><th>Date</th>
+    </tr></thead>
+    <tbody>${orders.map(o => `<tr>
+      <td class="mono">${o.reference}</td>
+      <td>${o.phone}</td>
+      <td><span class="badge badge-${o.network}">${o.size} ${NET_NAMES[o.network]}</span></td>
+      ${full
+        ? `<td style="color:var(--text3);">${fmt(o.hubnetCost)}</td>
+           <td>${fmt(o.adminPrice)}</td>
+           <td>${o.agentPrice ? fmt(o.agentPrice) : '—'}</td>
+           <td class="text-ok">${fmt(o.adminProfit||0)}</td>
+           <td style="font-size:12px;">${o.agentSlug || 'Main Store'}</td>`
+        : `<td>${fmt(o.agentPrice||o.adminPrice)}</td>`}
+      <td><span class="badge badge-${o.status==='success'?'success':o.status==='failed'?'failed':'pending'}"><span class="badge-dot"></span>${o.status}</span></td>
+      <td style="color:var(--text3);font-size:12px;">${fmtDate(o.date)}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ── AGENTS ──
+function renderAgentsTable() {
+  let agents = getAgents();
+  if (agentFilter !== 'all') agents = agents.filter(a => a.status === agentFilter);
+  const el = document.getElementById('agents-table');
+  if (!agents.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">👥</div><div class="empty-title">${agentFilter === 'pending' ? 'No pending registrations' : 'No agents found'}</div></div>`;
+    return;
+  }
+  el.innerHTML = `<table>
+    <thead><tr><th>Name</th><th>Store</th><th>Phone</th><th>Status</th><th>Store Link</th><th>Orders</th><th>Actions</th></tr></thead>
+    <tbody>${agents.map((a,i) => `<tr class="${a.status==='pending'?'pending-highlight':''}">
+      <td><div style="font-weight:600;">${a.firstName} ${a.lastName}</div><div style="font-size:11px;color:var(--text3);">${a.email}</div></td>
+      <td style="font-weight:600;">${a.storeName}</td>
+      <td>${a.phone}</td>
+      <td><span class="badge badge-${a.status==='active'?'success':a.status==='suspended'?'failed':'pending'}"><span class="badge-dot"></span>${a.status}</span></td>
+      <td>
+        <div class="copy-box" style="max-width:220px;">
+          <span class="copy-url" style="font-size:11px;" id="ag-url-${i}">index.html?agent=${a.slug}</span>
+          <button class="copy-btn" onclick="copyText(document.getElementById('ag-url-${i}').textContent,this)">Copy</button>
+        </div>
+      </td>
+      <td>${getOrders().filter(o=>o.agentSlug===a.slug).length}</td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${a.status === 'pending'   ? `<button class="btn btn-sm" style="background:var(--ok-dim);border:1px solid rgba(16,185,129,.3);color:#6ee7b7;" onclick="approveAgent('${a.slug}')">Approve</button>` : ''}
+          ${a.status === 'active'    ? `<button class="btn btn-danger btn-sm" onclick="suspendAgent('${a.slug}')">Suspend</button>` : ''}
+          ${a.status === 'suspended' ? `<button class="btn btn-sm" style="background:var(--ok-dim);border:1px solid rgba(16,185,129,.3);color:#6ee7b7;" onclick="reactivateAgent('${a.slug}')">Reactivate</button>` : ''}
+          <button class="btn btn-secondary btn-sm" onclick="deleteAgent('${a.slug}')">Delete</button>
+        </div>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function approveAgent(slug) {
+  const agents = getAgents();
+  const ag = agents.find(a => a.slug === slug);
+  if (ag) { ag.status = 'active'; saveAgents(agents); }
+  renderAgentsTable(); loadOverviewStats();
+  toast(`${ag?.storeName || slug} approved and activated!`, 'success');
+}
+function suspendAgent(slug) {
+  if (!confirm('Suspend this agent?')) return;
+  const agents = getAgents();
+  const ag = agents.find(a => a.slug === slug);
+  if (ag) { ag.status = 'suspended'; saveAgents(agents); }
+  renderAgentsTable(); loadOverviewStats();
+  toast('Agent suspended.', 'info');
+}
+function reactivateAgent(slug) {
+  const agents = getAgents();
+  const ag = agents.find(a => a.slug === slug);
+  if (ag) { ag.status = 'active'; saveAgents(agents); }
+  renderAgentsTable(); loadOverviewStats();
+  toast('Agent reactivated.', 'success');
+}
+function deleteAgent(slug) {
+  if (!confirm('Permanently delete this agent? This cannot be undone.')) return;
+  const agents = getAgents().filter(a => a.slug !== slug);
+  saveAgents(agents);
+  renderAgentsTable(); loadOverviewStats();
+  toast('Agent deleted.', 'info');
+}
+
+function filterAgentsTab(f, btn) {
+  agentFilter = f;
+  document.querySelectorAll('#tab-agents .tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAgentsTable();
+}
+
+function updateAgentFilterDropdown() {
+  const sel = document.getElementById('ad-filter-agent');
+  getAgents().forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.slug; opt.textContent = a.storeName;
+    sel.appendChild(opt);
+  });
+}
+
+// ── ADMIN PRICES ──
+function renderAdminPriceEditor() {
+  const nets = adminPriceFilt === 'all' ? ['mtn','telecel','at'] : [adminPriceFilt];
+  let html = '';
+  nets.forEach(net => {
+    BUNDLES[net].forEach(b => {
+      const current = getAdminPrice(b.key, b.cost);
+      const profit  = +(current - b.cost).toFixed(2);
+      html += `<div class="price-card">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="net-badge ${net}" style="width:32px;height:32px;font-size:11px;border-radius:8px;">${NET_NAMES[net][0]}</span>
+            <div>
+              <div class="price-size">${b.size}</div>
+              <div class="price-meta">Hubnet cost: ${fmt(b.cost)} · ${b.validity}</div>
+              <div class="profit-tag" id="admin-profit-${b.key}">Profit: ${fmt(profit)}</div>
+            </div>
+          </div>
+        </div>
+        <div class="price-input-wrap">
+          <span class="price-prefix">₵</span>
+          <input class="price-field" type="number" step="0.5" min="${b.cost}"
+            value="${current}" data-key="${b.key}" data-cost="${b.cost}"
+            oninput="updateAdminProfitTag(this)">
+        </div>
+      </div>`;
+    });
+  });
+  document.getElementById('admin-price-editor').innerHTML = html;
+}
+
+function updateAdminProfitTag(input) {
+  const cost = parseFloat(input.dataset.cost);
+  const val  = parseFloat(input.value) || 0;
+  const tag  = document.getElementById(`admin-profit-${input.dataset.key}`);
+  if (tag) tag.textContent = `Profit: ${fmt(+(val-cost).toFixed(2))}`;
+  adminPricesDraft[input.dataset.key] = val;
+}
+
+function filterAdminPriceTab(f, btn) {
+  adminPriceFilt = f;
+  document.querySelectorAll('#tab-prices .tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAdminPriceEditor();
+}
+
+function applyBulkPct() {
+  const pct = parseFloat(document.getElementById('ad-bulk-pct').value) || 0;
+  const net = document.getElementById('ad-bulk-net').value;
+  document.querySelectorAll('#admin-price-editor .price-field').forEach(input => {
+    const cost = parseFloat(input.dataset.cost);
+    const match = net === 'all' || input.dataset.key.startsWith(net === 'at' ? 'at' : net.substr(0,3));
+    if (match) { const newVal = +(cost * (1 + pct/100)).toFixed(2); input.value = newVal; updateAdminProfitTag(input); }
+  });
+}
+
+function resetToDefault() {
+  document.querySelectorAll('#admin-price-editor .price-field').forEach(input => {
+    const cost = parseFloat(input.dataset.cost);
+    input.value = +(cost * 1.13).toFixed(2);
+    updateAdminProfitTag(input);
+  });
+}
+
+function saveAdminPricesUI() {
+  document.querySelectorAll('#admin-price-editor .price-field').forEach(input => {
+    adminPricesDraft[input.dataset.key] = parseFloat(input.value) || parseFloat(input.dataset.cost);
+  });
+  saveAdminPrices(adminPricesDraft);
+  toast('Base prices saved! All stores updated.', 'success');
+}
+
+// ── WITHDRAWALS ──
+function renderAdminWithdrawals() {
+  loadOverviewStats();
+  let wds = getWithdrawals();
+  if (wdFilter !== 'all') wds = wds.filter(w => w.status === wdFilter);
+  const el = document.getElementById('admin-wd-table');
+  if (!wds.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">💸</div><div class="empty-title">No withdrawals found</div></div>'; return; }
+  el.innerHTML = `<table>
+    <thead><tr><th>Date</th><th>Type</th><th>Name</th><th>Amount</th><th>MoMo</th><th>Network</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${wds.map(w => `<tr>
+      <td style="font-size:12px;color:var(--text3);">${fmtDate(w.requested)}</td>
+      <td><span class="badge ${w.type==='admin'?'badge-processing':'badge-at'}">${w.type}</span></td>
+      <td>${w.agentName || 'Admin'}</td>
+      <td style="font-weight:700;">${fmt(w.amount)}</td>
+      <td>${w.momoNumber}<br><span style="font-size:11px;color:var(--text3);">${w.momoName}</span></td>
+      <td><span class="badge badge-${w.momoNet}">${NET_NAMES[w.momoNet]}</span></td>
+      <td><span class="badge badge-${w.status==='paid'?'success':w.status==='rejected'?'failed':'pending'}"><span class="badge-dot"></span>${w.status}</span></td>
+      <td>
+        ${w.status === 'pending' ? `
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-sm" style="background:var(--ok-dim);border:1px solid rgba(16,185,129,.3);color:#6ee7b7;" onclick="resolveWd('${w.id}','paid')">Mark Paid</button>
+            <button class="btn btn-danger btn-sm" onclick="resolveWd('${w.id}','rejected')">Reject</button>
+          </div>` : '<span style="font-size:12px;color:var(--text3);">Resolved</span>'}
+      </td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function resolveWd(id, status) {
+  const wds = getWithdrawals();
+  const wd = wds.find(w => w.id === id);
+  if (wd) { wd.status = status; wd.resolved = new Date().toISOString(); }
+  lsSet(LS.WITHDRAWALS, wds);
+  renderAdminWithdrawals();
+  loadOverviewStats();
+  toast(`Withdrawal ${status === 'paid' ? 'marked as paid' : 'rejected'}.`, status === 'paid' ? 'success' : 'info');
+}
+
+function filterWdTab(f, btn) {
+  wdFilter = f;
+  document.querySelectorAll('#tab-withdrawals .tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAdminWithdrawals();
+}
+
+// ── SETTINGS ──
+function saveConfig() {
+  toast('Settings saved!', 'success');
+}
+function saveApiConfig() {
+  const newPass = document.getElementById('cfg-adminpass').value;
+  if (newPass) lsSet('df_admin_pass', newPass);
+  toast('API config saved!', 'success');
+}
+
+// ── CSV EXPORT ──
+function exportAllCSV() {
+  const orders = getOrders();
+  if (!orders.length) return toast('No orders to export', 'error');
+  const headers = ['Reference','Phone','Buyer','Network','Bundle','Hubnet Cost','Admin Price','Agent Price','Admin Profit','Agent Profit','Source','Agent','Status','Date'];
+  const rows = orders.map(o => [o.reference,o.phone,o.buyerName,o.network,o.size,o.hubnetCost,o.adminPrice,o.agentPrice||'',o.adminProfit||0,o.agentProfit||0,o.source,o.agentSlug||'',o.status,o.date]);
+  const csv = [headers,...rows].map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,'+encodeURIComponent(csv);
+  a.download = `all-orders-${Date.now()}.csv`;
+  a.click();
+}
+
+// ── TAB TITLE OVERRIDE ──
+const AD_TAB_TITLES = { overview:'Overview', orders:'Orders', agents:'Agents', prices:'Base Prices', withdrawals:'Withdrawals', settings:'Settings' };
+const _origSwitch = switchTab;
+window.switchTab = function(tabId) {
+  _origSwitch(tabId);
+  const t = document.getElementById('topbar-title');
+  if (t) t.textContent = AD_TAB_TITLES[tabId] || tabId;
+  if (tabId === 'overview') loadOverviewStats();
+  if (tabId === 'agents') renderAgentsTable();
+  if (tabId === 'withdrawals') renderAdminWithdrawals();
+  if (tabId === 'prices') renderAdminPriceEditor();
+};
+</script>
+</body>
+</html>

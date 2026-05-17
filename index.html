@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataFlow GH — Fast Data Bundles</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.live-dot { width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 2s infinite; }
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.store-networks { max-width:480px;margin:0 auto;padding:0 20px 60px;display:flex;flex-direction:column;gap:12px; }
+.step-dots { display:flex;gap:6px;justify-content:center;margin-bottom:24px; }
+.step-dot { width:8px;height:8px;border-radius:50%;background:var(--border-h);transition:all .3s; }
+.step-dot.active { background:var(--accent);width:24px;border-radius:100px; }
+.success-anim { text-align:center;padding:40px 20px; }
+.success-check { width:72px;height:72px;border-radius:50%;background:var(--ok-dim);border:2px solid var(--ok);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;animation:popIn .5s ease; }
+.ref-box { background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin:16px 0;display:flex;align-items:center;justify-content:space-between;gap:10px; }
+.ref-val { font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- STORE HEADER -->
+<header class="store-header">
+  <div class="flex" style="align-items:center;gap:12px;">
+    <div class="logo-mark" id="hdr-logo">D</div>
+    <div class="logo-text">
+      <strong id="hdr-name">DataFlow GH</strong>
+      <span style="display:flex;align-items:center;gap:5px;"><span class="live-dot"></span>All Networks Live</span>
+    </div>
+  </div>
+  <div class="flex" style="gap:10px;">
+    <button class="btn btn-secondary btn-sm" onclick="openOverlay('track-overlay')">Track Order</button>
+    <a id="hdr-wa" href="#" class="btn btn-sm" style="background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.3);color:#25d366;">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.549 4.116 1.51 5.849L0 24l6.335-1.662A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.784 9.784 0 01-5.003-1.376l-.36-.214-3.722.977.993-3.634-.234-.374A9.78 9.78 0 012.182 12c0-5.423 4.395-9.818 9.818-9.818 5.424 0 9.818 4.395 9.818 9.818 0 5.424-4.394 9.818-9.818 9.818z"/></svg>
+      Help
+    </a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="store-hero">
+  <div class="store-hero-glow"></div>
+  <div style="display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:6px 14px 6px 8px;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:20px;">
+    <span class="live-dot"></span>
+    <span id="hero-agent-name">DataFlow GH</span> — Verified Store
+  </div>
+  <h1>Instant Data<br><span class="hero-accent">Delivered Fast</span></h1>
+  <p style="color:var(--text2);font-size:14px;max-width:380px;margin:0 auto;">MTN · Telecel · AirtelTigo bundles at the best rates. Delivered in 5–60 minutes, 24/7.</p>
+</section>
+
+<!-- NETWORK CARDS -->
+<div class="store-networks" id="network-list">
+  <button class="net-card" onclick="openNetwork('mtn')">
+    <div class="net-badge mtn">M</div>
+    <div>
+      <div class="net-card-name">MTN</div>
+      <div class="net-card-sub">Non-expiry data bundles — 90 days</div>
+    </div>
+    <svg class="net-card-arrow" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+  </button>
+  <button class="net-card" onclick="openNetwork('telecel')">
+    <div class="net-badge telecel">T</div>
+    <div>
+      <div class="net-card-name">Telecel</div>
+      <div class="net-card-sub">Non-expiry data bundles — 90 days</div>
+    </div>
+    <svg class="net-card-arrow" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+  </button>
+  <button class="net-card" onclick="openNetwork('at')">
+    <div class="net-badge at">A</div>
+    <div>
+      <div class="net-card-name">AirtelTigo</div>
+      <div class="net-card-sub">AT Premium &amp; BigTime — 90 days</div>
+    </div>
+    <svg class="net-card-arrow" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+  </button>
+  <div style="margin-top:8px;">
+    <a href="register.html" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border-radius:var(--radius);border:1px dashed var(--border-h);color:var(--text2);font-size:13px;font-weight:600;transition:all .2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)';" onmouseout="this.style.borderColor='var(--border-h)';this.style.color='var(--text2)';">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Become a Reseller Agent
+    </a>
+  </div>
+</div>
+
+<!-- ══ BUNDLE SELECTION OVERLAY ══ -->
+<div class="overlay" id="bundle-overlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="net-badge" id="panel-icon"></div>
+        <div class="sheet-title" id="panel-title"></div>
+      </div>
+      <button class="close-btn" onclick="closeOverlay('bundle-overlay')">✕</button>
+    </div>
+    <div class="sheet-body" id="bundle-list"></div>
+  </div>
+</div>
+
+<!-- ══ ORDER FORM OVERLAY ══ -->
+<div class="overlay" id="order-overlay">
+  <div class="sheet" style="max-width:480px;">
+    <div class="sheet-header">
+      <button class="btn btn-secondary btn-sm" onclick="closeOverlay('order-overlay');openOverlay('bundle-overlay')">← Back</button>
+      <button class="close-btn" onclick="closeOverlay('order-overlay')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <!-- Step indicators -->
+      <div class="step-dots">
+        <div class="step-dot active" id="sdot-1"></div>
+        <div class="step-dot" id="sdot-2"></div>
+        <div class="step-dot" id="sdot-3"></div>
+      </div>
+
+      <!-- Step 1: Details -->
+      <div id="order-step-1">
+        <div style="margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+          <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;" id="sel-size"></div>
+          <div style="font-size:12px;color:var(--text3);margin-top:3px;" id="sel-network"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Recipient Phone Number</label>
+          <input class="form-input" id="order-phone" type="tel" placeholder="0241234567" maxlength="10" oninput="detectPhoneNetwork()">
+          <div class="form-hint" id="phone-detect-hint"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Name</label>
+          <input class="form-input" id="order-buyer" type="text" placeholder="e.g. Kwame Mensah">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Contact (for receipt alert)</label>
+          <input class="form-input" id="order-contact" type="tel" placeholder="0201234567" maxlength="10">
+        </div>
+        <div id="step1-alert" class="alert alert-error hidden" style="margin-bottom:12px;"></div>
+        <button class="btn btn-primary btn-full btn-lg" onclick="goStep2()">Continue</button>
+      </div>
+
+      <!-- Step 2: Summary -->
+      <div id="order-step-2" class="hidden">
+        <h3 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:16px;">Order Summary</h3>
+        <div class="order-summary" style="margin-bottom:18px;">
+          <div class="order-summary-row"><span>Bundle</span><span id="sum-bundle"></span></div>
+          <div class="order-summary-row"><span>Network</span><span id="sum-network"></span></div>
+          <div class="order-summary-row"><span>Recipient</span><span id="sum-phone"></span></div>
+          <div class="order-summary-row"><span>Your Name</span><span id="sum-buyer"></span></div>
+          <div class="order-summary-row total"><span>Total</span><span id="sum-price"></span></div>
+        </div>
+        <div id="step2-alert" class="hidden" style="margin-bottom:12px;"></div>
+        <button class="btn btn-primary btn-full btn-lg" id="pay-btn" onclick="placeOrder()">
+          Place Order &amp; Pay
+        </button>
+        <p style="text-align:center;font-size:11px;color:var(--text3);margin-top:10px;">Payment via MoMo prompt after confirmation</p>
+      </div>
+
+      <!-- Step 3: Success -->
+      <div id="order-step-3" class="hidden">
+        <div class="success-anim">
+          <div class="success-check">✓</div>
+          <h3 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:8px;">Order Placed!</h3>
+          <p style="color:var(--text2);font-size:13px;margin-bottom:20px;">Your data will arrive within 5–60 minutes. Save your reference:</p>
+          <div class="ref-box">
+            <span class="ref-val" id="success-ref"></span>
+            <button class="copy-btn" id="ref-copy-btn" onclick="copyRef()">Copy</button>
+          </div>
+          <a id="wa-support-link" href="#" class="btn btn-full" style="background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.3);color:#25d366;margin-top:12px;justify-content:center;">
+            WhatsApp Support
+          </a>
+          <button class="btn btn-secondary btn-full" style="margin-top:10px;" onclick="resetOrder()">Buy Another</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TRACK ORDER OVERLAY ══ -->
+<div class="overlay" id="track-overlay">
+  <div class="sheet">
+    <div class="sheet-header">
+      <div class="sheet-title">Track Order</div>
+      <button class="close-btn" onclick="closeOverlay('track-overlay')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:18px;">Enter your transaction reference to check delivery status.</p>
+      <div class="form-group">
+        <label class="form-label">Transaction Reference</label>
+        <input class="form-input" id="track-ref" placeholder="e.g. DF-XXXXXX-XXXXX">
+      </div>
+      <div id="track-result" class="hidden" style="margin-bottom:12px;"></div>
+      <button class="btn btn-primary btn-full" onclick="trackOrder()">Check Status</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="shared.js"></script>
+<script>
+let currentNetwork = '';
+let currentBundle = null;
+let agentSlug = '';
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  agentSlug = params.get('agent') || '';
+
+  if (agentSlug) {
+    const agent = getAgentBySlug(agentSlug);
+    if (agent) {
+      document.title = `${agent.storeName} — Data Bundles`;
+      document.getElementById('hdr-name').textContent = agent.storeName;
+      document.getElementById('hdr-logo').textContent = agent.storeName[0].toUpperCase();
+      document.getElementById('hero-agent-name').textContent = agent.storeName;
+      document.getElementById('hdr-wa').href = `https://wa.me/+233${agent.whatsapp.replace(/^0/, '')}`;
+    }
+  } else {
+    document.getElementById('hdr-wa').href = `https://wa.me/+233${CONFIG.WHATSAPP.replace(/^0/, '')}`;
+  }
+});
+
+// ── OPEN NETWORK ──
+function openNetwork(net) {
+  currentNetwork = net;
+  const names = { mtn:'MTN', telecel:'Telecel', at:'AirtelTigo' };
+  const icon = document.getElementById('panel-icon');
+  icon.textContent = names[net][0];
+  icon.className = `net-badge ${net}`;
+  document.getElementById('panel-title').textContent = names[net] + ' Data Bundles';
+  renderBundles(net);
+  openOverlay('bundle-overlay');
+}
+
+function renderBundles(net) {
+  const bundles = BUNDLES[net];
+  let html = '';
+  bundles.forEach((b, i) => {
+    const profits = calcProfits(b, net, agentSlug);
+    html += `<div class="bundle-item" onclick="selectBundle(${i})">
+      <div>
+        <div class="bundle-size">${b.size}</div>
+        <div class="bundle-validity">${b.validity}${b.type ? ' · ' + b.type : ''}</div>
+      </div>
+      <div class="bundle-price">${fmt(profits.customerPays)}</div>
+    </div>`;
+  });
+  document.getElementById('bundle-list').innerHTML = html;
+}
+
+function selectBundle(idx) {
+  const bundle = BUNDLES[currentNetwork][idx];
+  const profits = calcProfits(bundle, currentNetwork, agentSlug);
+  currentBundle = { ...bundle, ...profits, network: currentNetwork };
+  document.getElementById('sel-size').textContent = bundle.size;
+  document.getElementById('sel-network').textContent = NET_NAMES[currentNetwork] + (bundle.type ? ' · ' + bundle.type : '') + ' · ' + bundle.validity;
+  // reset form
+  ['order-phone','order-buyer','order-contact'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('phone-detect-hint').textContent = '';
+  hideAlert('step1-alert'); hideAlert('step2-alert');
+  showStep(1);
+  closeOverlay('bundle-overlay');
+  openOverlay('order-overlay');
+}
+
+// ── STEPS ──
+function showStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById(`order-step-${i}`).classList.toggle('hidden', i !== n);
+    document.getElementById(`sdot-${i}`).classList.toggle('active', i === n);
+  });
+}
+
+function detectPhoneNetwork() {
+  const phone = document.getElementById('order-phone').value.trim();
+  const hint = document.getElementById('phone-detect-hint');
+  if (phone.length === 10) {
+    const detected = detectNetwork(phone);
+    if (detected) {
+      const match = detected === currentNetwork;
+      hint.textContent = `Detected: ${NET_NAMES[detected]} ${match ? '✓' : '— Note: sending ' + NET_NAMES[currentNetwork] + ' data to this number'}`;
+      hint.style.color = match ? 'var(--ok)' : 'var(--warn)';
+    } else { hint.textContent = ''; }
+  } else { hint.textContent = ''; }
+}
+
+function goStep2() {
+  const phone = document.getElementById('order-phone').value.trim();
+  const buyer = document.getElementById('order-buyer').value.trim();
+  if (phone.length !== 10) return showAlert('step1-alert','error','Enter a valid 10-digit phone number');
+  if (!buyer) return showAlert('step1-alert','error','Enter your name');
+  hideAlert('step1-alert');
+  document.getElementById('sum-bundle').textContent = currentBundle.size;
+  document.getElementById('sum-network').textContent = NET_NAMES[currentNetwork];
+  document.getElementById('sum-phone').textContent = phone;
+  document.getElementById('sum-buyer').textContent = buyer;
+  document.getElementById('sum-price').textContent = fmt(currentBundle.customerPays);
+  showStep(2);
+}
+
+async function placeOrder() {
+  const phone = document.getElementById('order-phone').value.trim();
+  const buyer = document.getElementById('order-buyer').value.trim();
+  const contact = document.getElementById('order-contact').value.trim();
+  const btn = document.getElementById('pay-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Processing…';
+
+  const reference = genRef('DF');
+  const hubnetNet = currentNetwork === 'at' ? (parseInt(currentBundle.volume) >= 30000 ? 'big-time' : 'at') : currentNetwork;
+
+  const result = await hubnetTransact({ network: hubnetNet, phone, volume: currentBundle.volume, reference });
+  const success = result?.status === true || result?.message === '0000' || result?.data?.code === '0000';
+
+  const order = {
+    reference, phone, buyerName: buyer, buyerContact: contact,
+    network: currentNetwork, size: currentBundle.size, volume: currentBundle.volume,
+    hubnetCost: currentBundle.cost, adminPrice: currentBundle.adminPrice,
+    agentPrice: currentBundle.agentPrice, adminProfit: currentBundle.adminProfit,
+    agentProfit: currentBundle.agentProfit, agentSlug,
+    source: agentSlug ? 'agent' : 'main',
+    status: success ? 'success' : 'failed',
+    hubnetResponse: result, date: new Date().toISOString()
+  };
+  saveOrder(order);
+
+  if (success) {
+    document.getElementById('success-ref').textContent = reference;
+    const wa = agentSlug ? (getAgentBySlug(agentSlug)?.whatsapp || CONFIG.WHATSAPP) : CONFIG.WHATSAPP;
+    document.getElementById('wa-support-link').href = `https://wa.me/+233${wa.replace(/^0/','')}?text=Hi, I need help with order ${reference}. Phone: ${phone}`;
+    showStep(3);
+  } else {
+    showAlert('step2-alert','error', result?.reason || 'Transaction failed. Please try again or contact support.');
+    btn.disabled = false;
+    btn.innerHTML = 'Place Order &amp; Pay';
+  }
+}
+
+function copyRef() {
+  copyText(document.getElementById('success-ref').textContent, document.getElementById('ref-copy-btn'));
+}
+
+function resetOrder() {
+  closeOverlay('order-overlay');
+  showStep(1);
+}
+
+function trackOrder() {
+  const ref = document.getElementById('track-ref').value.trim();
+  if (!ref) return;
+  const order = getOrders().find(o => o.reference === ref);
+  const el = document.getElementById('track-result');
+  if (order) {
+    el.className = `alert alert-${order.status === 'success' ? 'success' : 'error'}`;
+    el.innerHTML = `<div><strong>${order.size} — ${NET_NAMES[order.network]}</strong><br>Phone: ${order.phone} · Status: <strong>${order.status.toUpperCase()}</strong><br><small>${fmtDate(order.date)}</small></div>`;
+  } else {
+    el.className = 'alert alert-error';
+    el.innerHTML = 'Reference not found. Contact support on WhatsApp.';
+  }
+  el.classList.remove('hidden');
+}
+</script>
+</body>
+</html>
