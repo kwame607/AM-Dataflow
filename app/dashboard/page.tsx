@@ -202,7 +202,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="sidebar-layout">
+    <>
+      <div className="sidebar-layout">
       {/* Sidebar overlay for mobile */}
       {sidebarOpen && <div className="sidebar-overlay show" onClick={() => setSidebarOpen(false)} />}
 
@@ -465,10 +466,12 @@ export default function DashboardPage() {
               </div>
 
               <div className="card" style={{ marginBottom: 20 }}>
-                <div className="card-header" style={{ flexWrap: 'wrap', gap: 6 }}>
-                    <div className="card-title">Request Withdrawal</div>
-                    <div style={{ fontSize: 11, color: available >= 20 ? 'var(--ok)' : 'var(--warn)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                      {available >= 20 ? `GHS ${available.toFixed(2)} available` : `GHS ${fmt(available)} / GHS 20.00 min`}
+                <div className="card-header">
+                    <div className="card-title">
+                      Request Withdrawal &nbsp;
+                      <span style={{ fontSize: 12, fontWeight: 600, color: available >= 20 ? 'var(--ok)' : 'var(--warn)' }}>
+                        ({available >= 20 ? `GHS ${available.toFixed(2)} available` : `GHS ${fmt(available)} of GHS 20.00 min`})
+                      </span>
                     </div>
                 </div>
                 <div className="card-body">
@@ -595,6 +598,7 @@ export default function DashboardPage() {
 
         </div>
       </main>
+      </div>{/* end sidebar-layout */}
 
       <nav className="mobile-nav">
         {navItems.map(item => (
@@ -606,6 +610,6 @@ export default function DashboardPage() {
       </nav>
 
       <ToastContainer />
-    </div>
+    </>
   );
 }
