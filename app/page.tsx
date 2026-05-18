@@ -126,7 +126,7 @@ export default function MainStorePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: `${phone}@admunz.store`,
+          email: `${phone}@admunz.com`,
           amount: Math.round(selectedBundle.customerPays * 100),
           reference,
           metadata: {
@@ -151,7 +151,7 @@ export default function MainStorePage() {
       // 2. Open Paystack popup with server-generated reference + full v1 params
       await openPaystack({
         key: PAYSTACK_KEY,
-        email: `${phone}@admunz.store`,
+        email: `${phone}@admunz.com`,
         amount: Math.round(selectedBundle.customerPays * 100),
         ref: initData.reference,
         callback: async (response: { reference: string }) => {
