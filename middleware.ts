@@ -6,9 +6,9 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const path = req.nextUrl.pathname;
 
-  // Only protect /dashboard and /xena (but NOT /xena/login)
-  const isAdminLogin = path === '/xena/login' || path.startsWith('/xena/login/');
-  if (!path.startsWith('/dashboard') && !path.startsWith('/xena')) return res;
+  // Only protect /dashboard and /xena-173424 (but NOT /xena-173424/login)
+  const isAdminLogin = path === '/xena-173424/login' || path.startsWith('/xena-173424/login/');
+  if (!path.startsWith('/dashboard') && !path.startsWith('/xena-173424')) return res;
   if (isAdminLogin) return res;
 
   const supabase = createServerClient(
@@ -27,14 +27,14 @@ export async function middleware(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    const loginUrl = path.startsWith('/xena') ? '/xena/login' : '/login';
+    const loginUrl = path.startsWith('/xena-173424') ? '/xena-173424/login' : '/login';
     return NextResponse.redirect(new URL(loginUrl, req.url));
   }
 
   // Admin check
-  if (path.startsWith('/xena')) {
+  if (path.startsWith('/xena-173424')) {
     if (!getAdminEmails().includes((user.email || '').toLowerCase())) {
-      return NextResponse.redirect(new URL('/xena/login', req.url));
+      return NextResponse.redirect(new URL('/xena-173424/login', req.url));
     }
   }
 
@@ -42,5 +42,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/xena/:path*'],
+  matcher: ['/dashboard/:path*', '/xena-173424/:path*'],
 };
