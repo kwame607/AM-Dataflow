@@ -3,14 +3,27 @@ import { verifyPaystackPayment } from '@/lib/paystack';
 import { hubnetTransact } from '@/lib/hubnet';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
 import { getBundleByKey, getDefaultAdminPrice, getHubnetNetwork } from '@/lib/bundles';
+import { rateLimit, getIp } from '@/lib/rate-limit';
+import { VerifyPaymentSchema } from '@/lib/validate';
 
 export async function POST(req: NextRequest) {
-  try {
-    const { reference, orderData } = await req.json();
+  // Rate limit: 10 verifications per minute per IP
+  const ip = getIp(req);
+  const rl = rateLimit(`verify:${ip}`, 10, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests. Please wait before trying again.' }, {
+      status: 429,
+      headers: { 'Retry-After': String(rl.retryAfter) },
+    });
+  }
 
-    if (!reference || !orderData) {
-      return NextResponse.json({ error: 'Missing reference or orderData' }, { status: 400 });
+  try {
+    const body = await req.json();
+    const parsed = VerifyPaymentSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid request', detail: parsed.error.flatten() }, { status: 400 });
     }
+    const { reference, orderData } = parsed.data;
 
     // 1. Verify Paystack payment
     console.log('[verify] Checking reference:', reference);

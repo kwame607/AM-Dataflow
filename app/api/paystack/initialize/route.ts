@@ -1,12 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit, getIp } from '@/lib/rate-limit';
+import { InitializePaymentSchema } from '@/lib/validate';
 
 export async function POST(req: NextRequest) {
-  try {
-    const { email, amount, reference, metadata } = await req.json();
+  // Rate limit: 10 payment initializations per minute per IP
+  const ip = getIp(req);
+  const rl = rateLimit(`init:${ip}`, 10, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests. Please wait before trying again.' }, {
+      status: 429,
+      headers: { 'Retry-After': String(rl.retryAfter) },
+    });
+  }
 
-    if (!email || !amount || !reference) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+  try {
+    const body = await req.json();
+    const parsed = InitializePaymentSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid request', detail: parsed.error.flatten() }, { status: 400 });
     }
+    const { email, amount, reference, metadata } = parsed.data;
 
     const secretKey = process.env.PAYSTACK_SECRET_KEY;
     if (!secretKey) {

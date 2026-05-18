@@ -3,14 +3,24 @@ import { requireAdmin } from '@/lib/auth-guard';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
 import { hubnetTransact } from '@/lib/hubnet';
 import { getBundleByKey, getHubnetNetwork } from '@/lib/bundles';
+import { rateLimit, getIp } from '@/lib/rate-limit';
+import { RetryDeliverySchema } from '@/lib/validate';
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const ip = getIp(req);
+  const rl = rateLimit(`retry:${ip}`, 20, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests.' }, { status: 429 });
+  }
+
   try {
-    const { orderId } = await req.json();
-    if (!orderId) return NextResponse.json({ error: 'Missing orderId' }, { status: 400 });
+    const body = await req.json();
+    const parsed = RetryDeliverySchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: 'Invalid orderId' }, { status: 400 });
+    const { orderId } = parsed.data;
 
     const supabase = createSupabaseAdminClient();
 

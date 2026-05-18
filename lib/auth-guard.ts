@@ -6,7 +6,7 @@ export function getAdminEmails(): string[] {
   const extra = fromEnv.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
   const legacy = [
     process.env.ADMIN_EMAIL,
-    process.env.NEXT_PUBLIC_ADMIN_EMAIL,
+    // NOTE: never use NEXT_PUBLIC_ here — it would embed the admin email in the client JS bundle
     'kwameadom607@gmail.com',
   ].filter(Boolean).map(e => (e as string).toLowerCase());
   return Array.from(new Set([...extra, ...legacy]));
