@@ -138,7 +138,7 @@ export default function LoginPage() {
           </form>
 
           <div style={{ textAlign: 'center', marginTop: 14 }}>
-            <a href="#" style={{ fontSize: 13, color: 'var(--accent)' }}>Forgot password?</a>
+            <a href="/forgot-password" style={{ fontSize: 13, color: 'var(--accent)' }}>Forgot password?</a>
           </div>
         </div>
 
