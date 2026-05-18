@@ -176,13 +176,28 @@ export default function AdminPage() {
   const filteredOrders = orderFilter === 'all' ? orders : orders.filter(o => o.status === orderFilter);
 
   const agentStats = React.useMemo(() => {
-    const map: Record<string, { totalOrders: number; revenue: number; lastSale: string | null; daysSince: number | null }> = {};
+    const map: Record<string, {
+      totalOrders: number; totalRevenue: number; totalProfit: number;
+      todayOrders: number; todayRevenue: number; todayProfit: number;
+      lastSale: string | null; daysSince: number | null;
+    }> = {};
     const now = Date.now();
+    const todayStr = new Date().toISOString().slice(0, 10);
     orders.filter(o => o.status === 'success' && o.agent_id).forEach(o => {
-      if (!map[o.agent_id!]) map[o.agent_id!] = { totalOrders: 0, revenue: 0, lastSale: null, daysSince: null };
+      if (!map[o.agent_id!]) map[o.agent_id!] = {
+        totalOrders: 0, totalRevenue: 0, totalProfit: 0,
+        todayOrders: 0, todayRevenue: 0, todayProfit: 0,
+        lastSale: null, daysSince: null,
+      };
       const s = map[o.agent_id!];
       s.totalOrders++;
-      s.revenue += o.agent_profit || 0;
+      s.totalRevenue += o.agent_price || 0;
+      s.totalProfit += o.agent_profit || 0;
+      if (o.created_at?.slice(0, 10) === todayStr) {
+        s.todayOrders++;
+        s.todayRevenue += o.agent_price || 0;
+        s.todayProfit += o.agent_profit || 0;
+      }
       if (!s.lastSale || o.created_at > s.lastSale) {
         s.lastSale = o.created_at;
         s.daysSince = Math.floor((now - new Date(o.created_at).getTime()) / 86400000);
@@ -455,7 +470,7 @@ export default function AdminPage() {
                     ? <div className="empty"><div className="empty-icon">👥</div><div className="empty-title">No agents found</div></div>
                     : (
                       <table>
-                        <thead><tr><th>Agent</th><th>Store</th><th>Activity</th><th>Last Sale</th><th>Orders</th><th>Revenue</th><th>Status</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Agent</th><th>Store</th><th>Activity</th><th>Last Sale</th><th>Today</th><th>All-Time</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
                           {filteredAgents.map(a => {
                             const s = agentStats[a.id];
@@ -476,8 +491,22 @@ export default function AdminPage() {
                                   {s?.daysSince !== null && s?.daysSince !== undefined && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{s.daysSince}d ago</div>}
                                 </td>
                                 <td style={{ fontSize: 12, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{s?.lastSale ? fmtDate(s.lastSale) : <span style={{ color: 'var(--err)', fontSize: 11 }}>Never</span>}</td>
-                                <td style={{ fontWeight: 600, textAlign: 'center' }}>{s?.totalOrders ?? 0}</td>
-                                <td style={{ fontWeight: 600, color: 'var(--ok)' }}>{fmt(s?.revenue ?? 0)}</td>
+                                <td>
+                                  {s?.todayOrders ? (
+                                    <div style={{ fontSize: 12 }}>
+                                      <div style={{ fontWeight: 700, color: 'var(--accent)' }}>{s.todayOrders} sale{s.todayOrders > 1 ? 's' : ''}</div>
+                                      <div style={{ color: 'var(--text2)', marginTop: 1 }}>{fmt(s.todayRevenue)}</div>
+                                      <div style={{ color: 'var(--ok)', fontSize: 11 }}>+{fmt(s.todayProfit)} profit</div>
+                                    </div>
+                                  ) : <span style={{ fontSize: 11, color: 'var(--text3)' }}>—</span>}
+                                </td>
+                                <td>
+                                  <div style={{ fontSize: 12 }}>
+                                    <div style={{ fontWeight: 700 }}>{s?.totalOrders ?? 0} sale{(s?.totalOrders ?? 0) !== 1 ? 's' : ''}</div>
+                                    <div style={{ color: 'var(--text2)', marginTop: 1 }}>{fmt(s?.totalRevenue ?? 0)}</div>
+                                    <div style={{ color: 'var(--ok)', fontSize: 11 }}>+{fmt(s?.totalProfit ?? 0)} profit</div>
+                                  </div>
+                                </td>
                                 <td><StatusBadge status={a.status} /></td>
                                 <td>
                                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
