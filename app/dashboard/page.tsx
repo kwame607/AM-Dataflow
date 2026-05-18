@@ -38,6 +38,7 @@ export default function DashboardPage() {
 
   // Order filter
   const [orderFilter, setOrderFilter] = useState('all');
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL !== 'http://localhost:3000')
     ? process.env.NEXT_PUBLIC_SITE_URL
@@ -311,27 +312,25 @@ export default function DashboardPage() {
                   <div className="card-title">Recent Orders</div>
                   <button className="btn btn-secondary btn-sm" onClick={() => setTab('orders')}>View All</button>
                 </div>
-                <div className="table-wrap">
+                <div style={{ padding: '0 0 4px' }}>
                   {orders.length === 0
                     ? <div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No orders yet</div><div className="empty-text">Share your store to start selling</div></div>
-                    : (
-                      <table>
-                        <thead><tr><th>Reference</th><th>Bundle</th><th>Phone</th><th>Earned</th><th>Payment</th><th>Delivery</th><th>Date</th></tr></thead>
-                        <tbody>
-                          {orders.slice(0, 8).map(o => (
-                            <tr key={o.id}>
-                              <td><span className="mono">{o.reference}</span></td>
-                              <td><NetworkBadge network={o.network} /><span style={{ marginLeft: 8 }}>{o.size}</span></td>
-                              <td>{o.phone}</td>
-                              <td style={{ color: 'var(--ok)', fontWeight: 700 }}>{fmt(o.agent_profit || 0)}</td>
-                              <td><StatusBadge status={o.status} /></td>
-                              <td><DeliveryBadge status={o.delivery_status} /></td>
-                              <td style={{ color: 'var(--text3)' }}>{fmtDate(o.created_at)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
+                    : orders.slice(0, 5).map(o => (
+                      <div key={o.id} style={{ borderBottom: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                          <NetworkBadge network={o.network} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.reference}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{o.size} · {o.phone} · {fmtDate(o.created_at)}</div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                          <DeliveryBadge status={o.delivery_status} />
+                          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ok)' }}>{fmt(o.agent_profit || 0)}</span>
+                        </div>
+                      </div>
+                    ))
+                  }
                 </div>
               </div>
             </div>
@@ -403,7 +402,7 @@ export default function DashboardPage() {
           {/* ── MY ORDERS ── */}
           {tab === 'orders' && (
             <div>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div className="tab-nav">
                   {['all','success','pending','failed'].map(f => (
                     <button key={f} className={`tab-btn${orderFilter === f ? ' active' : ''}`} onClick={() => setOrderFilter(f)}>
@@ -411,33 +410,44 @@ export default function DashboardPage() {
                     </button>
                   ))}
                 </div>
-                <button className="btn btn-secondary btn-sm" onClick={() => exportCSV(filteredOrders as unknown as Record<string, unknown>[], 'my-orders')}>⬇ Export CSV</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => exportCSV(filteredOrders as unknown as Record<string, unknown>[], 'my-orders')}>⬇ CSV</button>
               </div>
               <div className="card">
-                <div className="table-wrap">
-                  {filteredOrders.length === 0
-                    ? <div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No orders found</div></div>
-                    : (
-                      <table>
-                        <thead><tr><th>Reference</th><th>Network</th><th>Bundle</th><th>Phone</th><th>Revenue</th><th>Profit</th><th>Payment</th><th>Delivery</th><th>Date</th></tr></thead>
-                        <tbody>
-                          {filteredOrders.map(o => (
-                            <tr key={o.id}>
-                              <td><span className="mono">{o.reference}</span></td>
-                              <td><NetworkBadge network={o.network} /></td>
-                              <td>{o.size}</td>
-                              <td>{o.phone}</td>
-                              <td>{fmt(o.agent_price || 0)}</td>
-                              <td style={{ color: 'var(--ok)', fontWeight: 700 }}>{fmt(o.agent_profit || 0)}</td>
-                              <td><StatusBadge status={o.status} /></td>
-                              <td><DeliveryBadge status={o.delivery_status} /></td>
-                              <td style={{ color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtDate(o.created_at)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                </div>
+                {filteredOrders.length === 0
+                  ? <div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No orders found</div></div>
+                  : filteredOrders.map(o => {
+                    const isOpen = expandedOrderId === o.id;
+                    return (
+                      <div key={o.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <button
+                          onClick={() => setExpandedOrderId(isOpen ? null : o.id)}
+                          style={{ width: '100%', background: 'none', border: 'none', padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left' }}
+                        >
+                          <NetworkBadge network={o.network} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.reference}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{fmtDate(o.created_at)}</div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            <DeliveryBadge status={o.delivery_status} />
+                            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ok)' }}>{fmt(o.agent_profit || 0)}</span>
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--text3)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
+                          </div>
+                        </button>
+                        {isOpen && (
+                          <div style={{ padding: '0 16px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 12 }}>
+                            <div><span style={{ color: 'var(--text3)' }}>Bundle</span><br /><strong>{o.size}</strong></div>
+                            <div><span style={{ color: 'var(--text3)' }}>Phone</span><br /><strong>{o.phone}</strong></div>
+                            <div><span style={{ color: 'var(--text3)' }}>Payment</span><br /><StatusBadge status={o.status} /></div>
+                            <div><span style={{ color: 'var(--text3)' }}>Delivery</span><br /><DeliveryBadge status={o.delivery_status} /></div>
+                            <div><span style={{ color: 'var(--text3)' }}>Customer Paid</span><br /><strong>{fmt(o.agent_price || 0)}</strong></div>
+                            <div><span style={{ color: 'var(--text3)' }}>Your Profit</span><br /><strong style={{ color: 'var(--ok)' }}>{fmt(o.agent_profit || 0)}</strong></div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                }
               </div>
             </div>
           )}
@@ -513,25 +523,22 @@ export default function DashboardPage() {
 
               <div className="card">
                 <div className="card-header"><div className="card-title">Withdrawal History</div></div>
-                <div className="table-wrap">
+                <div style={{ padding: '0 0 4px' }}>
                   {withdrawals.length === 0
                     ? <div className="empty"><div className="empty-icon">💸</div><div className="empty-title">No withdrawals yet</div></div>
-                    : (
-                      <table>
-                        <thead><tr><th>Date</th><th>Amount</th><th>Network</th><th>MoMo No.</th><th>Status</th></tr></thead>
-                        <tbody>
-                          {withdrawals.map(w => (
-                            <tr key={w.id}>
-                              <td style={{ color: 'var(--text3)' }}>{fmtDate(w.requested_at)}</td>
-                              <td style={{ fontWeight: 700 }}>{fmt(w.amount)}</td>
-                              <td><NetworkBadge network={w.network} /></td>
-                              <td className="mono">{w.momo_number}</td>
-                              <td><StatusBadge status={w.status} /></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
+                    : withdrawals.map(w => (
+                      <div key={w.id} style={{ borderBottom: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                          <NetworkBadge network={w.network} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700 }}>{fmt(w.amount)}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{w.momo_number} · {fmtDate(w.requested_at)}</div>
+                          </div>
+                        </div>
+                        <StatusBadge status={w.status} />
+                      </div>
+                    ))
+                  }
                 </div>
               </div>
             </div>
