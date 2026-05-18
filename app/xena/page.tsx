@@ -28,6 +28,7 @@ export default function AdminPage() {
   const [bulkMarkup, setBulkMarkup] = useState('');
   const [orderFilter, setOrderFilter] = useState('all');
   const [agentFilter, setAgentFilter] = useState('all');
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     const [ordersRes, agentsRes, pricesRes, withdrawalsRes, balRes] = await Promise.all([
@@ -265,38 +266,29 @@ export default function AdminPage() {
                   <div className="card-title">Recent Orders</div>
                   <button className="btn btn-secondary btn-sm" onClick={() => setTab('orders')}>View All</button>
                 </div>
-                <div className="table-wrap">
+                <div style={{ padding: '0 0 4px' }}>
                   {orders.length === 0
                     ? <div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No orders yet</div></div>
-                    : (
-                      <table>
-                        <thead><tr><th>Reference</th><th>Network</th><th>Bundle</th><th>Phone</th><th>Revenue</th><th>Profit</th><th>Source</th><th>Payment</th><th>Delivery</th><th>Date</th><th>Action</th></tr></thead>
-                        <tbody>
-                          {orders.slice(0, 10).map(o => (
-                            <tr key={o.id}>
-                              <td><span className="mono">{o.reference}</span></td>
-                              <td><NetworkBadge network={o.network} /></td>
-                              <td>{o.size}</td>
-                              <td>{o.phone}</td>
-                              <td>{fmt(o.admin_price || 0)}</td>
-                              <td style={{ color: 'var(--ok)', fontWeight: 700 }}>{fmt(o.admin_profit || 0)}</td>
-                              <td style={{ color: 'var(--text3)' }}>{o.source || 'main'}</td>
-                              <td><StatusBadge status={o.status} /></td>
-                              <td><DeliveryBadge status={o.delivery_status} /></td>
-                              <td style={{ color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtDate(o.created_at)}</td>
-                              <td style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
-                                {(['failed','pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success' && (
-                                  <button className="btn btn-sm" style={{ background: 'rgba(239,68,68,.15)', color: '#f87171', border: '1px solid rgba(239,68,68,.4)', whiteSpace: 'nowrap' }} onClick={() => retryDelivery(o.id)}>↺ Retry</button>
-                                )}
-                                {(['pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success' && (
-                                  <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)', whiteSpace: 'nowrap' }} onClick={() => markDelivered(o.id)}>✓ Done</button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
+                    : orders.slice(0, 5).map(o => (
+                      <div key={o.id} style={{ borderBottom: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                          <NetworkBadge network={o.network} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{o.reference}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{o.size} · {o.phone} · {fmtDate(o.created_at)}</div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+                          <StatusBadge status={o.status} />
+                          <DeliveryBadge status={o.delivery_status} />
+                          <span style={{ fontWeight: 700, fontSize: 13 }}>{fmt(o.admin_price || 0)}</span>
+                          {(['failed','pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success' && (
+                            <button className="btn btn-sm" style={{ background: 'rgba(239,68,68,.15)', color: '#f87171', border: '1px solid rgba(239,68,68,.4)' }} onClick={() => retryDelivery(o.id)}>↺ Retry</button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  }
                 </div>
               </div>
             </div>
@@ -305,7 +297,7 @@ export default function AdminPage() {
           {/* ORDERS */}
           {tab === 'orders' && (
             <div>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div className="tab-nav">
                   {['all','success','pending','failed'].map(f => (
                     <button key={f} className={`tab-btn${orderFilter === f ? ' active' : ''}`} onClick={() => setOrderFilter(f)}>
@@ -313,42 +305,54 @@ export default function AdminPage() {
                     </button>
                   ))}
                 </div>
-                <button className="btn btn-secondary btn-sm" onClick={() => exportCSV(filteredOrders as unknown as Record<string, unknown>[], 'all-orders')}>⬇ Export CSV</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => exportCSV(filteredOrders as unknown as Record<string, unknown>[], 'all-orders')}>⬇ CSV</button>
               </div>
               <div className="card">
-                <div className="table-wrap">
-                  {filteredOrders.length === 0
-                    ? <div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No orders found</div></div>
-                    : (
-                      <table>
-                        <thead><tr><th>Reference</th><th>Network</th><th>Bundle</th><th>Phone</th><th>Agent Price</th><th>Admin Profit</th><th>Source</th><th>Payment</th><th>Delivery</th><th>Date</th><th></th></tr></thead>
-                        <tbody>
-                          {filteredOrders.map(o => (
-                            <tr key={o.id}>
-                              <td><span className="mono">{o.reference}</span></td>
-                              <td><NetworkBadge network={o.network} /></td>
-                              <td>{o.size}</td>
-                              <td>{o.phone}</td>
-                              <td>{fmt(o.agent_price || o.admin_price || 0)}</td>
-                              <td style={{ color: 'var(--ok)', fontWeight: 700 }}>{fmt(o.admin_profit || 0)}</td>
-                              <td style={{ color: 'var(--text3)' }}>{o.source || 'main'}</td>
-                              <td><StatusBadge status={o.status} /></td>
-                              <td><DeliveryBadge status={o.delivery_status} /></td>
-                              <td style={{ color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtDate(o.created_at)}</td>
-                              <td style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
-                                {(['failed','pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success' && (
-                                  <button className="btn btn-sm" style={{ background: 'rgba(239,68,68,.15)', color: '#f87171', border: '1px solid rgba(239,68,68,.4)', whiteSpace: 'nowrap' }} onClick={() => retryDelivery(o.id)}>↺ Retry Delivery</button>
-                                )}
-                                {(['pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success' && (
-                                  <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)', whiteSpace: 'nowrap' }} onClick={() => markDelivered(o.id)}>✓ Mark Delivered</button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                </div>
+                {filteredOrders.length === 0
+                  ? <div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No orders found</div></div>
+                  : filteredOrders.map(o => {
+                    const isOpen = expandedOrderId === o.id;
+                    const canRetry = (['failed','pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success';
+                    const canMarkDone = (['pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success';
+                    return (
+                      <div key={o.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        {/* Collapsed row */}
+                        <button
+                          onClick={() => setExpandedOrderId(isOpen ? null : o.id)}
+                          style={{ width: '100%', background: 'none', border: 'none', padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left' }}
+                        >
+                          <NetworkBadge network={o.network} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.reference}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{fmtDate(o.created_at)}</div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            <DeliveryBadge status={o.delivery_status} />
+                            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{fmt(o.agent_price || o.admin_price || 0)}</span>
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--text3)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
+                          </div>
+                        </button>
+                        {/* Expanded details */}
+                        {isOpen && (
+                          <div style={{ padding: '0 16px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 12 }}>
+                            <div><span style={{ color: 'var(--text3)' }}>Bundle</span><br /><strong>{o.size}</strong></div>
+                            <div><span style={{ color: 'var(--text3)' }}>Phone</span><br /><strong>{o.phone}</strong></div>
+                            <div><span style={{ color: 'var(--text3)' }}>Payment</span><br /><StatusBadge status={o.status} /></div>
+                            <div><span style={{ color: 'var(--text3)' }}>Delivery</span><br /><DeliveryBadge status={o.delivery_status} /></div>
+                            <div><span style={{ color: 'var(--text3)' }}>Source</span><br /><strong>{o.source || 'main'}</strong></div>
+                            <div><span style={{ color: 'var(--text3)' }}>Your Profit</span><br /><strong style={{ color: 'var(--ok)' }}>{fmt(o.admin_profit || 0)}</strong></div>
+                            {(canRetry || canMarkDone) && (
+                              <div style={{ gridColumn: '1/-1', display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                                {canRetry && <button className="btn btn-sm" style={{ background: 'rgba(239,68,68,.15)', color: '#f87171', border: '1px solid rgba(239,68,68,.4)' }} onClick={() => retryDelivery(o.id)}>↺ Retry Delivery</button>}
+                                {canMarkDone && <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)' }} onClick={() => markDelivered(o.id)}>✓ Mark Delivered</button>}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                }
               </div>
             </div>
           )}

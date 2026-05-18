@@ -541,56 +541,59 @@ export default function DashboardPage() {
           {tab === 'store' && agent && (
             <div>
               {Object.keys(agentPrices).length === 0 && (
-                <div className="alert alert-warn" style={{ marginBottom: 16, fontSize: 13, lineHeight: 1.7 }}>
-                  <strong>⚠ Set your prices first!</strong><br />
-                  Your store link won&apos;t work until you configure your selling prices. Go to the <strong>My Prices</strong> tab, set your prices, and save — then share your store link.
+                <div className="alert alert-warn" style={{ marginBottom: 16, fontSize: 13 }}>
+                  <strong>⚠ Set prices first</strong> — go to <strong>My Prices</strong> tab before sharing your link.
                 </div>
               )}
               <div className="card" style={{ marginBottom: 16 }}>
-                <div className="card-header"><div className="card-title">Store Details</div></div>
-                <div className="card-body">
-                  <div className="form-group">
-                    <label className="form-label">Store Name</label>
-                    <input className="form-input" value={agent.name || ''} readOnly />
+                <div className="card-header"><div className="card-title">My Store</div></div>
+                <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                  {/* Store name */}
+                  <div>
+                    <div className="form-label" style={{ marginBottom: 4 }}>Store Name</div>
+                    <div style={{ fontSize: 15, fontWeight: 700 }}>{agent.name}</div>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Store URL</label>
+
+                  {/* Store URL */}
+                  <div>
+                    <div className="form-label" style={{ marginBottom: 6 }}>Store URL</div>
                     <div className="copy-box">
                       <span className="copy-url">{siteUrl}/store/{agent.slug}</span>
                       <button className="copy-btn" onClick={() => { navigator.clipboard.writeText(`${siteUrl}/store/${agent.slug}`); toast('Copied!', 'success', 2000); }}>Copy</button>
                     </div>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Share on WhatsApp</label>
+
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <a
                       href={`https://wa.me/?text=${encodeURIComponent(`Buy data bundles from my store: ${siteUrl}/store/${agent.slug}`)}`}
                       className="btn btn-sm"
                       style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', display: 'inline-flex' }}
                       target="_blank" rel="noopener noreferrer"
                     >
-                      Share on WhatsApp
+                      💬 Share on WhatsApp
+                    </a>
+                    <a
+                      href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${siteUrl}/store/${agent.slug}`)}&bgcolor=0d1117&color=00d4aa&margin=10`}
+                      download="store-qr.png"
+                      className="btn btn-secondary btn-sm"
+                      style={{ display: 'inline-flex' }}
+                    >
+                      ⬇ Download QR
                     </a>
                   </div>
-                </div>
-              </div>
 
-              <div className="card">
-                <div className="card-header"><div className="card-title">QR Code</div></div>
-                <div className="card-body" style={{ textAlign: 'center', padding: 32 }}>
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${siteUrl}/store/${agent.slug}`)}&bgcolor=0d1117&color=00d4aa&margin=10`}
-                    alt="Store QR Code"
-                    style={{ width: 200, height: 200, margin: '0 auto 16px', borderRadius: 12, border: '1px solid var(--border)' }}
-                  />
-                  <div style={{ fontSize: 13, color: 'var(--text3)' }}>Scan to visit your store</div>
-                  <a
-                    href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${siteUrl}/store/${agent.slug}`)}&bgcolor=0d1117&color=00d4aa&margin=10`}
-                    download="store-qr.png"
-                    className="btn btn-secondary btn-sm"
-                    style={{ marginTop: 14, display: 'inline-flex' }}
-                  >
-                    ⬇ Download QR Code
-                  </a>
+                  {/* QR Code */}
+                  <div style={{ textAlign: 'center', paddingTop: 8 }}>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${siteUrl}/store/${agent.slug}`)}&bgcolor=0d1117&color=00d4aa&margin=10`}
+                      alt="Store QR Code"
+                      style={{ width: 160, height: 160, margin: '0 auto 8px', borderRadius: 12, border: '1px solid var(--border)', display: 'block' }}
+                    />
+                    <div style={{ fontSize: 12, color: 'var(--text3)' }}>Scan to visit your store</div>
+                  </div>
+
                 </div>
               </div>
             </div>
