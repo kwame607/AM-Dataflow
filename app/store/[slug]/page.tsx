@@ -113,7 +113,7 @@ export default function AgentStorePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: `${phone}@adomun.com`,
+          email: `${phone}@${slug}.adomun.store`,
           amount: Math.round(price * 100),
           reference: ref,
           metadata: {
@@ -135,7 +135,7 @@ export default function AgentStorePage() {
 
       await openPaystack({
         key: PAYSTACK_KEY,
-        email: `${phone}@adomun.com`,
+        email: `${phone}@${slug}.adomun.store`,
         amount: Math.round(price * 100),
         ref: initData.reference,
         callback: async ({ reference }: { reference: string }) => {
