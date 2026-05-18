@@ -124,8 +124,8 @@ h1,h2,h3,h4 { font-family: var(--font-syne), 'Syne', sans-serif; }
 .menu-btn:hover { border-color: var(--border-h); color: var(--text); }
 
 /* ── MAIN CONTENT ── */
-.main-content { margin-left: 256px; padding-top: 68px; min-height: 100vh; }
-.page-body { padding: 28px 28px 60px; max-width: 1300px; }
+.main-content { flex: 1; min-width: 0; margin-left: 256px; padding-top: 68px; min-height: 100vh; }
+.page-body { padding: 28px 28px 60px; width: 100%; max-width: 1300px; box-sizing: border-box; }
 .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
 .page-title { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; }
 .page-subtitle { font-size: 13px; color: var(--text3); margin-top: 2px; }

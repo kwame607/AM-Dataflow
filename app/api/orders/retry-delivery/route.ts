@@ -32,7 +32,10 @@ export async function POST(req: NextRequest) {
     if (!bundle) return NextResponse.json({ error: 'Bundle not found' }, { status: 400 });
 
     const hubnetNetwork = getHubnetNetwork({ ...bundle, network: order.network });
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+    const rawUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+    const siteUrl = rawUrl && !rawUrl.includes('localhost')
+      ? rawUrl
+      : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
 
     // Mark as processing while we attempt
     await supabase.from('orders').update({ delivery_status: 'processing' }).eq('id', order.id);

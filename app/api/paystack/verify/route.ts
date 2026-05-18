@@ -86,7 +86,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. Attempt Hubnet delivery in background (non-blocking)
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+    const rawUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+    const siteUrl = rawUrl && !rawUrl.includes('localhost')
+      ? rawUrl
+      : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
     const hubnetNetwork = getHubnetNetwork({ ...bundle, network: orderData.network });
     hubnetTransact({
       network: hubnetNetwork,
