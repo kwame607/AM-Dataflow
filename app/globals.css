@@ -176,7 +176,7 @@ h1,h2,h3,h4 { font-family: var(--font-syne), 'Syne', sans-serif; }
 .form-input {
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 12px 14px;
-  color: var(--text); font-size: 14px; font-weight: 500; outline: none;
+  color: var(--text); font-size: 16px; font-weight: 500; outline: none;
   transition: border-color 0.2s; width: 100%;
 }
 .form-input:focus { border-color: var(--accent); }
