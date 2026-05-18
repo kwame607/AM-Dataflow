@@ -24,6 +24,7 @@ export default function AdminPage() {
   const [hubBalance, setHubBalance] = useState<number | null>(null);
 
   const [priceEdits, setPriceEdits] = useState<Record<string, string>>({});
+  const [storeEdits, setStoreEdits] = useState<Record<string, string>>({});
   const [savingPrices, setSavingPrices] = useState(false);
   const [bulkMarkup, setBulkMarkup] = useState('');
   const [orderFilter, setOrderFilter] = useState('all');
@@ -43,11 +44,19 @@ export default function AdminPage() {
     const prices = Array.isArray(pricesRes) ? pricesRes : [];
     setAdminPrices(prices);
     const edits: Record<string, string> = {};
-    prices.forEach((p: AdminPrice) => { edits[p.bundle_key] = String(p.selling_price); });
+    const sEdits: Record<string, string> = {};
+    prices.forEach((p: AdminPrice) => {
+      edits[p.bundle_key] = String(p.selling_price);
+      sEdits[p.bundle_key] = String(p.store_price ?? p.selling_price);
+    });
     Object.keys(BUNDLES).forEach(net => {
-      BUNDLES[net].forEach(b => { if (!edits[b.key]) edits[b.key] = String(getDefaultAdminPrice(b.cost)); });
+      BUNDLES[net].forEach(b => {
+        if (!edits[b.key]) edits[b.key] = String(getDefaultAdminPrice(b.cost));
+        if (!sEdits[b.key]) sEdits[b.key] = String(getDefaultAdminPrice(b.cost));
+      });
     });
     setPriceEdits(edits);
+    setStoreEdits(sEdits);
     setWithdrawals(Array.isArray(withdrawalsRes) ? withdrawalsRes : []);
     if (balRes?.balance !== undefined) setHubBalance(balRes.balance);
   }, []);
@@ -76,6 +85,7 @@ export default function AdminPage() {
           bundleKey: b.key, network: net, size: b.size,
           volume: b.volume, hubnetCost: b.cost, validity: b.validity,
           sellingPrice: parseFloat(priceEdits[b.key] || '0') || getDefaultAdminPrice(b.cost),
+          storePrice: parseFloat(storeEdits[b.key] || '0') || getDefaultAdminPrice(b.cost),
         }))
       );
       const res = await authFetch('/api/admin/prices', {
@@ -92,10 +102,15 @@ export default function AdminPage() {
     const pct = parseFloat(bulkMarkup);
     if (isNaN(pct)) return;
     const newEdits: Record<string, string> = { ...priceEdits };
+    const newStore: Record<string, string> = { ...storeEdits };
     Object.keys(BUNDLES).forEach(net => {
-      BUNDLES[net].forEach(b => { newEdits[b.key] = (b.cost * (1 + pct / 100)).toFixed(2); });
+      BUNDLES[net].forEach(b => {
+        newEdits[b.key] = (b.cost * (1 + pct / 100)).toFixed(2);
+        newStore[b.key] = (b.cost * (1 + pct / 100)).toFixed(2);
+      });
     });
     setPriceEdits(newEdits);
+    setStoreEdits(newStore);
   }
 
   async function updateAgent(id: string, status: string) {
@@ -409,7 +424,7 @@ export default function AdminPage() {
             <div>
               <div className="alert alert-info" style={{ marginBottom: 16 }}>
                 <span>ℹ</span>
-                <span>Set your <strong>selling prices</strong> to match your Hubnet store (apisolution.net). The &quot;Cost&quot; shown is the estimated Hubnet wholesale cost — update selling prices to what you charge customers.</span>
+                <span><strong>My Store Price</strong> = what customers pay on your main ADMUNZ store. <strong>Agent Min</strong> = the lowest price agents are allowed to charge. These are independent — set them separately.</span>
               </div>
               <div className="card" style={{ marginBottom: 20 }}>
                 <div className="card-header"><div className="card-title">Bulk Pricing Tools</div></div>
@@ -434,18 +449,33 @@ export default function AdminPage() {
                   <div className="card-body">
                     <div className="price-grid">
                       {BUNDLES[net].map(b => {
-                        const selling = parseFloat(priceEdits[b.key] || '0');
-                        const profit = isNaN(selling) ? 0 : selling - b.cost;
+                        const storePx = parseFloat(storeEdits[b.key] || '0');
+                        const agentMin = parseFloat(priceEdits[b.key] || '0');
+                        const storeProfit = isNaN(storePx) ? 0 : storePx - b.cost;
+                        const agentProfit = isNaN(agentMin) ? 0 : agentMin - b.cost;
                         return (
                           <div key={b.key} className="price-card">
                             <div>
                               <div className="price-size">{b.size}</div>
                               <div className="price-meta">Cost: {fmt(b.cost)}</div>
-                              <div className="profit-tag">+{fmt(profit)} margin</div>
                             </div>
-                            <div className="price-input-wrap">
-                              <span className="price-prefix">₵</span>
-                              <input className="price-field" type="number" step="0.50" value={priceEdits[b.key] || ''} onChange={e => setPriceEdits(prev => ({ ...prev, [b.key]: e.target.value }))} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                              <div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>My Store</div>
+                                <div className="price-input-wrap">
+                                  <span className="price-prefix">₵</span>
+                                  <input className="price-field" type="number" step="0.50" value={storeEdits[b.key] || ''} onChange={e => setStoreEdits(prev => ({ ...prev, [b.key]: e.target.value }))} />
+                                </div>
+                                <div className="profit-tag" style={{ marginTop: 3 }}>+{fmt(storeProfit)} margin</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Agent Min</div>
+                                <div className="price-input-wrap">
+                                  <span className="price-prefix">₵</span>
+                                  <input className="price-field" type="number" step="0.50" value={priceEdits[b.key] || ''} onChange={e => setPriceEdits(prev => ({ ...prev, [b.key]: e.target.value }))} />
+                                </div>
+                                <div className="profit-tag" style={{ marginTop: 3, color: 'var(--text3)' }}>+{fmt(agentProfit)} margin</div>
+                              </div>
                             </div>
                           </div>
                         );

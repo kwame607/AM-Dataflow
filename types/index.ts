@@ -36,6 +36,7 @@ export interface AdminPrice {
   volume: string;
   hubnet_cost: number;
   selling_price: number;
+  store_price: number | null;
   admin_profit: number;
   validity: string;
   updated_at: string;

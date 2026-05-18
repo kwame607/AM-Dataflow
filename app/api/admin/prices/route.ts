@@ -43,13 +43,14 @@ export async function POST(req: NextRequest) {
     if (!Array.isArray(prices)) return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
 
     const supabase = createSupabaseAdminClient();
-    const rows = prices.map((p: { bundleKey: string; sellingPrice: number; network: string; size: string; volume: string; hubnetCost: number; validity: string }) => ({
+    const rows = prices.map((p: { bundleKey: string; sellingPrice: number; storePrice: number; network: string; size: string; volume: string; hubnetCost: number; validity: string }) => ({
       bundle_key: p.bundleKey,
       network: p.network,
       size: p.size,
       volume: p.volume,
       hubnet_cost: p.hubnetCost,
       selling_price: p.sellingPrice,
+      store_price: p.storePrice,
       validity: p.validity,
       updated_at: new Date().toISOString(),
     }));

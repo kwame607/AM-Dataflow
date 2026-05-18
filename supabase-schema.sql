@@ -12,6 +12,7 @@ ALTER TABLE agents ADD COLUMN IF NOT EXISTS whatsapp text;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS updated_at timestamptz;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_status text not null default 'pending';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at timestamptz;
+ALTER TABLE admin_prices ADD COLUMN IF NOT EXISTS store_price numeric(10,2);
 
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
@@ -70,6 +71,7 @@ create table if not exists admin_prices (
   volume        text not null,
   hubnet_cost   numeric(10,2) not null,
   selling_price numeric(10,2) not null,
+  store_price   numeric(10,2),
   admin_profit  numeric(10,2) not null default 0,
   validity      text not null default '90 days',
   updated_at    timestamptz default now()

@@ -54,7 +54,7 @@ export default function MainStorePage() {
       .then((data: AdminPrice[]) => {
         if (Array.isArray(data)) {
           const map: Record<string, number> = {};
-          data.forEach(p => { map[p.bundle_key] = p.selling_price; });
+          data.forEach(p => { map[p.bundle_key] = p.store_price ?? p.selling_price; });
           setAdminPrices(map);
         }
       })
