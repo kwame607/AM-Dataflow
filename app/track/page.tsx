@@ -55,7 +55,7 @@ export default function TrackPage() {
         <div className="auth-logo" style={{ justifyContent: 'center' }}>
           <div className="logo-mark">A</div>
           <div className="logo-text">
-            <strong>ADOMUN</strong>
+            <strong>ADMUNZ</strong>
             <span>Order Tracker</span>
           </div>
         </div>

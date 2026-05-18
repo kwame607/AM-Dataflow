@@ -95,7 +95,7 @@ export default function RegisterPage() {
       <div style={{ width: '100%', maxWidth: 480, margin: '0 auto' }}>
         <div className="auth-logo" style={{ justifyContent: 'center' }}>
           <div className="logo-mark">A</div>
-          <div className="logo-text"><strong>ADOMUN</strong><span>Reseller Programme</span></div>
+          <div className="logo-text"><strong>ADMUNZ</strong><span>Reseller Programme</span></div>
         </div>
 
         {/* Benefits */}

@@ -46,7 +46,7 @@ export default function ResetPasswordPage() {
       <div className="auth-card">
         <div className="auth-logo">
           <div className="logo-mark">A</div>
-          <div className="logo-text"><strong>ADOMUN</strong><span>Data</span></div>
+          <div className="logo-text"><strong>ADMUNZ</strong><span>Data</span></div>
         </div>
 
         {done ? (

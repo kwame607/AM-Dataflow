@@ -83,7 +83,7 @@ export default function LoginPage() {
         <div className="auth-logo" style={{ justifyContent: 'center' }}>
           <div className="logo-mark">A</div>
           <div className="logo-text">
-            <strong>ADOMUN</strong>
+            <strong>ADMUNZ</strong>
             <span>Agent Portal</span>
           </div>
         </div>

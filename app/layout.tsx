@@ -7,10 +7,10 @@ const syne = Syne({ subsets: ['latin'], variable: '--font-syne', display: 'swap'
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'ADOMUN — Fast Data Bundles',
+  title: 'ADMUNZ — Fast Data Bundles',
   description: 'Buy MTN and AirtelTigo data bundles instantly.',
   openGraph: {
-    title: 'ADOMUN',
+    title: 'ADMUNZ',
     description: 'Buy MTN and AirtelTigo data bundles instantly.',
     type: 'website',
   },

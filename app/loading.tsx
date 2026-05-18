@@ -19,7 +19,7 @@ export default function Loading() {
           fontFamily: 'sans-serif',
         }}>A</div>
         <div>
-          <div style={{ fontFamily: 'sans-serif', fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>ADOMUN</div>
+          <div style={{ fontFamily: 'sans-serif', fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>ADMUNZ</div>
           <div style={{ fontFamily: 'sans-serif', fontSize: 12, color: '#64748b', marginTop: 2 }}>Data</div>
         </div>
       </div>

@@ -16,7 +16,7 @@ interface SelectedBundle extends Bundle {
 
 const WA_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP || '0200000000';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || '';
-const STORE_NAME = 'ADOMUN';
+const STORE_NAME = 'ADMUNZ';
 const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
 
 export default function MainStorePage() {
@@ -126,7 +126,7 @@ export default function MainStorePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: `${phone}@adomun.store`,
+          email: `${phone}@admunz.store`,
           amount: Math.round(selectedBundle.customerPays * 100),
           reference,
           metadata: {
@@ -151,7 +151,7 @@ export default function MainStorePage() {
       // 2. Open Paystack popup with server-generated reference + full v1 params
       await openPaystack({
         key: PAYSTACK_KEY,
-        email: `${phone}@adomun.store`,
+        email: `${phone}@admunz.store`,
         amount: Math.round(selectedBundle.customerPays * 100),
         ref: initData.reference,
         callback: async (response: { reference: string }) => {
@@ -210,7 +210,7 @@ export default function MainStorePage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ width: 52, height: 52, borderRadius: 14, background: '#00d4aa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, color: '#000', fontFamily: 'sans-serif' }}>A</div>
         <div>
-          <div style={{ fontFamily: 'sans-serif', fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>ADOMUN</div>
+          <div style={{ fontFamily: 'sans-serif', fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>ADMUNZ</div>
           <div style={{ fontFamily: 'sans-serif', fontSize: 12, color: '#64748b', marginTop: 2 }}>Data</div>
         </div>
       </div>
