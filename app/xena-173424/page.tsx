@@ -168,6 +168,11 @@ export default function AdminPage() {
   const pendingAgents = agents.filter(a => a.status === 'pending').length;
   const pendingWithdrawals = withdrawals.filter(w => w.status === 'pending').length;
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayOrders = successOrders.filter(o => o.created_at?.slice(0, 10) === todayStr);
+  const todayRevenue = todayOrders.reduce((s, o) => s + (o.admin_price || 0), 0);
+  const todayProfit = todayOrders.reduce((s, o) => s + (o.admin_profit || 0), 0);
+
   const filteredOrders = orderFilter === 'all' ? orders : orders.filter(o => o.status === orderFilter);
 
   const agentStats = React.useMemo(() => {
@@ -287,12 +292,31 @@ export default function AdminPage() {
           {/* OVERVIEW */}
           {tab === 'overview' && (
             <div>
-              <div className="stats-grid">
+              {/* All-time stats */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>All Time</div>
+              <div className="stats-grid" style={{ marginBottom: 24 }}>
                 {[
                   { label: 'Total Orders', val: orders.length, sub: `${successOrders.length} successful`, icon: '📦', bg: 'rgba(14,165,233,0.12)', color: 'var(--accent2)' },
                   { label: 'Total Revenue', val: fmt(totalRevenue), sub: 'From all sales', accent: true, icon: '₵', bg: 'var(--accent-dim)', color: 'var(--accent)' },
                   { label: 'Net Profit', val: fmt(totalProfit), sub: 'Your margin', accent: true, icon: '📈', bg: 'rgba(16,185,129,0.12)', color: 'var(--ok)' },
                   { label: 'Active Agents', val: agents.filter(a => a.status === 'active').length, sub: pendingAgents > 0 ? `${pendingAgents} pending` : 'All active', icon: '👥', bg: 'rgba(245,158,11,0.12)', color: 'var(--warn)' },
+                ].map(s => (
+                  <div key={s.label} className={`stat-card${s.accent ? ' accent' : ''}`}>
+                    <div className="stat-icon" style={{ background: s.bg, color: s.color, fontSize: 18 }}>{s.icon}</div>
+                    <div className="stat-label">{s.label}</div>
+                    <div className="stat-val">{s.val}</div>
+                    <div className="stat-sub">{s.sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Today stats */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Today</div>
+              <div className="stats-grid" style={{ marginBottom: 24 }}>
+                {[
+                  { label: "Today's Orders", val: todayOrders.length, sub: todayOrders.length === 1 ? '1 sale today' : `${todayOrders.length} sales today`, icon: '🛒', bg: 'rgba(14,165,233,0.12)', color: 'var(--accent2)' },
+                  { label: "Today's Revenue", val: fmt(todayRevenue), sub: todayOrders.length === 0 ? 'No sales yet' : `Across ${todayOrders.length} order${todayOrders.length > 1 ? 's' : ''}`, accent: true, icon: '💰', bg: 'var(--accent-dim)', color: 'var(--accent)' },
+                  { label: "Today's Profit", val: fmt(todayProfit), sub: 'Your cut today', accent: true, icon: '✨', bg: 'rgba(16,185,129,0.12)', color: 'var(--ok)' },
                 ].map(s => (
                   <div key={s.label} className={`stat-card${s.accent ? ' accent' : ''}`}>
                     <div className="stat-icon" style={{ background: s.bg, color: s.color, fontSize: 18 }}>{s.icon}</div>
