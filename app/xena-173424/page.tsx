@@ -29,6 +29,7 @@ export default function AdminPage() {
   const [bulkMarkup, setBulkMarkup] = useState('');
   const [orderFilter, setOrderFilter] = useState('all');
   const [agentFilter, setAgentFilter] = useState('all');
+  const [inactiveDays, setInactiveDays] = useState(30);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
@@ -168,7 +169,40 @@ export default function AdminPage() {
   const pendingWithdrawals = withdrawals.filter(w => w.status === 'pending').length;
 
   const filteredOrders = orderFilter === 'all' ? orders : orders.filter(o => o.status === orderFilter);
-  const filteredAgents = agentFilter === 'all' ? agents : agents.filter(a => a.status === agentFilter);
+
+  const agentStats = React.useMemo(() => {
+    const map: Record<string, { totalOrders: number; revenue: number; lastSale: string | null; daysSince: number | null }> = {};
+    const now = Date.now();
+    orders.filter(o => o.status === 'success' && o.agent_id).forEach(o => {
+      if (!map[o.agent_id!]) map[o.agent_id!] = { totalOrders: 0, revenue: 0, lastSale: null, daysSince: null };
+      const s = map[o.agent_id!];
+      s.totalOrders++;
+      s.revenue += o.agent_profit || 0;
+      if (!s.lastSale || o.created_at > s.lastSale) {
+        s.lastSale = o.created_at;
+        s.daysSince = Math.floor((now - new Date(o.created_at).getTime()) / 86400000);
+      }
+    });
+    return map;
+  }, [orders]);
+
+  function getActivityLevel(agentId: string, registeredAt: string): 'active' | 'slow' | 'inactive' {
+    const s = agentStats[agentId];
+    const daysSinceReg = Math.floor((Date.now() - new Date(registeredAt).getTime()) / 86400000);
+    if (!s || s.daysSince === null) return daysSinceReg >= 7 ? 'inactive' : 'active';
+    if (s.daysSince <= inactiveDays) return 'active';
+    if (s.daysSince <= inactiveDays * 2) return 'slow';
+    return 'inactive';
+  }
+
+  const filteredAgents = (() => {
+    if (agentFilter === 'inactive') {
+      return agents.filter(a => getActivityLevel(a.id, a.created_at) === 'inactive' && a.status !== 'pending');
+    }
+    return agentFilter === 'all' ? agents : agents.filter(a => a.status === agentFilter);
+  })();
+
+  const inactiveCount = agents.filter(a => getActivityLevel(a.id, a.created_at) === 'inactive' && a.status !== 'pending').length;
 
   const navItems: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'overview', label: 'Overview', icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7h18M3 12h18M3 17h18"/></svg> },
@@ -375,14 +409,20 @@ export default function AdminPage() {
           {/* AGENTS */}
           {tab === 'agents' && (
             <div>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div className="tab-nav">
-                  {['all','pending','active','suspended'].map(f => (
+                  {(['all','pending','active','suspended','inactive'] as const).map(f => (
                     <button key={f} className={`tab-btn${agentFilter === f ? ' active' : ''}`} onClick={() => setAgentFilter(f)}>
                       {f.charAt(0).toUpperCase() + f.slice(1)}
                       {f === 'pending' && pendingAgents > 0 && <span style={{ marginLeft: 6, background: 'var(--err)', color: '#fff', borderRadius: 100, fontSize: 10, padding: '1px 5px' }}>{pendingAgents}</span>}
+                      {f === 'inactive' && inactiveCount > 0 && <span style={{ marginLeft: 6, background: '#f59e0b', color: '#000', borderRadius: 100, fontSize: 10, padding: '1px 5px' }}>{inactiveCount}</span>}
                     </button>
                   ))}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', fontSize: 12, color: 'var(--text3)' }}>
+                  <span>Flag inactive after</span>
+                  <input type="number" min={7} max={180} value={inactiveDays} onChange={e => setInactiveDays(Number(e.target.value))} style={{ width: 52, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 12, textAlign: 'center' }} />
+                  <span>days</span>
                 </div>
               </div>
               <div className="card">
@@ -391,26 +431,41 @@ export default function AdminPage() {
                     ? <div className="empty"><div className="empty-icon">👥</div><div className="empty-title">No agents found</div></div>
                     : (
                       <table>
-                        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Store</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Agent</th><th>Store</th><th>Activity</th><th>Last Sale</th><th>Orders</th><th>Revenue</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody>
-                          {filteredAgents.map(a => (
-                            <tr key={a.id}>
-                              <td style={{ fontWeight: 600 }}>{a.name}</td>
-                              <td style={{ color: 'var(--text3)' }}>{a.email}</td>
-                              <td>{a.phone}</td>
-                              <td><a href={`/store/${a.slug}`} style={{ color: 'var(--accent)' }} target="_blank" rel="noopener noreferrer">/store/{a.slug}</a></td>
-                              <td><StatusBadge status={a.status} /></td>
-                              <td style={{ color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtDate(a.created_at)}</td>
-                              <td>
-                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                  {a.status === 'pending' && <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)' }} onClick={() => updateAgent(a.id, 'active')}>Approve</button>}
-                                  {a.status === 'active' && <button className="btn btn-sm" style={{ background: 'var(--warn-dim)', color: 'var(--warn)', border: '1px solid var(--warn)' }} onClick={() => updateAgent(a.id, 'suspended')}>Suspend</button>}
-                                  {a.status === 'suspended' && <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)' }} onClick={() => updateAgent(a.id, 'active')}>Reactivate</button>}
-                                  <button className="btn btn-sm" style={{ background: 'var(--err-dim)', color: 'var(--err)', border: '1px solid var(--err)' }} onClick={() => deleteAgent(a.id, a.auth_user_id || '')}>Delete</button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                          {filteredAgents.map(a => {
+                            const s = agentStats[a.id];
+                            const level = getActivityLevel(a.id, a.created_at);
+                            const dot = level === 'active' ? { color: 'var(--ok)', label: 'Active' } : level === 'slow' ? { color: '#f59e0b', label: 'Slow' } : { color: 'var(--err)', label: 'Inactive' };
+                            return (
+                              <tr key={a.id}>
+                                <td>
+                                  <div style={{ fontWeight: 600 }}>{a.name}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.email}</div>
+                                </td>
+                                <td><a href={`/store/${a.slug}`} style={{ color: 'var(--accent)', fontSize: 12 }} target="_blank" rel="noopener noreferrer">/store/{a.slug}</a></td>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot.color, display: 'inline-block', flexShrink: 0 }} />
+                                    <span style={{ fontSize: 12, color: dot.color, fontWeight: 600 }}>{dot.label}</span>
+                                  </div>
+                                  {s?.daysSince !== null && s?.daysSince !== undefined && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{s.daysSince}d ago</div>}
+                                </td>
+                                <td style={{ fontSize: 12, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{s?.lastSale ? fmtDate(s.lastSale) : <span style={{ color: 'var(--err)', fontSize: 11 }}>Never</span>}</td>
+                                <td style={{ fontWeight: 600, textAlign: 'center' }}>{s?.totalOrders ?? 0}</td>
+                                <td style={{ fontWeight: 600, color: 'var(--ok)' }}>{fmt(s?.revenue ?? 0)}</td>
+                                <td><StatusBadge status={a.status} /></td>
+                                <td>
+                                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                    {a.status === 'pending' && <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)' }} onClick={() => updateAgent(a.id, 'active')}>Approve</button>}
+                                    {a.status === 'active' && <button className="btn btn-sm" style={{ background: 'var(--warn-dim)', color: 'var(--warn)', border: '1px solid var(--warn)' }} onClick={() => updateAgent(a.id, 'suspended')}>Suspend</button>}
+                                    {a.status === 'suspended' && <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)' }} onClick={() => updateAgent(a.id, 'active')}>Reactivate</button>}
+                                    <button className="btn btn-sm" style={{ background: 'var(--err-dim)', color: 'var(--err)', border: '1px solid var(--err)' }} onClick={() => deleteAgent(a.id, a.auth_user_id || '')}>Delete</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     )}
