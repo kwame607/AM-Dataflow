@@ -224,13 +224,7 @@ export default function MainStorePage() {
       <header className="store-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div className="logo-mark">{STORE_NAME[0]}</div>
-          <div>
-            <div className="store-header-name" style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1, color: 'var(--text)' }}>{STORE_NAME}</div>
-            <div className="store-live-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6, background: 'rgba(0,212,170,0.08)', border: '1px solid rgba(0,212,170,0.2)', borderRadius: 100, padding: '2px 8px 2px 5px' }}>
-              <span className="live-dot" />
-              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>All Networks Live</span>
-            </div>
-          </div>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>{STORE_NAME}</div>
         </div>
         <div className="store-header-btns" style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary btn-sm" onClick={() => setTrackOpen(true)}>
