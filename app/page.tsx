@@ -106,6 +106,7 @@ export default function MainStorePage() {
 
   async function placeOrder() {
     if (!selectedBundle) return;
+    if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
     setPaying(true);
 
     const reference = genRef('DF');

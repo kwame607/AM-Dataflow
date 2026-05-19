@@ -102,6 +102,7 @@ export default function AgentStorePage() {
 
   async function placeOrder() {
     if (!agent || !selectedBundle) return;
+    if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
     setPaying(true);
 
     const price = getPrice(selectedBundle.key, selectedBundle.cost);
