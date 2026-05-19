@@ -447,6 +447,11 @@ export default function MainStorePage() {
                         </div>
                       </div>
                     </div>
+                    {(dlv === 'pending' || dlv === 'processing') && (
+                      <div style={{ padding: '0 14px 14px', fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
+                        ⏱ Data is on its way — check your phone balance. Usually delivered within 5–60 mins.
+                      </div>
+                    )}
                     {dlv === 'failed' && (
                       <div style={{ padding: '0 14px 14px' }}>
                         <a href={waLink(o.reference, o.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-sm" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', display: 'inline-flex', width: '100%', justifyContent: 'center' }}>

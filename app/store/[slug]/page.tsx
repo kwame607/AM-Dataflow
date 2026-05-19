@@ -457,6 +457,11 @@ export default function AgentStorePage() {
                         </div>
                       </div>
                     </div>
+                    {(dlv === 'pending' || dlv === 'processing') && (
+                      <div style={{ padding: '0 14px 14px', fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
+                        ⏱ Data is on its way — check your phone balance. Usually delivered within 5–60 mins.
+                      </div>
+                    )}
                     {dlv === 'failed' && agent?.whatsapp && (
                       <div style={{ padding: '0 14px 14px' }}>
                         <a href={`https://wa.me/+233${agent.whatsapp.replace(/^0/, '')}?text=${encodeURIComponent(`Hi, I need help with order ${o.reference}`)}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
