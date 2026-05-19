@@ -113,7 +113,7 @@ export default function AgentStorePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: `${phone}@${slug}.admunz.com`,
+          email: `${phone}@admunz.com`,
           amount: Math.round(price * 100),
           reference: ref,
           metadata: {
