@@ -65,18 +65,14 @@ export async function verifyPaystackPayment(reference: string): Promise<{
 declare global {
   interface Window {
     PaystackPop: {
-      setup(options: PaystackOptions): { openIframe(): void };
+      setup(options: Record<string, unknown>): { openIframe(): void };
     };
   }
 }
 
 interface PaystackOptions {
   key: string;
-  email: string;
-  amount: number;
-  currency?: string;
-  ref: string;
-  metadata?: Record<string, unknown>;
+  access_code: string;
   callback: (response: { reference: string }) => void;
   onClose: () => void;
 }
@@ -89,11 +85,7 @@ export function openPaystack(options: PaystackOptions): Promise<void> {
       try {
         window.PaystackPop.setup({
           key: options.key,
-          email: options.email,
-          amount: options.amount,
-          ref: options.ref,
-          currency: options.currency || 'GHS',
-          metadata: options.metadata,
+          access_code: options.access_code,
           callback: function(response: { reference: string }) { options.callback(response); },
           onClose: function() { options.onClose(); },
         }).openIframe();

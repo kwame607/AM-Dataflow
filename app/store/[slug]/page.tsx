@@ -136,9 +136,7 @@ export default function AgentStorePage() {
 
       await openPaystack({
         key: PAYSTACK_KEY,
-        email: `${phone}@${slug}.admunz.com`,
-        amount: Math.round(price * 100),
-        ref: initData.reference,
+        access_code: initData.access_code,
         callback: async ({ reference }: { reference: string }) => {
           setProcessing(true);
           try {
