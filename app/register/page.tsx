@@ -176,12 +176,15 @@ export default function RegisterPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Store URL Slug</label>
+                <div style={{ background: 'rgba(255,190,0,0.08)', border: '1px solid rgba(255,190,0,0.3)', borderRadius: 8, padding: '10px 12px', marginBottom: 10, fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>
+                  ⚠️ <strong>No spaces, hyphens, or symbols.</strong> Letters and numbers only.<br />
+                  Example: <em>"Caleb Data Hub"</em> → <code style={{ background: 'var(--surface2)', padding: '1px 5px', borderRadius: 4 }}>calebdatahub</code>
+                </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--text3)', whiteSpace: 'nowrap' }}>/store/</span>
                   <input className="form-input" placeholder="kofidatahub" value={form.slug}
                     onChange={e => set('slug', e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20))} />
                 </div>
-                <div className="form-hint">Only lowercase letters and numbers, no spaces or symbols</div>
               </div>
               {form.slug && (
                 <div className="copy-box" style={{ marginBottom: 16 }}>
