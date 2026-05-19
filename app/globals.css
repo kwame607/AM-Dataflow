@@ -418,3 +418,12 @@ tbody tr:hover td { background: rgba(255,255,255,0.02); }
   .topbar-right { gap: 6px; }
 }
 @media (min-width: 769px) { .desktop-hide { display: none !important; } }
+
+/* ── STORE HEADER RESPONSIVE ── */
+@media (max-width: 480px) {
+  .store-header { padding: 0 12px; height: 58px; }
+  .store-header-name { font-size: 16px !important; }
+  .store-live-badge { display: none !important; }
+  .store-btn-label { display: none !important; }
+  .store-header-btns .btn { padding: 7px 10px; min-width: 36px; }
+}
