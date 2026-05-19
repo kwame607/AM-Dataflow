@@ -42,9 +42,7 @@ export function maskPhone(phone: string): string {
 export function slugify(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
+    .replace(/[^a-z0-9]/g, '')
     .substring(0, 20);
 }
 

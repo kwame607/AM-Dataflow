@@ -49,7 +49,7 @@ export default function RegisterPage() {
 
   function validate2() {
     if (!form.storeName.trim()) { setErr('Enter your store name'); return false; }
-    if (!form.slug || !/^[a-z0-9-]+$/.test(form.slug)) { setErr('Slug: lowercase letters, numbers, hyphens only'); return false; }
+    if (!form.slug || !/^[a-z0-9]+$/.test(form.slug)) { setErr('Slug: lowercase letters and numbers only'); return false; }
     return true;
   }
 
@@ -178,10 +178,10 @@ export default function RegisterPage() {
                 <label className="form-label">Store URL Slug</label>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--text3)', whiteSpace: 'nowrap' }}>/store/</span>
-                  <input className="form-input" placeholder="kofi-data" value={form.slug}
-                    onChange={e => set('slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '').substring(0, 20))} />
+                  <input className="form-input" placeholder="kofidatahub" value={form.slug}
+                    onChange={e => set('slug', e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20))} />
                 </div>
-                <div className="form-hint">Only lowercase letters, numbers, and hyphens</div>
+                <div className="form-hint">Only lowercase letters and numbers, no spaces or symbols</div>
               </div>
               {form.slug && (
                 <div className="copy-box" style={{ marginBottom: 16 }}>
