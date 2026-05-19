@@ -113,10 +113,11 @@ export async function POST(req: NextRequest) {
     }).then(async (result) => {
       console.log('[verify] Hubnet result:', JSON.stringify(result));
       if (result.success) {
-        // Hubnet accepted the request — waiting for delivery confirmation via webhook
+        // Hubnet code '0000' = data delivered successfully
         await supabase.from('orders').update({
-          delivery_status: 'processing',
+          delivery_status: 'delivered',
           hubnet_transaction_id: result.transactionId || null,
+          delivered_at: new Date().toISOString(),
         }).eq('id', order.id);
       } else {
         await supabase.from('orders').update({

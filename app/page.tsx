@@ -412,9 +412,10 @@ export default function MainStorePage() {
                 const payOk = o.status === 'success';
                 const dlv = o.delivery_status || 'pending';
                 const dlvMap: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-                  delivered: { label: 'Delivered', color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✓' },
-                  pending:   { label: 'Processing', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
-                  failed:    { label: 'Failed', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: '✕' },
+                  delivered:  { label: 'Delivered', color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✓' },
+                  pending:    { label: 'Processing', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+                  processing: { label: 'Processing', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+                  failed:     { label: 'Failed', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: '✕' },
                 };
                 const d = dlvMap[dlv] ?? dlvMap.pending;
                 return (

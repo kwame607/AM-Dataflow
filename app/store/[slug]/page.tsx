@@ -40,7 +40,7 @@ export default function AgentStorePage() {
   const [processing, setProcessing] = useState(false);
   const [successRef, setSuccessRef] = useState('');
   const [trackRef, setTrackRef] = useState('');
-  const [trackResult, setTrackResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [trackResult, setTrackResult] = useState<{ found: false; msg: string } | { found: true; order: { reference: string; phone: string; network: string; size: string; status: string; delivery_status: string; created_at: string } } | null>(null);
 
   const storeName = 'ADMUNZ';
   const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
@@ -167,10 +167,9 @@ export default function AgentStorePage() {
       const res = await fetch(`/api/orders/track?ref=${encodeURIComponent(trackRef)}`);
       const data = await res.json();
       if (data.order) {
-        const o = data.order;
-        setTrackResult({ ok: o.status === 'success', msg: `${o.size} — ${NET_NAMES[o.network] || o.network} · Phone: ${o.phone} · Status: ${o.status.toUpperCase()}` });
-      } else setTrackResult({ ok: false, msg: 'Reference not found. Contact agent on WhatsApp.' });
-    } catch { setTrackResult({ ok: false, msg: 'Error checking status. Try again.' }); }
+        setTrackResult({ found: true, order: data.order });
+      } else setTrackResult({ found: false, msg: 'Reference not found. Contact agent on WhatsApp.' });
+    } catch { setTrackResult({ found: false, msg: 'Error checking status. Try again.' }); }
   }
 
   function copyRef(ref: string) {
@@ -414,9 +413,60 @@ export default function AgentStorePage() {
                 <label className="form-label">Transaction Reference</label>
                 <input className="form-input" placeholder="e.g. DF-XXXXXX-XXXXX" value={trackRef} onChange={e => setTrackRef(e.target.value)} />
               </div>
-              {trackResult && (
-                <div className={`alert ${trackResult.ok ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: 12 }}>{trackResult.msg}</div>
+              {trackResult && !trackResult.found && (
+                <div className="alert alert-error" style={{ marginBottom: 12 }}>{trackResult.msg}</div>
               )}
+              {trackResult && trackResult.found && (() => {
+                const o = trackResult.order;
+                const payOk = o.status === 'success';
+                const dlv = o.delivery_status || 'pending';
+                const dlvMap: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+                  delivered:  { label: 'Delivered', color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✓' },
+                  pending:    { label: 'Processing', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+                  processing: { label: 'Processing', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+                  failed:     { label: 'Failed', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: '✕' },
+                };
+                const d = dlvMap[dlv] ?? dlvMap.pending;
+                const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                return (
+                  <div style={{ marginBottom: 16, borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <div style={{ background: 'var(--surface2)', padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text3)' }}>{o.reference}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>{fmtDate(o.created_at)}</span>
+                    </div>
+                    <div style={{ padding: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px', fontSize: 13 }}>
+                      <div>
+                        <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Bundle</div>
+                        <div style={{ fontWeight: 700 }}>{o.size}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{NET_NAMES[o.network] || o.network}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Phone</div>
+                        <div style={{ fontWeight: 700 }}>{o.phone}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Payment</div>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 100, fontSize: 12, fontWeight: 700, background: payOk ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: payOk ? '#10b981' : '#ef4444' }}>
+                          <span>{payOk ? '✓' : '✕'}</span>{payOk ? 'Paid' : 'Unpaid'}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Data Delivery</div>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 100, fontSize: 12, fontWeight: 700, background: d.bg, color: d.color }}>
+                          <span>{d.icon}</span>{d.label}
+                        </div>
+                      </div>
+                    </div>
+                    {dlv === 'failed' && agent?.whatsapp && (
+                      <div style={{ padding: '0 14px 14px' }}>
+                        <a href={`https://wa.me/+233${agent.whatsapp.replace(/^0/, '')}?text=${encodeURIComponent(`Hi, I need help with order ${o.reference}`)}`} target="_blank" rel="noopener noreferrer" className="btn btn-sm" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
+                          💬 Contact Agent on WhatsApp
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <button className="btn btn-primary btn-full" onClick={trackOrder}>Check Status</button>
             </div>
           </div>
