@@ -81,8 +81,10 @@ export async function hubnetTransact(params: TransactParams): Promise<TransactRe
 
     // Success: status true + message "0000"
     const success =
-      data?.status === true &&
-      (data?.message === '0000' || (data?.data as Record<string,unknown>)?.code === '0000');
+  	data?.status === true ||
+  	data?.message === '0000' ||
+  	String(data?.message).toLowerCase() === 'transaction submitted' ||
+  	(data?.data as Record<string,unknown>)?.code === '0000';
 
     return {
       success,

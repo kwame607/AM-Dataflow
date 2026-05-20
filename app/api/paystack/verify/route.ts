@@ -118,12 +118,7 @@ export async function POST(req: NextRequest) {
           delivery_status: 'processing',
           hubnet_transaction_id: result.transactionId || null,
         }).eq('id', order.id);
-      } else {
-        await supabase.from('orders').update({
-          delivery_status: 'failed',
-        }).eq('id', order.id);
-        console.warn('[verify] Hubnet delivery failed:', result.message);
-      }
+      } 
     }).catch(e => console.error('[verify] Hubnet call error:', e));
 
     return NextResponse.json({ success: true, reference, status: 'success' });

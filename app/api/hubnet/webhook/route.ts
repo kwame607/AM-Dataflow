@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    // Hubnet success: status=true (boolean) + message="0000"
     const statusBool = body.status === true;
     const messageCode = String(body.message || body.code || '').toLowerCase();
     const statusStr = String(body.status || '').toLowerCase();
@@ -40,10 +39,21 @@ export async function POST(req: NextRequest) {
       statusStr === 'error' ||
       statusStr === 'reversed';
 
+    const isProcessing =
+      messageCode === 'processing' ||
+      messageCode === 'submitted' ||
+      messageCode === 'pending' ||
+      statusStr === 'processing' ||
+      statusStr === 'submitted' ||
+      statusStr === 'pending';
+
+    // Never speculatively mark as failed — default to processing
+    // Only mark failed if Hubnet sends an explicit failure signal
     let deliveryStatus: string;
     if (isDelivered) deliveryStatus = 'delivered';
     else if (isFailed) deliveryStatus = 'failed';
-    else deliveryStatus = 'processing';
+    else if (isProcessing) deliveryStatus = 'processing';
+    else deliveryStatus = 'processing'; // safe default
 
     const supabase = createSupabaseAdminClient();
 
