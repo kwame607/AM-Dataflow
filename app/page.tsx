@@ -152,6 +152,9 @@ export default function MainStorePage() {
       // 2. Open Paystack popup with server-generated reference + full v1 params
       await openPaystack({
         key: PAYSTACK_KEY,
+        email: `${phone}@admunz.com`,
+        amount: Math.round(selectedBundle.customerPays * 100),
+        currency: 'GHS',
         access_code: initData.access_code,
         callback: async (response: { reference: string }) => {
           try {

@@ -33,6 +33,7 @@ export const BUNDLES: Record<string, Bundle[]> = {
     { key: 'at_15gb',  size: '15GB',  volume: '15000',  cost: 55.70, validity: '90 days' },
     { key: 'at_20gb',  size: '20GB',  volume: '20000',  cost: 74.30, validity: '90 days' },
     { key: 'at_25gb',  size: '25GB',  volume: '25000',  cost: 92.70, validity: '90 days' },
+    // 30GB+ = AirtelTigo BigTime → uses 'big-time' endpoint on Hubnet
     { key: 'at_30gb',  size: '30GB',  volume: '30000',  cost: 111.30,validity: '90 days' },
     { key: 'at_40gb',  size: '40GB',  volume: '40000',  cost: 150.00,validity: '90 days' },
     { key: 'at_50gb',  size: '50GB',  volume: '50000',  cost: 185.20,validity: '90 days' },
@@ -58,7 +59,20 @@ export function getBundleByKey(key: string): Bundle | undefined {
   return ALL_BUNDLES.find(b => b.key === key);
 }
 
-export function getHubnetNetwork(bundle: Bundle): string {
-  if (bundle.network === 'at' && parseInt(bundle.volume) >= 30000) return 'big-time';
-  return bundle.network || 'mtn';
+/**
+ * Maps internal network code → Hubnet API endpoint network segment.
+ * Allowed values per Hubnet docs: mtn | at | big-time
+ *
+ * AirtelTigo under 30GB  → 'at'
+ * AirtelTigo 30GB+       → 'big-time'
+ */
+export function getHubnetNetwork(bundle: Bundle & { network?: string }): string {
+  const net = bundle.network || '';
+  if (net === 'mtn') return 'mtn';
+  if (net === 'at') {
+    const volumeMb = parseInt(bundle.volume || '0', 10);
+    return volumeMb >= 30000 ? 'big-time' : 'at';
+  }
+  // telecel not in docs — add if Hubnet supports it
+  return net;
 }

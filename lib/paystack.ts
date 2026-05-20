@@ -72,6 +72,9 @@ declare global {
 
 interface PaystackOptions {
   key: string;
+  email: string;
+  amount: number;
+  currency: string;
   access_code: string;
   callback: (response: { reference: string }) => void;
   onClose: () => void;
@@ -85,6 +88,9 @@ export function openPaystack(options: PaystackOptions): Promise<void> {
       try {
         window.PaystackPop.setup({
           key: options.key,
+          email: options.email,
+          amount: options.amount,
+          currency: options.currency,
           access_code: options.access_code,
           callback: function(response: { reference: string }) { options.callback(response); },
           onClose: function() { options.onClose(); },
