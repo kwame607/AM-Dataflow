@@ -399,7 +399,7 @@ export default function MainStorePage() {
               <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 18 }}>Enter your transaction reference to check delivery status.</p>
               <div className="form-group">
                 <label className="form-label">Transaction Reference</label>
-                <input className="form-input" placeholder="e.g. DF-XXXXXX-XXXXX" value={trackRef} onChange={e => setTrackRef(e.target.value)} />
+                <input className="form-input" placeholder="e.g. T012087138433441" value={trackRef} onChange={e => setTrackRef(e.target.value)} />
               </div>
               {trackResult && !trackResult.found && (
                 <div className="alert alert-error" style={{ marginBottom: 12 }}>{trackResult.msg}</div>
