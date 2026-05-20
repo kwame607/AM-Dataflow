@@ -7,6 +7,7 @@ import { genRef, detectNetwork, fmt, fmtDate } from '@/lib/utils';
 import { openPaystack } from '@/lib/paystack';
 import type { Bundle, AdminPrice } from '@/types';
 import { useSimpleToast } from '@/components/ui/Toast';
+import Image from 'next/image';
 
 interface SelectedBundle extends Bundle {
   network: string;
@@ -225,7 +226,9 @@ export default function MainStorePage() {
       {/* HEADER */}
       <header className="store-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div className="logo-mark">{STORE_NAME[0]}</div>
+          <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
+  	<Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} 		style={{ objectFit: 'cover' }} />
+	  </div>
           <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>{STORE_NAME}</div>
         </div>
         <div className="store-header-btns" style={{ display: 'flex', gap: 8 }}>

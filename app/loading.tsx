@@ -1,3 +1,4 @@
+import Image from 'next/image';
 export default function Loading() {
   return (
     <div style={{
@@ -11,7 +12,7 @@ export default function Loading() {
     }}>
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
+       <div style={{
           width: 52, height: 52, borderRadius: 14,
           background: '#00d4aa',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
