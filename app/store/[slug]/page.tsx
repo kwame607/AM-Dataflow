@@ -140,16 +140,16 @@ export default function AgentStorePage() {
         amount: Math.round(price * 100),
         currency: 'GHS',
         access_code: initData.access_code,
-        callback: async ({ reference }: { reference: string }) => {
+        callback: async (_ps: { reference: string }) => {
           setProcessing(true);
           try {
             const res = await fetch('/api/paystack/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ reference, orderData }),
+              body: JSON.stringify({ reference: ref, orderData }),
             });
             const result = await res.json();
-            if (result.success) { setSuccessRef(reference); setOrderStep(3); }
+            if (result.success) { setSuccessRef(ref); setOrderStep(3); }
             else { toast(result.error || 'Order failed. Contact support.', 'error'); }
           } catch { toast('Network error. Save ref: ' + reference, 'error'); }
           finally { setProcessing(false); setPaying(false); }
@@ -408,7 +408,7 @@ export default function AgentStorePage() {
               <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 18 }}>Enter your transaction reference to check delivery status.</p>
               <div className="form-group">
                 <label className="form-label">Transaction Reference</label>
-                <input className="form-input" placeholder="e.g. T012087138433441" value={trackRef} onChange={e => setTrackRef(e.target.value)} />
+                <input className="form-input" placeholder="e.g. DF-XXXXX-XXX" value={trackRef} onChange={e => setTrackRef(e.target.value)} />
               </div>
               {trackResult && !trackResult.found && (
                 <div className="alert alert-error" style={{ marginBottom: 12 }}>{trackResult.msg}</div>

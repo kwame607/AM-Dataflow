@@ -157,16 +157,16 @@ export default function MainStorePage() {
         amount: Math.round(selectedBundle.customerPays * 100),
         currency: 'GHS',
         access_code: initData.access_code,
-        callback: async (response: { reference: string }) => {
+        callback: async (_ps: { reference: string }) => {
           try {
             const res = await fetch('/api/paystack/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ reference: response.reference, orderData }),
+              body: JSON.stringify({ reference, orderData }),
             });
             const result = await res.json();
             if (result.success) {
-              setSuccessRef(response.reference);
+              setSuccessRef(reference);
               setStep(3);
             } else {
               toast(result.error || 'Order processing failed. Contact support.', 'error');
