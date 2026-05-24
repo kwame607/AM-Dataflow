@@ -7,7 +7,7 @@ const ghPhone = z
 export const InitializePaymentSchema = z.object({
   email: z.string().email(),
   amount: z.number().int().positive().max(100_000_00),
-  reference: z.string().min(8).max(100),
+  reference: z.string().min(6).max(25),
   metadata: z.object({
     network: z.enum(['mtn', 'at', 'airteltigo', 'telecel']),
     bundle_key: z.string().min(1).max(100),
@@ -23,7 +23,7 @@ export const InitializePaymentSchema = z.object({
 });
 
 export const VerifyPaymentSchema = z.object({
-  reference: z.string().min(8).max(100),
+  reference: z.string().min(6).max(100),
   orderData: z.object({
     phone: ghPhone,
     network: z.enum(['mtn', 'at', 'airteltigo', 'telecel']),

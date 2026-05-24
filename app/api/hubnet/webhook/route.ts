@@ -78,3 +78,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Webhook error' }, { status: 500 });
   }
 }
+// Add this at the bottom of the file
+export async function GET() {
+  return NextResponse.json({ status: 'Hubnet webhook endpoint is live' });
+}

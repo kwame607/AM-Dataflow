@@ -1,7 +1,7 @@
 export function genRef(prefix = 'DF'): string {
   const ts = Date.now().toString(36).toUpperCase();
   const rand = Math.random().toString(36).substr(2, 6).toUpperCase();
-  return `${prefix}-${ts}-${rand}`.substring(0, 26);
+  return `${prefix}-${ts}-${rand}`.substring(0, 25);
 }
 
 export function detectNetwork(phone: string): string | null {
