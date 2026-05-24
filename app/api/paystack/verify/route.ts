@@ -7,7 +7,6 @@ import { rateLimit, getIp } from '@/lib/rate-limit';
 import { VerifyPaymentSchema } from '@/lib/validate';
 
 export async function POST(req: NextRequest) {
-  // Rate limit: 10 verifications per minute per IP
   const ip = getIp(req);
   const rl = rateLimit(`verify:${ip}`, 10, 60_000);
   if (!rl.allowed) {
@@ -19,8 +18,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+    console.log('[verify] Raw body:', JSON.stringify(body));
+
     const parsed = VerifyPaymentSchema.safeParse(body);
     if (!parsed.success) {
+      console.error('[verify] Validation failed:', JSON.stringify(parsed.error.flatten()));
       return NextResponse.json({ error: 'Invalid request', detail: parsed.error.flatten() }, { status: 400 });
     }
     const { reference, orderData } = parsed.data;
@@ -41,7 +43,19 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
 
-    // 3. Get admin price from DB (or use default)
+    // 3. Check for duplicate order
+    const { data: existing } = await supabase
+      .from('orders')
+      .select('id, status, delivery_status')
+      .eq('reference', reference)
+      .maybeSingle();
+
+    if (existing) {
+      console.log('[verify] Duplicate order found for', reference);
+      return NextResponse.json({ success: true, reference, status: existing.status });
+    }
+
+    // 4. Get admin price from DB
     const { data: adminPriceRow } = await supabase
       .from('admin_prices')
       .select('selling_price, admin_profit')
@@ -51,7 +65,7 @@ export async function POST(req: NextRequest) {
     const adminPrice = adminPriceRow?.selling_price ?? getDefaultAdminPrice(bundle.cost);
     const adminProfit = adminPriceRow?.admin_profit ?? (adminPrice - bundle.cost);
 
-    // 4. Get agent info if applicable
+    // 5. Get agent info if applicable
     let agentId: string | null = null;
     let agentProfit = 0;
     const agentPrice = orderData.agentPrice ?? adminPrice;
@@ -68,7 +82,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 5. Save order as success (payment confirmed) with delivery pending
+    // 6. Save order
     const { data: order, error: orderErr } = await supabase
       .from('orders')
       .insert({
@@ -98,32 +112,51 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to save order', detail: orderErr.message }, { status: 500 });
     }
 
-    // 6. Attempt Hubnet delivery in background (non-blocking)
+    console.log('[verify] Order saved:', order.id);
+
+    // 7. Attempt Hubnet delivery — awaited so Vercel does not kill it
     const rawUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
     const siteUrl = rawUrl && !rawUrl.includes('localhost')
       ? rawUrl
       : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
     const hubnetNetwork = getHubnetNetwork({ ...bundle, network: orderData.network });
-    hubnetTransact({
-      network: hubnetNetwork,
-      phone: orderData.phone,
-      volume: bundle.volume,
-      reference,
-      webhook: siteUrl ? `${siteUrl}/api/hubnet/webhook` : undefined,
-    }).then(async (result) => {
-      console.log('[verify] Hubnet result:', JSON.stringify(result));
-      if (result.success) {
-        // Hubnet accepted the request — delivery is async, webhook will confirm
+
+    try {
+      const hubnetResult = await hubnetTransact({
+        network: hubnetNetwork,
+        phone: orderData.phone,
+        volume: bundle.volume,
+        reference,
+        webhook: siteUrl ? `${siteUrl}/api/hubnet/webhook` : undefined,
+      });
+
+      console.log('[verify] Hubnet result:', JSON.stringify(hubnetResult));
+
+      if (hubnetResult.success) {
+        // Hubnet accepted — waiting for webhook to confirm delivery
         await supabase.from('orders').update({
           delivery_status: 'processing',
-          hubnet_transaction_id: result.transactionId || null,
+          hubnet_transaction_id: hubnetResult.transactionId || null,
         }).eq('id', order.id);
-      } 
-    }).catch(e => console.error('[verify] Hubnet call error:', e));
+      } else {
+        // Hubnet explicitly rejected — mark failed so you know to retry
+        console.warn('[verify] Hubnet rejected:', hubnetResult.message);
+        await supabase.from('orders').update({
+          delivery_status: 'failed',
+        }).eq('id', order.id);
+      }
+    } catch (hubnetErr) {
+      // Network/timeout — unknown if Hubnet got it, leave as pending
+      console.error('[verify] Hubnet call threw error:', hubnetErr);
+      await supabase.from('orders').update({
+        delivery_status: 'pending',
+      }).eq('id', order.id);
+    }
 
     return NextResponse.json({ success: true, reference, status: 'success' });
+
   } catch (e) {
-    console.error('Paystack verify error:', e);
+    console.error('[verify] Unexpected error:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

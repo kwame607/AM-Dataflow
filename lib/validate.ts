@@ -6,10 +6,10 @@ const ghPhone = z
 
 export const InitializePaymentSchema = z.object({
   email: z.string().email(),
-  amount: z.number().int().positive().max(100_000_00), // max GHS 1000 in pesewas
+  amount: z.number().int().positive().max(100_000_00),
   reference: z.string().min(8).max(100),
   metadata: z.object({
-    network: z.enum(['mtn', 'airteltigo', 'telecel']),
+    network: z.enum(['mtn', 'at', 'airteltigo', 'telecel']),
     bundle_key: z.string().min(1).max(100),
     source: z.enum(['main', 'agent']),
     agent_slug: z.string().max(100).optional(),
@@ -26,7 +26,7 @@ export const VerifyPaymentSchema = z.object({
   reference: z.string().min(8).max(100),
   orderData: z.object({
     phone: ghPhone,
-    network: z.enum(['mtn', 'airteltigo', 'telecel']),
+    network: z.enum(['mtn', 'at', 'airteltigo', 'telecel']),
     bundleKey: z.string().min(1).max(100),
     source: z.enum(['main', 'agent']),
     agentSlug: z.string().max(100).optional(),
@@ -50,5 +50,5 @@ export const WithdrawalSchema = z.object({
   amount: z.number().positive().min(20).max(10000),
   momoNumber: ghPhone,
   momoName: z.string().min(2).max(100),
-  network: z.enum(['mtn', 'airteltigo', 'telecel']),
+  network: z.enum(['mtn', 'at', 'airteltigo', 'telecel']),
 });
