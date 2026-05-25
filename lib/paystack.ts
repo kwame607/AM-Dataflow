@@ -41,10 +41,10 @@ export async function verifyPaystackPayment(reference: string): Promise<{
         };
       }
 
-      if (txStatus === 'failed' || txStatus === 'reversed' || txStatus === 'abandoned') {
-        console.log('[paystack verify] terminal failure status:', txStatus);
-        return { success: false };
-      }
+      if (txStatus === 'failed' || txStatus === 'reversed') {
+  	console.log('[paystack verify] terminal failure status:', txStatus);
+  	return { success: false };
+	}
 
       // pending / unknown — retry after delay
       if (attempt < RETRIES) {
