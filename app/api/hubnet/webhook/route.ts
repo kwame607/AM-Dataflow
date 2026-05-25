@@ -10,13 +10,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log('[hubnet webhook] Received:', JSON.stringify(body));
 
-    // Detect if this is a Paystack event hitting the wrong endpoint
     if (body.event && body.event.startsWith('charge.')) {
-      console.warn('[hubnet webhook] Received a Paystack event — wrong endpoint. Fix webhook URL in Paystack dashboard.');
+      console.warn('[hubnet webhook] Received a Paystack event — wrong endpoint.');
       return NextResponse.json({ received: true });
     }
 
-    // Try all possible reference field locations from Hubnet
     const reference: string =
       body.reference ||
       body.ref ||
@@ -57,18 +55,9 @@ export async function POST(req: NextRequest) {
       statusStr === 'error' ||
       statusStr === 'reversed';
 
-    const isProcessing =
-      messageCode === 'processing' ||
-      messageCode === 'submitted' ||
-      messageCode === 'pending' ||
-      statusStr === 'processing' ||
-      statusStr === 'submitted' ||
-      statusStr === 'pending';
-
     let deliveryStatus: string;
     if (isDelivered) deliveryStatus = 'delivered';
     else if (isFailed) deliveryStatus = 'failed';
-    else if (isProcessing) deliveryStatus = 'processing';
     else deliveryStatus = 'processing';
 
     const supabase = createSupabaseAdminClient();
@@ -93,8 +82,4 @@ export async function POST(req: NextRequest) {
     console.error('[hubnet webhook] Error:', e);
     return NextResponse.json({ error: 'Webhook error' }, { status: 500 });
   }
-}
-// Add this at the bottom of the file
-export async function GET() {
-  return NextResponse.json({ status: 'Hubnet webhook endpoint is live' });
 }
