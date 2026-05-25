@@ -10,11 +10,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log('[hubnet webhook] Received:', JSON.stringify(body));
 
+    // Ignore Paystack events hitting the wrong endpoint
     if (body.event && body.event.startsWith('charge.')) {
       console.warn('[hubnet webhook] Received a Paystack event — wrong endpoint.');
       return NextResponse.json({ received: true });
     }
 
+    // Extract reference
     const reference: string =
       body.reference ||
       body.ref ||
@@ -35,40 +37,75 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    const statusBool = body.status === true || body.data?.status === true;
-    const messageCode = String(body.message || body.code || body.data?.code || '').toLowerCase();
-    const statusStr = String(body.status || body.data?.status || '').toLowerCase();
+    // Extract the actual delivery status from the webhook payload
+    // Hubnet sends a separate webhook for delivery updates — different from the
+    // transaction initiation response.
+    //
+    // Delivery webhook status indicators:
+    //   - body.delivery_status === 'delivered'
+    //   - body.event === 'transaction.delivered' (or similar)
+    //   - body.data?.delivery_status === 'delivered'
+    //   - body.status === 'delivered' (string, not boolean)
+    //
+    // DO NOT treat status:true as delivered — that just means API call succeeded.
 
+    const statusStr = String(
+      body.delivery_status ||
+      body.data?.delivery_status ||
+      body.event ||
+      ''
+    ).toLowerCase();
+
+    const messageCode = String(
+      body.data?.code ||
+      body.code ||
+      ''
+    ).toLowerCase();
+
+    const topLevelStatus = String(body.status || '').toLowerCase();
+
+    // Only mark delivered if we get an explicit delivery confirmation
+    // NOT just because status === true (that's just API acknowledgement)
     const isDelivered =
-      statusBool ||
-      messageCode === '0000' ||
-      statusStr === 'success' ||
       statusStr === 'delivered' ||
+      statusStr === 'transaction.delivered' ||
+      statusStr === 'success' ||
       statusStr === 'successful' ||
-      statusStr === 'complete';
+      statusStr === 'complete' ||
+      // Hubnet sometimes sends status as a string "delivered"
+      topLevelStatus === 'delivered' ||
+      topLevelStatus === 'successful' ||
+      topLevelStatus === 'success' ||
+      // data.code = "0000" in a WEBHOOK (not the init response) means delivered
+      (messageCode === '0000' && body.event !== undefined);
 
     const isFailed =
-      messageCode === 'failed' ||
-      messageCode === 'error' ||
-      messageCode === 'reversed' ||
       statusStr === 'failed' ||
       statusStr === 'error' ||
-      statusStr === 'reversed';
+      statusStr === 'reversed' ||
+      statusStr === 'transaction.failed' ||
+      topLevelStatus === 'failed' ||
+      topLevelStatus === 'reversed' ||
+      messageCode === 'failed' ||
+      messageCode === 'error' ||
+      messageCode === 'reversed';
 
     let deliveryStatus: string;
-    if (isDelivered) deliveryStatus = 'delivered';
-    else if (isFailed) deliveryStatus = 'failed';
-    else deliveryStatus = 'processing';
+    if (isDelivered)    deliveryStatus = 'delivered';
+    else if (isFailed)  deliveryStatus = 'failed';
+    else                deliveryStatus = 'processing';
+
+    console.log(`[hubnet webhook] reference=${reference} statusStr=${statusStr} topLevel=${topLevelStatus} code=${messageCode} → ${deliveryStatus}`);
 
     const supabase = createSupabaseAdminClient();
 
     const { error } = await supabase
       .from('orders')
       .update({
-        delivery_status: deliveryStatus,
-        hubnet_transaction_id: transactionId || null,
-        delivered_at: isDelivered ? new Date().toISOString() : null,
-        updated_at: new Date().toISOString(),
+        delivery_status:        deliveryStatus,
+        hubnet_transaction_id:  transactionId || null,
+        delivered_at:           isDelivered ? new Date().toISOString() : null,
+        updated_at:             new Date().toISOString(),
       })
       .eq('reference', reference);
 
@@ -76,7 +113,6 @@ export async function POST(req: NextRequest) {
       console.error('[hubnet webhook] Supabase update error:', error);
     }
 
-    console.log(`[hubnet webhook] Order ${reference} → delivery_status: ${deliveryStatus}`);
     return NextResponse.json({ received: true });
   } catch (e) {
     console.error('[hubnet webhook] Error:', e);
