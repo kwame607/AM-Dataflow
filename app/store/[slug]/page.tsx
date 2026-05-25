@@ -106,7 +106,7 @@ export default function AgentStorePage() {
     setPaying(true);
 
     const price = getPrice(selectedBundle.key, selectedBundle.cost);
-    const ref = genRef();
+    const ref = genRef('DF');
     const orderData = { phone, network: currentNet, bundleKey: selectedBundle.key, agentSlug: slug, source: 'agent', agentPrice: price };
 
     try {
@@ -151,7 +151,7 @@ export default function AgentStorePage() {
             const result = await res.json();
             if (result.success) { setSuccessRef(ref); setOrderStep(3); }
             else { toast(result.error || 'Order failed. Contact support.', 'error'); }
-          } catch { toast('Network error. Save ref: ' + reference, 'error'); }
+          } catch { toast('Network error. Save ref: ' + ref, 'error'); }
           finally { setProcessing(false); setPaying(false); }
         },
         onClose: () => { setPaying(false); toast('Payment cancelled', 'info'); },
