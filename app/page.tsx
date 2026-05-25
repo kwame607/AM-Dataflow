@@ -172,7 +172,7 @@ export default function MainStorePage() {
               toast(result.error || 'Order processing failed. Contact support.', 'error');
             }
           } catch {
-            toast('Network error. Save ref: ' + response.reference, 'error');
+            toast('Network error. Save ref: ' + reference, 'error');
           } finally {
             setPaying(false);
           }
