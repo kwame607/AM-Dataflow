@@ -23,8 +23,8 @@ export async function verifyPaystackPayment(reference: string): Promise<{
   email?: string;
   metadata?: Record<string, unknown>;
 }> {
-  const RETRIES = 4;
-  const DELAY_MS = 2500;
+  const RETRIES = 6;
+  const DELAY_MS = 4000;
 
   for (let attempt = 1; attempt <= RETRIES; attempt++) {
     try {

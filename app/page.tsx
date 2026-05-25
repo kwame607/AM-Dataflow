@@ -159,6 +159,7 @@ export default function MainStorePage() {
         access_code: initData.access_code,
         callback: async (_ps: { reference: string }) => {
           try {
+            await new Promise(r => setTimeout(r, 3000));
             const res = await fetch('/api/paystack/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

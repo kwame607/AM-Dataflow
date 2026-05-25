@@ -143,6 +143,7 @@ export default function AgentStorePage() {
         callback: async (_ps: { reference: string }) => {
           setProcessing(true);
           try {
+            await new Promise(r => setTimeout(r, 3000));
             const res = await fetch('/api/paystack/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
