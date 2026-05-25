@@ -1,12 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
 
+export async function GET() {
+  return NextResponse.json({ status: 'Hubnet webhook endpoint is live' });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     console.log('[hubnet webhook] Received:', JSON.stringify(body));
 
-    const reference: string = body.reference || body.ref || body.clientReference || '';
+    // Detect if this is a Paystack event hitting the wrong endpoint
+    if (body.event && body.event.startsWith('charge.')) {
+      console.warn('[hubnet webhook] Received a Paystack event — wrong endpoint. Fix webhook URL in Paystack dashboard.');
+      return NextResponse.json({ received: true });
+    }
+
+    // Try all possible reference field locations from Hubnet
+    const reference: string =
+      body.reference ||
+      body.ref ||
+      body.clientReference ||
+      body.data?.reference ||
+      body.data?.clientReference ||
+      '';
+
     const transactionId: string =
       body.transactionId ||
       body.transaction_id ||
@@ -15,13 +33,13 @@ export async function POST(req: NextRequest) {
       '';
 
     if (!reference) {
-      console.warn('[hubnet webhook] No reference in payload');
+      console.warn('[hubnet webhook] No reference in payload:', JSON.stringify(body));
       return NextResponse.json({ received: true });
     }
 
-    const statusBool = body.status === true;
-    const messageCode = String(body.message || body.code || '').toLowerCase();
-    const statusStr = String(body.status || '').toLowerCase();
+    const statusBool = body.status === true || body.data?.status === true;
+    const messageCode = String(body.message || body.code || body.data?.code || '').toLowerCase();
+    const statusStr = String(body.status || body.data?.status || '').toLowerCase();
 
     const isDelivered =
       statusBool ||
@@ -47,13 +65,11 @@ export async function POST(req: NextRequest) {
       statusStr === 'submitted' ||
       statusStr === 'pending';
 
-    // Never speculatively mark as failed — default to processing
-    // Only mark failed if Hubnet sends an explicit failure signal
     let deliveryStatus: string;
     if (isDelivered) deliveryStatus = 'delivered';
     else if (isFailed) deliveryStatus = 'failed';
     else if (isProcessing) deliveryStatus = 'processing';
-    else deliveryStatus = 'processing'; // safe default
+    else deliveryStatus = 'processing';
 
     const supabase = createSupabaseAdminClient();
 
