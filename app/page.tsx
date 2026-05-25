@@ -162,17 +162,17 @@ export default function MainStorePage() {
             const res = await fetch('/api/paystack/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ reference, orderData }),
+              body: JSON.stringify({ reference: _ps.reference, orderData }),
             });
             const result = await res.json();
             if (result.success) {
-              setSuccessRef(reference);
+              setSuccessRef(_ps.reference);
               setStep(3);
             } else {
               toast(result.error || 'Order processing failed. Contact support.', 'error');
             }
           } catch {
-            toast('Network error. Save ref: ' + reference, 'error');
+            toast('Network error. Save ref: ' + _ps.reference, 'error');
           } finally {
             setPaying(false);
           }

@@ -146,12 +146,12 @@ export default function AgentStorePage() {
             const res = await fetch('/api/paystack/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ reference: ref, orderData }),
+              body: JSON.stringify({ reference: _ps.reference, orderData }),
             });
             const result = await res.json();
-            if (result.success) { setSuccessRef(ref); setOrderStep(3); }
+            if (result.success) { setSuccessRef(_ps.reference); setOrderStep(3); }
             else { toast(result.error || 'Order failed. Contact support.', 'error'); }
-          } catch { toast('Network error. Save ref: ' + ref, 'error'); }
+          } catch { toast('Network error. Save ref: ' + _ps.reference, 'error'); }
           finally { setProcessing(false); setPaying(false); }
         },
         onClose: () => { setPaying(false); toast('Payment cancelled', 'info'); },
