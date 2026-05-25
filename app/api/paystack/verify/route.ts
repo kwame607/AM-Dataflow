@@ -32,8 +32,14 @@ export async function POST(req: NextRequest) {
     const paystack = await verifyPaystackPayment(reference);
     console.log('[verify] Paystack result:', JSON.stringify(paystack));
     if (!paystack.success) {
-      return NextResponse.json({ error: 'Payment verification failed', detail: paystack }, { status: 400 });
-    }
+  	const detail = paystack as { txStatus?: string };
+  	const isAbandoned = detail?.txStatus === 'abandoned';
+  	return NextResponse.json({ 
+    		error: isAbandoned 
+      			? 'Payment was not completed. Please try again.' 
+      			: 'Payment verification failed. Contact support if you were charged.',
+  }, { status: 400 });
+}
 
     // 2. Get bundle info
     const bundle = getBundleByKey(orderData.bundleKey);
