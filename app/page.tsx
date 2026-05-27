@@ -443,7 +443,7 @@ async function placeOrder() {
               <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 18 }}>Enter your transaction reference to check delivery status.</p>
               <div className="form-group">
                 <label className="form-label">Transaction Reference</label>
-                <input className="form-input" placeholder="e.g. T00997272XXXXX" value={trackRef} onChange={e => setTrackRef(e.target.value)} />
+                <input className="form-input" placeholder="e.g. DF-XXXX-XXXX" value={trackRef} onChange={e => setTrackRef(e.target.value)} />
               </div>
               {trackResult && !trackResult.found && (
                 <div className="alert alert-error" style={{ marginBottom: 12 }}>{trackResult.msg}</div>
