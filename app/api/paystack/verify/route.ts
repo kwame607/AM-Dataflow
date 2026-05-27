@@ -27,29 +27,12 @@ export async function POST(req: NextRequest) {
     }
     const { reference, orderData } = parsed.data;
 
-    // 1. Verify Paystack payment
-    console.log('[verify] Checking reference:', reference);
-    const paystack = await verifyPaystackPayment(reference);
-    console.log('[verify] Paystack result:', JSON.stringify(paystack));
-    if (!paystack.success) {
-  	const detail = paystack as { txStatus?: string };
-  	const isAbandoned = detail?.txStatus === 'abandoned';
-  	return NextResponse.json({ 
-    		error: isAbandoned 
-      			? 'Payment was not completed. Please try again.' 
-      			: 'Payment verification failed. Contact support if you were charged.',
-  }, { status: 400 });
-}
-
-    // 2. Get bundle info
-    const bundle = getBundleByKey(orderData.bundleKey);
-    if (!bundle) {
-      return NextResponse.json({ error: 'Invalid bundle' }, { status: 400 });
-    }
-
     const supabase = createSupabaseAdminClient();
 
-    // 3. Check for duplicate order
+    // ── STEP 1: Check if webhook already created the order ──
+    // The Paystack webhook fires server-to-server and may arrive before or
+    // after the client calls this endpoint. Either way, we want to avoid
+    // duplicate orders and avoid losing orders when the client disconnects.
     const { data: existing } = await supabase
       .from('orders')
       .select('id, status, delivery_status')
@@ -57,11 +40,32 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      console.log('[verify] Duplicate order found for', reference);
+      console.log('[verify] Order already exists (webhook beat us):', reference);
       return NextResponse.json({ success: true, reference, status: existing.status });
     }
 
-    // 4. Get admin price from DB
+    // ── STEP 2: Verify payment with Paystack ──
+    console.log('[verify] Checking reference:', reference);
+    const paystack = await verifyPaystackPayment(reference);
+    console.log('[verify] Paystack result:', JSON.stringify(paystack));
+
+    if (!paystack.success) {
+      const detail = paystack as { txStatus?: string };
+      const isAbandoned = detail?.txStatus === 'abandoned';
+      return NextResponse.json({
+        error: isAbandoned
+          ? 'Payment was not completed. Please try again.'
+          : 'Payment verification failed. Contact support if you were charged.',
+      }, { status: 400 });
+    }
+
+    // ── STEP 3: Get bundle info ──
+    const bundle = getBundleByKey(orderData.bundleKey);
+    if (!bundle) {
+      return NextResponse.json({ error: 'Invalid bundle' }, { status: 400 });
+    }
+
+    // ── STEP 4: Get admin price from DB ──
     const { data: adminPriceRow } = await supabase
       .from('admin_prices')
       .select('selling_price, admin_profit')
@@ -71,7 +75,7 @@ export async function POST(req: NextRequest) {
     const adminPrice = adminPriceRow?.selling_price ?? getDefaultAdminPrice(bundle.cost);
     const adminProfit = adminPriceRow?.admin_profit ?? (adminPrice - bundle.cost);
 
-    // 5. Get agent info if applicable
+    // ── STEP 5: Get agent info ──
     let agentId: string | null = null;
     let agentProfit = 0;
     const agentPrice = orderData.agentPrice ?? adminPrice;
@@ -88,7 +92,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 6. Save order
+    // ── STEP 6: SAVE ORDER IMMEDIATELY before touching Hubnet ──
+    // This is the critical step — the order must exist in the DB the moment
+    // we know payment succeeded, regardless of what happens with Hubnet.
     const { data: order, error: orderErr } = await supabase
       .from('orders')
       .insert({
@@ -106,59 +112,68 @@ export async function POST(req: NextRequest) {
         agent_id: agentId,
         agent_slug: orderData.agentSlug || null,
         source: orderData.source || 'main',
-        status: 'success',
-        delivery_status: 'pending',
+        status: 'success',         // payment confirmed
+        delivery_status: 'pending', // delivery not yet attempted
         paystack_ref: reference,
       })
       .select('id')
       .single();
 
     if (orderErr) {
+      // If it's a unique constraint violation, the webhook already saved it
+      if (orderErr.code === '23505') {
+        console.log('[verify] Race condition — webhook saved order first:', reference);
+        return NextResponse.json({ success: true, reference, status: 'success' });
+      }
       console.error('[verify] Order insert error:', orderErr);
       return NextResponse.json({ error: 'Failed to save order', detail: orderErr.message }, { status: 500 });
     }
 
-    console.log('[verify] Order saved:', order.id);
+    console.log('[verify] Order saved immediately:', order.id);
 
-    // 7. Attempt Hubnet delivery — awaited so Vercel does not kill it
+    // ── STEP 7: Attempt Hubnet delivery (non-blocking from client's perspective) ──
+    // We respond to the client NOW with success — they can leave the page safely.
+    // Hubnet is called after we return, or fails gracefully (admin can retry).
     const rawUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
     const siteUrl = rawUrl && !rawUrl.includes('localhost')
       ? rawUrl
       : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
     const hubnetNetwork = getHubnetNetwork({ ...bundle, network: orderData.network });
 
-    try {
-      const hubnetResult = await hubnetTransact({
-        network: hubnetNetwork,
-        phone: orderData.phone,
-        volume: bundle.volume,
-        reference,
-        webhook: siteUrl ? `${siteUrl}/api/hubnet/webhook` : undefined,
-      });
+    // Fire-and-update: attempt delivery but don't block the response
+    (async () => {
+      try {
+        const hubnetResult = await hubnetTransact({
+          network: hubnetNetwork,
+          phone: orderData.phone,
+          volume: bundle.volume,
+          reference,
+          webhook: siteUrl ? `${siteUrl}/api/hubnet/webhook` : undefined,
+        });
 
-      console.log('[verify] Hubnet result:', JSON.stringify(hubnetResult));
+        console.log('[verify] Hubnet result:', JSON.stringify(hubnetResult));
 
-      if (hubnetResult.success) {
-        // Hubnet accepted — waiting for webhook to confirm delivery
+        if (hubnetResult.success) {
+          await supabase.from('orders').update({
+            delivery_status: 'processing',
+            hubnet_transaction_id: hubnetResult.transactionId || null,
+          }).eq('id', order.id);
+        } else {
+          console.warn('[verify] Hubnet rejected:', hubnetResult.message);
+          await supabase.from('orders').update({
+            delivery_status: 'failed',
+          }).eq('id', order.id);
+        }
+      } catch (hubnetErr) {
+        console.error('[verify] Hubnet call threw error:', hubnetErr);
+        // Leave as 'pending' — admin can retry from dashboard
         await supabase.from('orders').update({
-          delivery_status: 'processing',
-          hubnet_transaction_id: hubnetResult.transactionId || null,
-        }).eq('id', order.id);
-      } else {
-        // Hubnet explicitly rejected — mark failed so you know to retry
-        console.warn('[verify] Hubnet rejected:', hubnetResult.message);
-        await supabase.from('orders').update({
-          delivery_status: 'failed',
+          delivery_status: 'pending',
         }).eq('id', order.id);
       }
-    } catch (hubnetErr) {
-      // Network/timeout — unknown if Hubnet got it, leave as pending
-      console.error('[verify] Hubnet call threw error:', hubnetErr);
-      await supabase.from('orders').update({
-        delivery_status: 'pending',
-      }).eq('id', order.id);
-    }
+    })();
 
+    // Respond to client immediately — order is saved, delivery in progress
     return NextResponse.json({ success: true, reference, status: 'success' });
 
   } catch (e) {

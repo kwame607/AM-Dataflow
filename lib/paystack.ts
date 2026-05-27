@@ -76,6 +76,7 @@ interface PaystackOptions {
   amount: number;
   currency: string;
   access_code: string;
+  reference: string;
   callback: (response: { reference: string }) => void;
   onClose: () => void;
 }
@@ -91,7 +92,7 @@ export function openPaystack(options: PaystackOptions): Promise<void> {
           email: options.email,
           amount: options.amount,
           currency: options.currency,
-          access_code: options.access_code,
+          ref: options.reference,
           callback: function(response: { reference: string }) { options.callback(response); },
           onClose: function() { options.onClose(); },
         }).openIframe();

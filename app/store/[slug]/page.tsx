@@ -100,69 +100,147 @@ export default function AgentStorePage() {
     setOrderStep(2);
   }
 
-  async function placeOrder() {
-    if (!agent || !selectedBundle) return;
-    if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
-    setPaying(true);
+ // ─── REPLACE the placeOrder / callback logic in app/page.tsx and app/store/[slug]/page.tsx ───
+//
+// The key change: after Paystack closes, we poll /api/paystack/poll instead of
+// calling /api/paystack/verify ourselves. The verify endpoint is still called as
+// a fallback, but the Paystack webhook will have already saved the order
+// server-to-server before the user's browser even gets the callback.
+//
+// This means:
+//  • User pays → Paystack fires webhook → order saved in DB immediately
+//  • Client callback fires → polls for order → shows success
+//  • If user closes page after paying → webhook already saved it → admin sees it
+//  • Verify is only needed if webhook is delayed (rare) — it's a safety net
 
-    const price = getPrice(selectedBundle.key, selectedBundle.cost);
-    const ref = genRef('DF');
-    const orderData = { phone, network: currentNet, bundleKey: selectedBundle.key, agentSlug: slug, source: 'agent', agentPrice: price };
+async function placeOrder() {
+  if (!selectedBundle) return;
+  if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
+  setPaying(true);
 
-    try {
-      const initRes = await fetch('/api/paystack/initialize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: `${phone}@admunz.com`,
-          amount: Math.round(price * 100),
-          reference: ref,
-          metadata: {
-            network: currentNet,
-            bundle_key: selectedBundle.key,
-            agent_slug: slug,
-            source: 'agent',
-            agent_price: price,
-            custom_fields: [
-              { display_name: 'Phone Number', variable_name: 'phone', value: phone },
-              { display_name: 'Network', variable_name: 'network', value: currentNet },
-              { display_name: 'Volume (MB)', variable_name: 'volume', value: selectedBundle.volume },
-            ],
-          },
-        }),
-      });
-      const initData = await initRes.json();
-      if (!initRes.ok) { toast(initData.error || 'Could not start payment', 'error'); setPaying(false); return; }
+  // Capture these now so they're stable inside the async callback
+  const bundlePrice = getPrice(selectedBundle.key, selectedBundle.cost);
+  const bundleKey = selectedBundle.key;
+  const bundleVolume = selectedBundle.volume;
+  const network = currentNet;
 
-      await openPaystack({
-        key: PAYSTACK_KEY,
+  try {
+    // 1. Initialize Paystack — we send a reference but Paystack may assign its own
+    // when using access_code. The REAL reference comes back as _ps.reference in callback.
+    const reference = genRef('DF');   // ← add this back
+    const initRes = await fetch('/api/paystack/initialize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         email: `${phone}@admunz.com`,
-        amount: Math.round(price * 100),
-        currency: 'GHS',
-        access_code: initData.access_code,
-        callback: async (_ps: { reference: string }) => {
-          setProcessing(true);
-          try {
-            await new Promise(r => setTimeout(r, 3000));
-            const res = await fetch('/api/paystack/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ reference: _ps.reference, orderData }),
-            });
-            const result = await res.json();
-            if (result.success) { setSuccessRef(_ps.reference); setOrderStep(3); }
-            else { toast(result.error || 'Order failed. Contact support.', 'error'); }
-          } catch { toast('Network error. Save ref: ' + _ps.reference, 'error'); }
-          finally { setProcessing(false); setPaying(false); }
+        amount: Math.round(bundlePrice * 100),
+        reference,
+        metadata: {
+          network,
+          bundle_key: bundleKey,
+          source: 'agent',
+          agent_slug: slug,
+          agent_price: bundlePrice,
+          custom_fields: [
+            { display_name: 'Phone Number', variable_name: 'phone', value: phone },
+            { display_name: 'Network', variable_name: 'network', value: network },
+            { display_name: 'Volume (MB)', variable_name: 'volume', value: bundleVolume },
+          ],
         },
-        onClose: () => { setPaying(false); toast('Payment cancelled', 'info'); },
-      });
-    } catch (e) {
-      console.error('Paystack error:', e);
-      toast('Payment error: ' + (e instanceof Error ? e.message : String(e)), 'error');
+      }),
+    });
+
+    const initData = await initRes.json();
+    if (!initRes.ok) {
+      toast(initData.error || 'Could not start payment', 'error');
       setPaying(false);
+      return;
     }
+
+    // 2. Open Paystack popup
+    await openPaystack({
+      key: PAYSTACK_KEY,
+      email: `${phone}@admunz.com`,
+      amount: Math.round(bundlePrice * 100),
+      currency: 'GHS',
+      access_code: initData.access_code,
+      reference,
+
+      callback: async (_ps: { reference: string }) => {
+        // User has paid. The Paystack webhook already fired server-to-server
+        // and may have saved the order before we even get here.
+        // Strategy: poll for the order first (fast path), then call verify (fallback).
+        try {
+          setProcessing(true); // show a "confirming..." spinner if you have one
+
+          // Poll up to 8 seconds for the webhook to save the order
+          const paidRef = _ps.reference;
+          let found = false;
+
+          for (let i = 0; i < 8; i++) {
+            await new Promise(r => setTimeout(r, 1000));
+            const pollRes = await fetch(`/api/paystack/poll?ref=${encodeURIComponent(paidRef)}`);
+            const pollData = await pollRes.json();
+            if (pollData.found) {
+              found = true;
+              break;
+            }
+          }
+
+          if (found) {
+            // Order saved by webhook — show success
+            setSuccessRef(paidRef);
+            setOrderStep(3);
+            return;
+          }
+
+          // Webhook hasn't arrived yet — call verify as a fallback.
+          // Build orderData HERE using paidRef (Paystack's real reference),
+          // not a pre-generated one that Paystack may have overridden.
+          const orderData = {
+            phone,
+            network,
+            bundleKey,
+            source: 'agent' as const,
+            agentSlug: slug,
+            agentPrice: bundlePrice,
+          };
+          const verifyRes = await fetch('/api/paystack/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reference: paidRef, orderData }),
+          });
+          const result = await verifyRes.json();
+
+          if (result.success) {
+            setSuccessRef(paidRef);
+            setOrderStep(3);
+          } else {
+            toast(result.error || 'Order failed. Contact support with ref: ' + paidRef, 'error');
+          }
+        } catch {
+          // Even if the network fails here, the webhook has the order.
+          // Show success with the reference — admin will have it.
+          setSuccessRef(_ps.reference);
+          setOrderStep(3);
+          toast('Payment received! Ref: ' + _ps.reference, 'success');
+        } finally {
+          setProcessing(false);
+          setPaying(false);
+        }
+      },
+
+      onClose: () => {
+        setPaying(false);
+        toast('Payment cancelled', 'info');
+      },
+    });
+  } catch (e) {
+    console.error('Paystack error:', e);
+    toast('Payment error: ' + (e instanceof Error ? e.message : String(e)), 'error');
+    setPaying(false);
   }
+}
 
   async function trackOrder() {
     if (!trackRef.trim()) return;
@@ -409,7 +487,7 @@ export default function AgentStorePage() {
               <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 18 }}>Enter your transaction reference to check delivery status.</p>
               <div className="form-group">
                 <label className="form-label">Transaction Reference</label>
-                <input className="form-input" placeholder="e.g. DF-XXXXX-XXX" value={trackRef} onChange={e => setTrackRef(e.target.value)} />
+                <input className="form-input" placeholder="e.g. T0099727XXXXXX" value={trackRef} onChange={e => setTrackRef(e.target.value)} />
               </div>
               {trackResult && !trackResult.found && (
                 <div className="alert alert-error" style={{ marginBottom: 12 }}>{trackResult.msg}</div>

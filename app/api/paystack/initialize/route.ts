@@ -17,8 +17,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = InitializePaymentSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid request', detail: parsed.error.flatten() }, { status: 400 });
-    }
+  console.log('VALIDATION ERROR:', JSON.stringify(parsed.error.flatten()));
+  return NextResponse.json({ error: 'Invalid request', detail: parsed.error.flatten() }, { status: 400 });
+}
     const { email, amount, reference, metadata } = parsed.data;
 
     const secretKey = process.env.PAYSTACK_SECRET_KEY;
