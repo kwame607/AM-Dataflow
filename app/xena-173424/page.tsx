@@ -1,5 +1,5 @@
 'use client';
-
+import Image from 'next/image';
 import React, { useEffect, useState, useCallback } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import { BUNDLES, NET_NAMES, getDefaultAdminPrice } from '@/lib/bundles';
@@ -250,7 +250,9 @@ export default function AdminPage() {
 
       <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sidebar-logo">
-          <div className="logo-mark" style={{ background: 'var(--accent2)' }}>A</div>
+          <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
+  <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+</div>
           <div className="logo-text"><strong>Admin Panel</strong><span>ADMUNZ</span></div>
         </div>
         <nav className="sidebar-nav">
@@ -271,7 +273,7 @@ export default function AdminPage() {
         <div className="sidebar-footer">
           {hubBalance !== null && (
             <div className="sidebar-balance">
-              <div className="sidebar-balance-label">Hubnet Balance</div>
+              <div className="sidebar-balance-label">XpresPortal Balance</div>
               <div className="sidebar-balance-val">{fmt(hubBalance)}</div>
             </div>
           )}
@@ -634,41 +636,41 @@ export default function AdminPage() {
           )}
 
           {/* SETTINGS */}
-          {tab === 'settings' && (
-            <div>
-              <div className="card" style={{ marginBottom: 16 }}>
-                <div className="card-header"><div className="card-title">API Information</div></div>
-                <div className="card-body">
-                  {[
-                    { label: 'Hubnet Webhook URL', val: 'https://hubnet.app/v.1/webhook' },
-                    { label: 'Paystack Callback URL', val: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/paystack/verify` },
-                    { label: 'Hubnet Callback URL', val: 'https://e-store.apisolution.net/v.1?id=OWR5JNMDKS18A6WS1MGRMRN1UGLBHWRRU9L' },
-                  ].map(row => (
-                    <div key={row.label} className="form-group">
-                      <label className="form-label">{row.label}</label>
-                      <div className="copy-box">
-                        <span className="copy-url">{row.val}</span>
-                        <button className="copy-btn" onClick={() => { navigator.clipboard.writeText(row.val); toast('Copied!', 'success', 1500); }}>Copy</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="card">
-                <div className="card-header"><div className="card-title">Hubnet Balance</div></div>
-                <div className="card-body">
-                  <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 32, fontWeight: 800, color: 'var(--accent)', marginBottom: 12 }}>
-                    {hubBalance !== null ? fmt(hubBalance) : '—'}
-                  </div>
-                  <button className="btn btn-secondary btn-sm" onClick={async () => {
-                    const r = await fetch('/api/hubnet/balance').then(x => x.json()).catch(() => null);
-                    if (r?.balance !== undefined) { setHubBalance(r.balance); toast('Balance refreshed', 'success'); }
-                  }}>↻ Refresh Balance</button>
-                </div>
-              </div>
+         {tab === 'settings' && (
+  <div>
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card-header"><div className="card-title">API Information</div></div>
+      <div className="card-body">
+        {[
+          { label: 'XpresPortal Webhook URL', val: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://yourdomain.com'}/api/xpresportal/webhook` },
+          { label: 'Paystack Callback URL', val: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/paystack/verify` },
+          { label: 'Paystack Webhook URL', val: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/paystack/webhook` },
+        ].map(row => (
+          <div key={row.label} className="form-group">
+            <label className="form-label">{row.label}</label>
+            <div className="copy-box">
+              <span className="copy-url">{row.val}</span>
+              <button className="copy-btn" onClick={() => { navigator.clipboard.writeText(row.val); toast('Copied!', 'success', 1500); }}>Copy</button>
             </div>
-          )}
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div className="card">
+      <div className="card-header"><div className="card-title">XpresPortal Balance</div></div>
+      <div className="card-body">
+        <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 32, fontWeight: 800, color: 'var(--accent)', marginBottom: 12 }}>
+          {hubBalance !== null ? fmt(hubBalance) : '—'}
+        </div>
+        <button className="btn btn-secondary btn-sm" onClick={async () => {
+          const r = await fetch('/api/hubnet/balance').then(x => x.json()).catch(() => null);
+          if (r?.balance !== undefined) { setHubBalance(r.balance); toast('Balance refreshed', 'success'); }
+        }}>↻ Refresh Balance</button>
+      </div>
+    </div>
+  </div>
+)}
 
         </div>
       </main>

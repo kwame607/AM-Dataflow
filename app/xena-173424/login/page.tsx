@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 
@@ -27,7 +28,6 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // Server-side admin check
       const check = await fetch('/api/admin/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,7 +53,9 @@ export default function AdminLoginPage() {
     <div className="auth-page">
       <div className="auth-wrap">
         <div className="auth-logo" style={{ justifyContent: 'center' }}>
-          <div className="logo-mark" style={{ background: 'var(--accent2)' }}>A</div>
+          <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
+            <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+          </div>
           <div className="logo-text">
             <strong>Admin Panel</strong>
             <span>ADMUNZ</span>

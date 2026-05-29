@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { NetworkLogo } from '@/components/ui/NetworkLogo';
 import { BUNDLES, NET_NAMES, ALL_BUNDLES, getDefaultAdminPrice } from '@/lib/bundles';
 import { genRef, detectNetwork, fmt, fmtDate } from '@/lib/utils';
@@ -15,8 +15,7 @@ interface SelectedBundle extends Bundle {
   adminPrice: number;
 }
 
-const WA_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP || '0200000000';
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || '';
+const WA_NUMBER  = process.env.NEXT_PUBLIC_WHATSAPP || '0200000000';
 const STORE_NAME = 'ADMUNZ';
 const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
 
@@ -31,23 +30,27 @@ export default function MainStorePage() {
     ALL_BUNDLES.forEach(b => { defaults[b.key] = getDefaultAdminPrice(b.cost); });
     return defaults;
   });
-  const [currentNet, setCurrentNet] = useState<string>('');
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [orderOpen, setOrderOpen] = useState(false);
-  const [trackOpen, setTrackOpen] = useState(false);
+
+  const [currentNet, setCurrentNet]   = useState<string>('');
+  const [panelOpen, setPanelOpen]     = useState(false);
+  const [orderOpen, setOrderOpen]     = useState(false);
+  const [trackOpen, setTrackOpen]     = useState(false);
   const [selectedBundle, setSelectedBundle] = useState<SelectedBundle | null>(null);
 
-  // Order form state
-  const [step, setStep] = useState(1);
-  const [phone, setPhone] = useState('');
+  const [step, setStep]           = useState(1);
+  const [phone, setPhone]         = useState('');
   const [phoneHint, setPhoneHint] = useState<{ text: string; ok: boolean } | null>(null);
-  const [step1Err, setStep1Err] = useState('');
-  const [paying, setPaying] = useState(false);
+  const [step1Err, setStep1Err]   = useState('');
+  const [paying, setPaying]       = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [successRef, setSuccessRef] = useState('');
 
-  // Track
   const [trackRef, setTrackRef] = useState('');
-  const [trackResult, setTrackResult] = useState<{ found: false; msg: string } | { found: true; order: { reference: string; phone: string; network: string; size: string; status: string; delivery_status: string; created_at: string; buyer_name?: string } } | null>(null);
+  const [trackResult, setTrackResult] = useState<
+    | { found: false; msg: string }
+    | { found: true; order: { reference: string; phone: string; network: string; size: string; status: string; delivery_status: string; created_at: string; buyer_name?: string } }
+    | null
+  >(null);
 
   useEffect(() => {
     fetch('/api/admin/prices')
@@ -76,7 +79,8 @@ export default function MainStorePage() {
     setSelectedBundle({ ...bundle, network: currentNet, customerPays: price, adminPrice: price });
     setStep(1);
     setPhone('');
-    setPhoneHint(null); setStep1Err('');
+    setPhoneHint(null);
+    setStep1Err('');
     setPanelOpen(false);
     setOrderOpen(true);
   }
@@ -88,15 +92,11 @@ export default function MainStorePage() {
       if (det) {
         const match = det === currentNet;
         setPhoneHint({
-          text: `Detected: ${NET_NAMES[det]}${match ? ' ✓' : ` — sending ${NET_NAMES[currentNet]} data to this number`}`,
+          text: `Detected: ${NET_NAMES[det] || det}${match ? ' ✓' : ` — sending ${NET_NAMES[currentNet]} data to this number`}`,
           ok: match,
         });
-      } else {
-        setPhoneHint(null);
-      }
-    } else {
-      setPhoneHint(null);
-    }
+      } else setPhoneHint(null);
+    } else setPhoneHint(null);
   }
 
   function goStep2() {
@@ -105,132 +105,129 @@ export default function MainStorePage() {
     setStep(2);
   }
 
+  async function placeOrder() {
+    if (!selectedBundle) return;
+    if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
+    setPaying(true);
 
-async function placeOrder() {
-  if (!selectedBundle) return;
-  if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
-  setPaying(true);
+    // Capture bundle details now — stable inside async callback
+    const bundlePrice  = selectedBundle.customerPays;
+    const bundleKey    = selectedBundle.key;
+    const bundleVolume = selectedBundle.volume;
+    const network      = selectedBundle.network;
+    const reference    = genRef('DF');
 
-  // Capture stable values now — selectedBundle may change if user navigates
-  const bundlePrice = selectedBundle.customerPays;
-  const bundleKey = selectedBundle.key;
-  const bundleVolume = selectedBundle.volume;
-  const bundleNetwork = selectedBundle.network;
+    try {
+      // 1. Initialize Paystack server-side
+      const initRes = await fetch('/api/paystack/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email:    `${phone}@admunz.com`,
+          amount:   Math.round(bundlePrice * 100),
+          reference,
+          metadata: {
+            network,
+            bundle_key: bundleKey,
+            source:     'main',
+            custom_fields: [
+              { display_name: 'Phone Number', variable_name: 'phone',   value: phone },
+              { display_name: 'Network',      variable_name: 'network', value: network },
+              { display_name: 'Volume (MB)',  variable_name: 'volume',  value: bundleVolume },
+            ],
+          },
+        }),
+      });
 
-  try {
-    // 1. Initialize Paystack transaction server-side.
-    // We send a reference but Paystack overrides it when using access_code.
-    // The REAL reference comes back as _ps.reference in the callback.
-    const reference = genRef('DF');   // ← add this back
-    const initRes = await fetch('/api/paystack/initialize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: `${phone}@admunz.com`,
-        amount: Math.round(bundlePrice * 100),
-        reference,
-        metadata: {
-          network: bundleNetwork,
-          bundle_key: bundleKey,
-          source: 'main',
-          custom_fields: [
-            { display_name: 'Phone Number', variable_name: 'phone', value: phone },
-            { display_name: 'Network', variable_name: 'network', value: bundleNetwork },
-            { display_name: 'Volume (MB)', variable_name: 'volume', value: bundleVolume },
-          ],
-        },
-      }),
-    });
-
-    const initData = await initRes.json();
-    if (!initRes.ok) {
-      toast(initData.error || 'Could not start payment', 'error');
-      setPaying(false);
-      return;
-    }
-
-    // 2. Open Paystack popup
-    await openPaystack({
-      key: PAYSTACK_KEY,
-      email: `${phone}@admunz.com`,
-      amount: Math.round(bundlePrice * 100),
-      currency: 'GHS',
-      access_code: initData.access_code,
-      reference,
-
-      callback: async (_ps: { reference: string }) => {
-        // User has paid. The Paystack webhook already fired server-to-server
-        // and may have saved the order before we even get here.
-        // Strategy: poll for the order first (fast path), then call verify (fallback).
-        try {
-          // Poll up to 8 seconds for the webhook to save the order
-          const paidRef = _ps.reference;
-          let found = false;
-
-          for (let i = 0; i < 8; i++) {
-            await new Promise(r => setTimeout(r, 1000));
-            const pollRes = await fetch(`/api/paystack/poll?ref=${encodeURIComponent(paidRef)}`);
-            const pollData = await pollRes.json();
-            if (pollData.found) {
-              found = true;
-              break;
-            }
-          }
-
-          if (found) {
-            setSuccessRef(paidRef);
-            setStep(3);
-            return;
-          }
-
-          // Webhook hasn't arrived yet — call verify as fallback.
-          // Build orderData HERE using paidRef (Paystack's real reference).
-          const orderData = {
-            phone,
-            network: bundleNetwork,
-            bundleKey,
-            source: 'main' as const,
-          };
-          const verifyRes = await fetch('/api/paystack/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reference: paidRef, orderData }),
-          });
-          const result = await verifyRes.json();
-
-          if (result.success) {
-            setSuccessRef(paidRef);
-            setStep(3);
-          } else {
-            toast(result.error || 'Order failed. Contact support with ref: ' + paidRef, 'error');
-          }
-        } catch {
-          // Even if the network fails here, the webhook has the order.
-          // Show success with the reference — admin will have it.
-          setSuccessRef(_ps.reference);
-          setStep(3);
-          toast('Payment received! Ref: ' + _ps.reference, 'success');
-        } finally {
-          setPaying(false);
-        }
-      },
-
-      onClose: () => {
+      const initData = await initRes.json();
+      if (!initRes.ok) {
+        toast(initData.error || 'Could not start payment', 'error');
         setPaying(false);
-        toast('Payment cancelled', 'info');
-      },
-    });
-  } catch (e) {
-    console.error('Paystack error:', e);
-    toast('Payment error: ' + (e instanceof Error ? e.message : String(e)), 'error');
-    setPaying(false);
+        return;
+      }
+
+      // 2. Open Paystack popup
+      await openPaystack({
+        key:         PAYSTACK_KEY,
+        email:       `${phone}@admunz.com`,
+        amount:      Math.round(bundlePrice * 100),
+        currency:    'GHS',
+        access_code: initData.access_code,
+        reference,
+
+        callback: async (_ps: { reference: string }) => {
+          // User has paid. The Paystack webhook fires server-to-server and may
+          // have already saved the order before the browser gets here.
+          // Strategy: poll DB first (fast path), then verify as fallback.
+          try {
+            setProcessing(true);
+            const paidRef = _ps.reference;
+            let found = false;
+
+            // Poll up to 8 seconds for webhook to save the order
+            for (let i = 0; i < 8; i++) {
+              await new Promise(r => setTimeout(r, 1000));
+              const pollRes  = await fetch(`/api/paystack/poll?ref=${encodeURIComponent(paidRef)}`);
+              const pollData = await pollRes.json();
+              if (pollData.found) { found = true; break; }
+            }
+
+            if (found) {
+              // Order already saved by webhook — go straight to success
+              setSuccessRef(paidRef);
+              setStep(3);
+              return;
+            }
+
+            // Webhook hasn't arrived yet — call verify as fallback.
+            // Build orderData here using paidRef (Paystack's real reference).
+            const orderData = {
+              phone,
+              network,
+              bundleKey,
+              source:     'main' as const,
+              adminPrice: selectedBundle?.adminPrice,
+            };
+            const verifyRes = await fetch('/api/paystack/verify', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body:    JSON.stringify({ reference: paidRef, orderData }),
+            });
+            const result = await verifyRes.json();
+
+            if (result.success) {
+              setSuccessRef(paidRef);
+              setStep(3);
+            } else {
+              toast(result.error || 'Order failed. Contact support with ref: ' + paidRef, 'error');
+            }
+          } catch {
+            // Even if network fails here, the webhook has the order.
+            setSuccessRef(_ps.reference);
+            setStep(3);
+            toast('Payment received! Ref: ' + _ps.reference, 'success');
+          } finally {
+            setProcessing(false);
+            setPaying(false);
+          }
+        },
+
+        onClose: () => {
+          setPaying(false);
+          toast('Payment cancelled', 'info');
+        },
+      });
+    } catch (e) {
+      console.error('Paystack error:', e);
+      toast('Payment error: ' + (e instanceof Error ? e.message : String(e)), 'error');
+      setPaying(false);
+    }
   }
-}
 
   async function trackOrder() {
     if (!trackRef.trim()) return;
     try {
-      const res = await fetch(`/api/orders/track?ref=${encodeURIComponent(trackRef)}`);
+      const res  = await fetch(`/api/orders/track?ref=${encodeURIComponent(trackRef)}`);
       const data = await res.json();
       if (data.order) {
         setTrackResult({ found: true, order: data.order });
@@ -245,6 +242,13 @@ async function placeOrder() {
   const waLink = (ref = '', ph = '') =>
     `https://wa.me/+233${WA_NUMBER.replace(/^0/, '')}?text=${encodeURIComponent(`Hi, I need help with order ${ref}. Phone: ${ph}`)}`;
 
+  const networks: Array<{ key: string; sub: string }> = [
+    { key: 'mtn',     sub: 'Non-expiry data bundles — 90 days' },
+    { key: 'at',      sub: 'AT iShare & BigTime — 90 days' },
+    { key: 'telecel', sub: 'Group Share bundles — 90 days' },
+  ];
+
+  // ── Loading skeleton ────────────────────────────────────────────────────────
   if (!mounted) return (
     <div style={{ minHeight: '100vh', background: '#06090e', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -262,18 +266,19 @@ async function placeOrder() {
     </div>
   );
 
+  // ── Main render ─────────────────────────────────────────────────────────────
   return (
     <>
       {/* HEADER */}
       <header className="store-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
-  	<Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} 		style={{ objectFit: 'cover' }} />
-	  </div>
+            <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+          </div>
           <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>{STORE_NAME}</div>
         </div>
         <div className="store-header-btns" style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => setTrackOpen(true)}>Track Order</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => { setTrackResult(null); setTrackOpen(true); }}>Track Order</button>
           <a href={waLink()} className="btn btn-sm" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366' }}>
             <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.549 4.116 1.51 5.849L0 24l6.335-1.662A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.784 9.784 0 01-5.003-1.376l-.36-.214-3.722.977.993-3.634-.234-.374A9.78 9.78 0 012.182 12c0-5.423 4.395-9.818 9.818-9.818 5.424 0 9.818 4.395 9.818 9.818 0 5.424-4.394 9.818-9.818 9.818z"/></svg>
             <span className="store-btn-label">Help</span>
@@ -290,39 +295,35 @@ async function placeOrder() {
         </div>
         <h1>Instant Data<br /><span className="hero-accent">Delivered Fast</span></h1>
         <p style={{ color: 'var(--text2)', fontSize: 14, maxWidth: 380, margin: '0 auto' }}>
-          MTN · AirtelTigo bundles at the best rates. Delivered in 5–60 minutes, 24/7.
+          MTN · AirtelTigo · Telecel bundles at the best rates. Delivered in 5–60 minutes, 24/7.
         </p>
       </section>
 
       {/* NETWORK CARDS */}
       <div className="store-networks">
-        {(['mtn','at'] as const).map(net => (
-          <button key={net} className="net-card" onClick={() => openNetwork(net)}>
-            <NetworkLogo network={net} size={52} />
+        {networks.map(({ key, sub }) => (
+          <button key={key} className="net-card" onClick={() => openNetwork(key)}>
+            <NetworkLogo network={key} size={52} />
             <div>
-              <div className="net-card-name">{NET_NAMES[net]}</div>
-              <div className="net-card-sub">Non-expiry data bundles — 90 days</div>
+              <div className="net-card-name">{NET_NAMES[key]}</div>
+              <div className="net-card-sub">{sub}</div>
             </div>
             <svg className="net-card-arrow" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
           </button>
         ))}
+
         <div style={{ marginTop: 8 }}>
-          <a href="/register" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 'var(--radius)', border: '1px dashed var(--border-h)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, transition: 'all .2s' }}
+          <a href="/register"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 'var(--radius)', border: '1px dashed var(--border-h)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, transition: 'all .2s' }}
             onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
-            onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-h)'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; }}>
+            onMouseOut={e  => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-h)'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; }}>
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             Become a Reseller Agent
           </a>
         </div>
 
-        {/* WhatsApp Community */}
-        <a
-          href="https://chat.whatsapp.com/GWXeMeSXICj3e6KRBLvHQa"
-          target="_blank" rel="noopener noreferrer"
-          style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 'var(--radius)', background: 'rgba(37,211,102,0.08)', border: '1px solid rgba(37,211,102,0.25)', textDecoration: 'none', transition: 'all .2s' }}
-          onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(37,211,102,0.14)'; }}
-          onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(37,211,102,0.08)'; }}
-        >
+        <a href="https://chat.whatsapp.com/GWXeMeSXICj3e6KRBLvHQa" target="_blank" rel="noopener noreferrer"
+          style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 'var(--radius)', background: 'rgba(37,211,102,0.08)', border: '1px solid rgba(37,211,102,0.25)', textDecoration: 'none', transition: 'all .2s' }}>
           <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#25d366', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" fill="#fff" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.549 4.116 1.51 5.849L0 24l6.335-1.662A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.784 9.784 0 01-5.003-1.376l-.36-.214-3.722.977.993-3.634-.234-.374A9.78 9.78 0 012.182 12c0-5.423 4.395-9.818 9.818-9.818 5.424 0 9.818 4.395 9.818 9.818 0 5.424-4.394 9.818-9.818 9.818z"/></svg>
           </div>
@@ -369,10 +370,9 @@ async function placeOrder() {
               {step < 3 && <button className="close-btn" onClick={() => setOrderOpen(false)}>✕</button>}
             </div>
             <div className="sheet-body">
-              {/* Step dots */}
               {step < 3 && (
                 <div className="step-dots">
-                  {[1,2].map(n => <div key={n} className={`step-dot${step === n ? ' active' : ''}`} />)}
+                  {[1, 2].map(n => <div key={n} className={`step-dot${step === n ? ' active' : ''}`} />)}
                 </div>
               )}
 
@@ -403,14 +403,14 @@ async function placeOrder() {
                     <div className="order-summary-row"><span>Recipient</span><span>{phone}</span></div>
                     <div className="order-summary-row total"><span>Total</span><span>{fmt(selectedBundle.customerPays)}</span></div>
                   </div>
-                  <button className="btn btn-primary btn-full btn-lg" onClick={placeOrder} disabled={paying}>
-                    {paying ? <><span className="spinner" /> Processing…</> : 'Place Order & Pay'}
+                  <button className="btn btn-primary btn-full btn-lg" onClick={placeOrder} disabled={paying || processing}>
+                    {paying || processing ? <><span className="spinner" /> Processing…</> : 'Place Order & Pay'}
                   </button>
                   <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text3)', marginTop: 10 }}>Secured by Paystack · GHS payment</p>
                 </div>
               )}
 
-              {/* Step 3 – Success */}
+              {/* Step 3 — Success */}
               {step === 3 && (
                 <div className="success-anim">
                   <div className="success-check">✓</div>
@@ -418,7 +418,11 @@ async function placeOrder() {
                   <p style={{ color: 'var(--text2)', fontSize: 13, marginBottom: 20 }}>Your data will arrive within 5–60 minutes. Save your reference:</p>
                   <div className="ref-box">
                     <span className="ref-val">{successRef}</span>
-                    <button className="copy-btn" onClick={() => { try { navigator.clipboard.writeText(successRef); } catch { const el = document.createElement('textarea'); el.value = successRef; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); } toast('Reference copied!', 'success', 2000); }}>Copy</button>
+                    <button className="copy-btn" onClick={() => {
+                      try { navigator.clipboard.writeText(successRef); }
+                      catch { const el = document.createElement('textarea'); el.value = successRef; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); }
+                      toast('Reference copied!', 'success', 2000);
+                    }}>Copy</button>
                   </div>
                   <a href={waLink(successRef, phone)} className="btn btn-full" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', marginTop: 12, justifyContent: 'center' }}>
                     WhatsApp Support
@@ -453,10 +457,10 @@ async function placeOrder() {
                 const payOk = o.status === 'success';
                 const dlv = o.delivery_status || 'pending';
                 const dlvMap: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-                  delivered:  { label: 'Delivered', color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✓' },
-                  pending:    { label: 'Processing', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
-                  processing: { label: 'Processing', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
-                  failed:     { label: 'Failed', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: '✕' },
+                  delivered:  { label: 'Delivered',  color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✓' },
+                  pending:    { label: 'Processing',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+                  processing: { label: 'Processing',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+                  failed:     { label: 'Failed',      color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: '✕' },
                 };
                 const d = dlvMap[dlv] ?? dlvMap.pending;
                 return (

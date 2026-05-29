@@ -1,5 +1,5 @@
 'use client';
-
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { NetworkLogo } from '@/components/ui/NetworkLogo';
 import { useParams } from 'next/navigation';
@@ -40,7 +40,11 @@ export default function AgentStorePage() {
   const [processing, setProcessing] = useState(false);
   const [successRef, setSuccessRef] = useState('');
   const [trackRef, setTrackRef] = useState('');
-  const [trackResult, setTrackResult] = useState<{ found: false; msg: string } | { found: true; order: { reference: string; phone: string; network: string; size: string; status: string; delivery_status: string; created_at: string } } | null>(null);
+  const [trackResult, setTrackResult] = useState<
+    | { found: false; msg: string }
+    | { found: true; order: { reference: string; phone: string; network: string; size: string; status: string; delivery_status: string; created_at: string } }
+    | null
+  >(null);
 
   const storeName = 'ADMUNZ';
   const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
@@ -54,7 +58,9 @@ export default function AgentStorePage() {
           setAgent(data.agent);
           setHasPrices(!!data.hasPrices);
           const pm: PriceMap = {};
-          (data.prices || []).forEach((p: { bundle_key: string; agent_price: number }) => { pm[p.bundle_key] = p.agent_price; });
+          (data.prices || []).forEach((p: { bundle_key: string; agent_price: number }) => {
+            pm[p.bundle_key] = p.agent_price;
+          });
           setPrices(pm);
         } else {
           setNotFound(true);
@@ -90,7 +96,10 @@ export default function AgentStorePage() {
       const det = detectNetwork(val);
       if (det) {
         const match = det === currentNet;
-        setPhoneHint({ text: `Detected: ${NET_NAMES[det]}${match ? ' ✓' : ` — sending ${NET_NAMES[currentNet]} data to this number`}`, ok: match });
+        setPhoneHint({
+          text: `Detected: ${NET_NAMES[det] || det}${match ? ' ✓' : ` — sending ${NET_NAMES[currentNet]} data to this number`}`,
+          ok: match,
+        });
       } else setPhoneHint(null);
     } else setPhoneHint(null);
   }
@@ -100,162 +109,149 @@ export default function AgentStorePage() {
     setOrderStep(2);
   }
 
- // ─── REPLACE the placeOrder / callback logic in app/page.tsx and app/store/[slug]/page.tsx ───
-//
-// The key change: after Paystack closes, we poll /api/paystack/poll instead of
-// calling /api/paystack/verify ourselves. The verify endpoint is still called as
-// a fallback, but the Paystack webhook will have already saved the order
-// server-to-server before the user's browser even gets the callback.
-//
-// This means:
-//  • User pays → Paystack fires webhook → order saved in DB immediately
-//  • Client callback fires → polls for order → shows success
-//  • If user closes page after paying → webhook already saved it → admin sees it
-//  • Verify is only needed if webhook is delayed (rare) — it's a safety net
+  async function placeOrder() {
+    if (!selectedBundle) return;
+    if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
+    setPaying(true);
 
-async function placeOrder() {
-  if (!selectedBundle) return;
-  if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
-  setPaying(true);
+    // Capture these now — stable inside the async callback
+    const bundlePrice = getPrice(selectedBundle.key, selectedBundle.cost);
+    const bundleKey   = selectedBundle.key;
+    const bundleVolume = selectedBundle.volume;
+    const network     = currentNet;
+    const reference   = genRef('DF');
 
-  // Capture these now so they're stable inside the async callback
-  const bundlePrice = getPrice(selectedBundle.key, selectedBundle.cost);
-  const bundleKey = selectedBundle.key;
-  const bundleVolume = selectedBundle.volume;
-  const network = currentNet;
-
-  try {
-    // 1. Initialize Paystack — we send a reference but Paystack may assign its own
-    // when using access_code. The REAL reference comes back as _ps.reference in callback.
-    const reference = genRef('DF');   // ← add this back
-    const initRes = await fetch('/api/paystack/initialize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: `${phone}@admunz.com`,
-        amount: Math.round(bundlePrice * 100),
-        reference,
-        metadata: {
-          network,
-          bundle_key: bundleKey,
-          source: 'agent',
-          agent_slug: slug,
-          agent_price: bundlePrice,
-          custom_fields: [
-            { display_name: 'Phone Number', variable_name: 'phone', value: phone },
-            { display_name: 'Network', variable_name: 'network', value: network },
-            { display_name: 'Volume (MB)', variable_name: 'volume', value: bundleVolume },
-          ],
-        },
-      }),
-    });
-
-    const initData = await initRes.json();
-    if (!initRes.ok) {
-      toast(initData.error || 'Could not start payment', 'error');
-      setPaying(false);
-      return;
-    }
-
-    // 2. Open Paystack popup
-    await openPaystack({
-      key: PAYSTACK_KEY,
-      email: `${phone}@admunz.com`,
-      amount: Math.round(bundlePrice * 100),
-      currency: 'GHS',
-      access_code: initData.access_code,
-      reference,
-
-      callback: async (_ps: { reference: string }) => {
-        // User has paid. The Paystack webhook already fired server-to-server
-        // and may have saved the order before we even get here.
-        // Strategy: poll for the order first (fast path), then call verify (fallback).
-        try {
-          setProcessing(true); // show a "confirming..." spinner if you have one
-
-          // Poll up to 8 seconds for the webhook to save the order
-          const paidRef = _ps.reference;
-          let found = false;
-
-          for (let i = 0; i < 8; i++) {
-            await new Promise(r => setTimeout(r, 1000));
-            const pollRes = await fetch(`/api/paystack/poll?ref=${encodeURIComponent(paidRef)}`);
-            const pollData = await pollRes.json();
-            if (pollData.found) {
-              found = true;
-              break;
-            }
-          }
-
-          if (found) {
-            // Order saved by webhook — show success
-            setSuccessRef(paidRef);
-            setOrderStep(3);
-            return;
-          }
-
-          // Webhook hasn't arrived yet — call verify as a fallback.
-          // Build orderData HERE using paidRef (Paystack's real reference),
-          // not a pre-generated one that Paystack may have overridden.
-          const orderData = {
-            phone,
+    try {
+      // 1. Initialize Paystack server-side
+      const initRes = await fetch('/api/paystack/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: `${phone}@admunz.com`,
+          amount: Math.round(bundlePrice * 100),
+          reference,
+          metadata: {
             network,
-            bundleKey,
-            source: 'agent' as const,
-            agentSlug: slug,
-            agentPrice: bundlePrice,
-          };
-          const verifyRes = await fetch('/api/paystack/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reference: paidRef, orderData }),
-          });
-          const result = await verifyRes.json();
+            bundle_key: bundleKey,
+            source: 'agent',
+            agent_slug: slug,
+            agent_price: bundlePrice,
+            custom_fields: [
+              { display_name: 'Phone Number', variable_name: 'phone', value: phone },
+              { display_name: 'Network',      variable_name: 'network', value: network },
+              { display_name: 'Volume (MB)',  variable_name: 'volume',  value: bundleVolume },
+            ],
+          },
+        }),
+      });
 
-          if (result.success) {
-            setSuccessRef(paidRef);
-            setOrderStep(3);
-          } else {
-            toast(result.error || 'Order failed. Contact support with ref: ' + paidRef, 'error');
-          }
-        } catch {
-          // Even if the network fails here, the webhook has the order.
-          // Show success with the reference — admin will have it.
-          setSuccessRef(_ps.reference);
-          setOrderStep(3);
-          toast('Payment received! Ref: ' + _ps.reference, 'success');
-        } finally {
-          setProcessing(false);
-          setPaying(false);
-        }
-      },
-
-      onClose: () => {
+      const initData = await initRes.json();
+      if (!initRes.ok) {
+        toast(initData.error || 'Could not start payment', 'error');
         setPaying(false);
-        toast('Payment cancelled', 'info');
-      },
-    });
-  } catch (e) {
-    console.error('Paystack error:', e);
-    toast('Payment error: ' + (e instanceof Error ? e.message : String(e)), 'error');
-    setPaying(false);
+        return;
+      }
+
+      // 2. Open Paystack popup
+      await openPaystack({
+        key:         PAYSTACK_KEY,
+        email:       `${phone}@admunz.com`,
+        amount:      Math.round(bundlePrice * 100),
+        currency:    'GHS',
+        access_code: initData.access_code,
+        reference,
+
+        callback: async (_ps: { reference: string }) => {
+          // User has paid. The Paystack webhook may have already saved the order
+          // server-to-server before we even get here.
+          // Strategy: poll DB first (fast path), then verify as fallback.
+          try {
+            setProcessing(true);
+            const paidRef = _ps.reference;
+            let found = false;
+
+            // Poll up to 8 seconds waiting for webhook to save the order
+            for (let i = 0; i < 8; i++) {
+              await new Promise(r => setTimeout(r, 1000));
+              const pollRes  = await fetch(`/api/paystack/poll?ref=${encodeURIComponent(paidRef)}`);
+              const pollData = await pollRes.json();
+              if (pollData.found) { found = true; break; }
+            }
+
+            if (found) {
+              setSuccessRef(paidRef);
+              setOrderStep(3);
+              return;
+            }
+
+            // Webhook hasn't arrived yet — call verify as fallback
+            // Use paidRef (Paystack's real reference), not our pre-generated one
+            const orderData = {
+              phone,
+              network,
+              bundleKey,
+              source:    'agent' as const,
+              agentSlug: slug,
+              agentPrice: bundlePrice,
+            };
+            const verifyRes = await fetch('/api/paystack/verify', {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body:    JSON.stringify({ reference: paidRef, orderData }),
+            });
+            const result = await verifyRes.json();
+
+            if (result.success) {
+              setSuccessRef(paidRef);
+              setOrderStep(3);
+            } else {
+              toast(result.error || 'Order failed. Contact support with ref: ' + paidRef, 'error');
+            }
+          } catch {
+            // Even if network fails, webhook has the order — show success
+            setSuccessRef(_ps.reference);
+            setOrderStep(3);
+            toast('Payment received! Ref: ' + _ps.reference, 'success');
+          } finally {
+            setProcessing(false);
+            setPaying(false);
+          }
+        },
+
+        onClose: () => {
+          setPaying(false);
+          toast('Payment cancelled', 'info');
+        },
+      });
+    } catch (e) {
+      console.error('Paystack error:', e);
+      toast('Payment error: ' + (e instanceof Error ? e.message : String(e)), 'error');
+      setPaying(false);
+    }
   }
-}
 
   async function trackOrder() {
     if (!trackRef.trim()) return;
     try {
-      const res = await fetch(`/api/orders/track?ref=${encodeURIComponent(trackRef)}`);
+      const res  = await fetch(`/api/orders/track?ref=${encodeURIComponent(trackRef)}`);
       const data = await res.json();
       if (data.order) {
         setTrackResult({ found: true, order: data.order });
-      } else setTrackResult({ found: false, msg: 'Reference not found. Contact agent on WhatsApp.' });
-    } catch { setTrackResult({ found: false, msg: 'Error checking status. Try again.' }); }
+      } else {
+        setTrackResult({ found: false, msg: 'Reference not found. Contact agent on WhatsApp.' });
+      }
+    } catch {
+      setTrackResult({ found: false, msg: 'Error checking status. Try again.' });
+    }
   }
 
   function copyRef(ref: string) {
     try { navigator.clipboard.writeText(ref); }
-    catch { const el = document.createElement('textarea'); el.value = ref; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); }
+    catch {
+      const el = document.createElement('textarea');
+      el.value = ref; document.body.appendChild(el); el.select();
+      document.execCommand('copy'); document.body.removeChild(el);
+    }
     toast('Reference copied!', 'success', 2000);
   }
 
@@ -263,56 +259,62 @@ async function placeOrder() {
     ? `https://wa.me/233${agent.whatsapp.replace(/^0/, '')}?text=${encodeURIComponent(`Hi, I need help with order ${ref}. Phone: ${phone}`)}`
     : '#';
 
-  if (loadingAgent) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 16px', borderColor: 'rgba(0,212,170,0.2)', borderTopColor: 'var(--accent)' }} />
-          <div style={{ color: 'var(--text3)', fontSize: 13 }}>Loading store…</div>
-        </div>
+  // ── Loading / not-found / no-prices screens ────────────────────────────────
+  if (loadingAgent) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 16px', borderColor: 'rgba(0,212,170,0.2)', borderTopColor: 'var(--accent)' }} />
+        <div style={{ color: 'var(--text3)', fontSize: 13 }}>Loading store…</div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (notFound || !agent) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-        <div style={{ textAlign: 'center', maxWidth: 320 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
-          <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Store Not Found</div>
-          <div style={{ color: 'var(--text2)', marginBottom: 20 }}>This store link is invalid or no longer active.</div>
-          <a href="/" className="btn btn-primary">Visit Main Store</a>
-        </div>
+  if (notFound || !agent) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+      <div style={{ textAlign: 'center', maxWidth: 320 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
+        <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Store Not Found</div>
+        <div style={{ color: 'var(--text2)', marginBottom: 20 }}>This store link is invalid or no longer active.</div>
+        <a href="/" className="btn btn-primary">Visit Main Store</a>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (!hasPrices) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-        <div style={{ textAlign: 'center', maxWidth: 340, padding: '0 20px' }}>
-          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--accent-dim)', border: '2px solid rgba(0,212,170,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 32 }}>🏗️</div>
-          <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Store Coming Soon</div>
-          <div style={{ color: 'var(--text2)', fontSize: 14, marginBottom: 24 }}>
-            <strong style={{ color: 'var(--text)' }}>{agent.name}</strong>&apos;s store is being set up. Check back shortly.
-          </div>
-          {agent.whatsapp && (
-            <a href={`https://wa.me/233${agent.whatsapp.replace(/^0/, '')}`} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
-              💬 Contact Agent on WhatsApp
-            </a>
-          )}
+  if (!hasPrices) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+      <div style={{ textAlign: 'center', maxWidth: 340, padding: '0 20px' }}>
+        <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--accent-dim)', border: '2px solid rgba(0,212,170,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 32 }}>🏗️</div>
+        <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Store Coming Soon</div>
+        <div style={{ color: 'var(--text2)', fontSize: 14, marginBottom: 24 }}>
+          <strong style={{ color: 'var(--text)' }}>{agent.name}</strong>&apos;s store is being set up. Check back shortly.
         </div>
+        {agent.whatsapp && (
+          <a href={`https://wa.me/233${agent.whatsapp.replace(/^0/, '')}`} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
+            💬 Contact Agent on WhatsApp
+          </a>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
 
+  const networks: Array<{ key: string; sub: string }> = [
+    { key: 'mtn',     sub: 'Non-expiry data bundles — 90 days' },
+    { key: 'at',      sub: 'AT iShare & BigTime — 90 days' },
+    { key: 'telecel', sub: 'Group Share bundles — 90 days' },
+  ];
+
+  // ── Main store render ───────────────────────────────────────────────────────
   return (
     <>
       {/* HEADER */}
       <header className="store-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div className="logo-mark">{(agent.store_name || agent.name)[0]}</div>
-          <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>{agent.store_name || agent.name}</div>
+          <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
+  <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+</div>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>
+            {agent.store_name || agent.name}
+          </div>
         </div>
         <div className="store-header-btns" style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary btn-sm" onClick={() => { setTrackResult(null); setTrackOpen(true); }}>Track Order</button>
@@ -334,7 +336,7 @@ async function placeOrder() {
         </div>
         <h1>Instant Data<br /><span className="hero-accent">Delivered Fast</span></h1>
         <p style={{ color: 'var(--text2)', fontSize: 14, maxWidth: 380, margin: '0 auto' }}>
-          MTN · AirtelTigo bundles at the best rates. Delivered in 5–60 minutes, 24/7.
+          MTN · AirtelTigo · Telecel bundles at the best rates. Delivered in 5–60 minutes, 24/7.
         </p>
         <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 12 }}>
           Powered by <a href="/" style={{ color: 'var(--accent)', textDecoration: 'none' }}>{storeName}</a>
@@ -366,12 +368,12 @@ async function placeOrder() {
 
       {/* NETWORK CARDS */}
       <div className="store-networks">
-        {(['mtn', 'at'] as const).map(net => (
-          <button key={net} className="net-card" onClick={() => openNetwork(net)}>
-            <NetworkLogo network={net} size={52} />
+        {networks.map(({ key, sub }) => (
+          <button key={key} className="net-card" onClick={() => openNetwork(key)}>
+            <NetworkLogo network={key} size={52} />
             <div>
-              <div className="net-card-name">{NET_NAMES[net]}</div>
-              <div className="net-card-sub">Non-expiry data bundles — 90 days</div>
+              <div className="net-card-name">{NET_NAMES[key]}</div>
+              <div className="net-card-sub">{sub}</div>
             </div>
             <svg className="net-card-arrow" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
           </button>
@@ -497,10 +499,10 @@ async function placeOrder() {
                 const payOk = o.status === 'success';
                 const dlv = o.delivery_status || 'pending';
                 const dlvMap: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-                  delivered:  { label: 'Delivered', color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✓' },
-                  pending:    { label: 'Processing', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
-                  processing: { label: 'Processing', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
-                  failed:     { label: 'Failed', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: '✕' },
+                  delivered:  { label: 'Delivered',  color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✓' },
+                  pending:    { label: 'Processing',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+                  processing: { label: 'Processing',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+                  failed:     { label: 'Failed',      color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: '✕' },
                 };
                 const d = dlvMap[dlv] ?? dlvMap.pending;
                 const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });

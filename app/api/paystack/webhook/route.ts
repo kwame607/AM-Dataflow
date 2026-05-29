@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
-import { hubnetTransact } from '@/lib/hubnet';
-import { getBundleByKey, getDefaultAdminPrice, getHubnetNetwork } from '@/lib/bundles';
-
-const WEBHOOK = 'https://www.admunz.com/api/hubnet/webhook';
+import { xpresOrder } from '@/lib/xpresportal';
+import { getBundleByKey, getDefaultAdminPrice, getXpresParams } from '@/lib/bundles';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,13 +13,12 @@ export async function POST(req: NextRequest) {
     // Verify webhook signature
     const hash = crypto.createHmac('sha512', secret).update(body).digest('hex');
     if (hash !== signature) {
-      console.warn('[webhook] Invalid Paystack signature');
+      console.warn('[paystack webhook] Invalid signature');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
     const event = JSON.parse(body);
-    console.log('[webhook] Event:', event.event, 'Reference:', event.data?.reference);
-    console.log('[webhook] Full metadata:', JSON.stringify(event.data?.metadata));
+    console.log('[paystack webhook] Event:', event.event, 'Reference:', event.data?.reference);
 
     if (event.event !== 'charge.success') {
       return NextResponse.json({ received: true });
@@ -32,37 +29,40 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
 
-    // Check if order already exists (verify route may have already created it)
+    // Check if verify route already handled this (it should have)
     const { data: existing } = await supabase
       .from('orders')
-      .select('id, status')
+      .select('id, status, delivery_status')
       .eq('reference', reference)
       .maybeSingle();
 
     if (existing) {
-      console.log('[webhook] Order already exists for', reference, '— skipping');
+      console.log('[paystack webhook] Order already exists for', reference, '— skipping duplicate');
       return NextResponse.json({ received: true });
     }
 
-    // Parse metadata — Paystack can nest it differently depending on flow
+    // The verify route should always create the order first.
+    // This webhook is a FALLBACK for cases where the verify route was not called
+    // (e.g. user closed the browser immediately after payment).
+    console.log('[paystack webhook] Order not found — creating as fallback for', reference);
+
     const meta = event.data?.metadata || {};
     const customFields: Array<{ variable_name: string; value: string }> =
       meta?.custom_fields || [];
 
-    // Try to get fields from custom_fields first, then top-level metadata
     const phone =
-      customFields.find(f => f.variable_name === 'phone')?.value ||
+      customFields.find((f: { variable_name: string }) => f.variable_name === 'phone')?.value ||
       meta?.phone ||
       event.data?.customer?.email?.split('@')[0] ||
       '';
 
     const network: string =
-      customFields.find(f => f.variable_name === 'network')?.value ||
+      customFields.find((f: { variable_name: string }) => f.variable_name === 'network')?.value ||
       meta?.network ||
       '';
 
     const volume: string =
-      customFields.find(f => f.variable_name === 'volume')?.value ||
+      customFields.find((f: { variable_name: string }) => f.variable_name === 'volume')?.value ||
       meta?.volume ||
       '';
 
@@ -71,21 +71,13 @@ export async function POST(req: NextRequest) {
     const source: string = meta?.source || 'main';
     const agentPrice: number = Number(meta?.agent_price) || 0;
 
-    console.log('[webhook] Parsed fields:', { phone, network, bundleKey, volume, agentSlug, source });
-
-    // If bundle_key is missing, try to find bundle by network + volume
     let bundle = getBundleByKey(bundleKey);
-
     if (!bundle && network && volume) {
-      console.log('[webhook] bundle_key missing, searching by network+volume:', network, volume);
       const { ALL_BUNDLES } = await import('@/lib/bundles');
-      bundle = ALL_BUNDLES.find(b =>
-        b.network === network && b.volume === volume
-      );
+      bundle = ALL_BUNDLES.find(b => b.network === network && b.volume === volume);
     }
-
     if (!bundle) {
-      console.warn('[webhook] Could not find bundle. key:', bundleKey, 'network:', network, 'volume:', volume);
+      console.warn('[paystack webhook] Could not find bundle. key:', bundleKey);
       return NextResponse.json({ received: true });
     }
 
@@ -101,10 +93,7 @@ export async function POST(req: NextRequest) {
     let agentId: string | null = null;
     if (source === 'agent' && agentSlug) {
       const { data: agent } = await supabase
-        .from('agents')
-        .select('id')
-        .eq('slug', agentSlug)
-        .single();
+        .from('agents').select('id').eq('slug', agentSlug).single();
       if (agent) agentId = agent.id;
     }
 
@@ -133,46 +122,43 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (orderErr) {
-      console.error('[webhook] Order insert error:', orderErr);
+      console.error('[paystack webhook] Order insert error:', orderErr);
       return NextResponse.json({ received: true });
     }
 
-    console.log('[webhook] Order created:', order.id);
+    console.log('[paystack webhook] Fallback order created:', order.id);
 
-    // Attempt Hubnet delivery
-    const hubnetNetwork = getHubnetNetwork({ ...bundle, network });
+    // Attempt delivery via XpresPortal
+    const rawUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+    const siteUrl = rawUrl && !rawUrl.includes('localhost')
+      ? rawUrl
+      : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
+
+    const { network: xpresNetwork, offerSlug, volumeGB } = getXpresParams({ ...bundle, network });
+
+    const webhookUrl = siteUrl
+      ? `${siteUrl}/api/xpresportal/webhook?internalRef=${encodeURIComponent(reference)}`
+      : undefined;
 
     try {
-      const hubnetResult = await hubnetTransact({
-        network: hubnetNetwork,
-        phone,
-        volume: bundle.volume,
-        reference,
-        webhook: WEBHOOK,
-      });
+      const xpresResult = await xpresOrder({ network: xpresNetwork, phone, volume: volumeGB, offerSlug, reference, webhookUrl });
+      console.log('[paystack webhook] XpresPortal result:', JSON.stringify(xpresResult));
 
-      console.log('[webhook] Hubnet result:', JSON.stringify(hubnetResult));
-
-      if (hubnetResult.success) {
+      if (xpresResult.success) {
         await supabase.from('orders').update({
           delivery_status: 'processing',
-          hubnet_transaction_id: hubnetResult.transactionId || null,
+          hubnet_transaction_id: xpresResult.orderId || null,
         }).eq('id', order.id);
       } else {
-        await supabase.from('orders').update({
-          delivery_status: 'failed',
-        }).eq('id', order.id);
+        await supabase.from('orders').update({ delivery_status: 'failed' }).eq('id', order.id);
       }
-    } catch (hubnetErr) {
-      console.error('[webhook] Hubnet error:', hubnetErr);
-      await supabase.from('orders').update({
-        delivery_status: 'pending',
-      }).eq('id', order.id);
+    } catch (e) {
+      console.error('[paystack webhook] XpresPortal error:', e);
     }
 
     return NextResponse.json({ received: true });
   } catch (e) {
-    console.error('[webhook] Error:', e);
+    console.error('[paystack webhook] Error:', e);
     return NextResponse.json({ error: 'Webhook error' }, { status: 500 });
   }
 }

@@ -7,6 +7,7 @@ import { fmt, fmtDate, exportCSV } from '@/lib/utils';
 import { useSimpleToast } from '@/components/ui/Toast';
 import { StatusBadge, NetworkBadge, DeliveryBadge } from '@/components/ui/Badge';
 import type { Agent, Order, AgentPrice, AdminPrice, Withdrawal } from '@/types';
+import Image from 'next/image';
 
 type Tab = 'overview' | 'prices' | 'orders' | 'earnings' | 'store';
 
@@ -211,7 +212,9 @@ export default function DashboardPage() {
       {/* SIDEBAR */}
       <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sidebar-logo">
-          <div className="logo-mark">{agent?.name?.[0] || 'A'}</div>
+          <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
+  <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+</div>
           <div className="logo-text">
             <strong>{agent?.name?.split(' ')[0] || 'Agent'}</strong>
             <span>{agent?.slug}</span>

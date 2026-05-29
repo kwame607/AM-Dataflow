@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { hubnetCheckBalance } from '@/lib/hubnet';
+import { xpresCheckBalance } from '@/lib/xpresportal';
 
 export async function GET() {
-  const result = await hubnetCheckBalance();
+  const result = await xpresCheckBalance();
   if (result) {
     return NextResponse.json({ balance: result.balance });
   }

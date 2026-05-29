@@ -33,22 +33,35 @@ export const BUNDLES: Record<string, Bundle[]> = {
     { key: 'at_15gb',  size: '15GB',  volume: '15000',  cost: 55.70, validity: '90 days' },
     { key: 'at_20gb',  size: '20GB',  volume: '20000',  cost: 74.30, validity: '90 days' },
     { key: 'at_25gb',  size: '25GB',  volume: '25000',  cost: 92.70, validity: '90 days' },
-    // 30GB+ = AirtelTigo BigTime → uses 'big-time' endpoint on Hubnet
+    // 30GB+ → airteltigo_bigtime_portal on XpresPortal
     { key: 'at_30gb',  size: '30GB',  volume: '30000',  cost: 111.30,validity: '90 days' },
     { key: 'at_40gb',  size: '40GB',  volume: '40000',  cost: 150.00,validity: '90 days' },
     { key: 'at_50gb',  size: '50GB',  volume: '50000',  cost: 185.20,validity: '90 days' },
     { key: 'at_100gb', size: '100GB', volume: '100000', cost: 370.20,validity: '90 days' },
+  ],
+  telecel: [
+    { key: 'tel_5gb',   size: '5GB',   volume: '5000',   cost: 18.00, validity: '90 days' },
+    { key: 'tel_10gb',  size: '10GB',  volume: '10000',  cost: 35.00, validity: '90 days' },
+    { key: 'tel_15gb',  size: '15GB',  volume: '15000',  cost: 50.00, validity: '90 days' },
+    { key: 'tel_20gb',  size: '20GB',  volume: '20000',  cost: 65.00, validity: '90 days' },
+    { key: 'tel_25gb',  size: '25GB',  volume: '25000',  cost: 80.00, validity: '90 days' },
+    { key: 'tel_30gb',  size: '30GB',  volume: '30000',  cost: 95.00, validity: '90 days' },
+    { key: 'tel_40gb',  size: '40GB',  volume: '40000',  cost: 125.00,validity: '90 days' },
+    { key: 'tel_50gb',  size: '50GB',  volume: '50000',  cost: 155.00,validity: '90 days' },
+    { key: 'tel_100gb', size: '100GB', volume: '100000', cost: 300.00,validity: '90 days' },
   ],
 };
 
 export const ALL_BUNDLES: Bundle[] = [
   ...BUNDLES.mtn.map(b => ({ ...b, network: 'mtn' })),
   ...BUNDLES.at.map(b => ({ ...b, network: 'at' })),
+  ...BUNDLES.telecel.map(b => ({ ...b, network: 'telecel' })),
 ];
 
 export const NET_NAMES: Record<string, string> = {
-  mtn: 'MTN',
-  at: 'AirtelTigo',
+  mtn:     'MTN',
+  at:      'AirtelTigo',
+  telecel: 'Telecel',
 };
 
 export function getDefaultAdminPrice(cost: number): number {
@@ -60,19 +73,37 @@ export function getBundleByKey(key: string): Bundle | undefined {
 }
 
 /**
- * Maps internal network code → Hubnet API endpoint network segment.
- * Allowed values per Hubnet docs: mtn | at | big-time
+ * Maps internal bundle key → XpresPortal offerSlug + network URL segment.
  *
- * AirtelTigo under 30GB  → 'at'
- * AirtelTigo 30GB+       → 'big-time'
+ * MTN:       mtn_master_beneficiary_portal  → /order/mtn
+ * AT <30GB:  airteltigo_ishare_portal       → /order/at
+ * AT 30GB+:  airteltigo_bigtime_portal      → /order/at
+ * Telecel:   telecel_group_share_portal     → /order/telecel
  */
-export function getHubnetNetwork(bundle: Bundle & { network?: string }): string {
+export function getXpresParams(bundle: Bundle & { network?: string }): {
+  network: string;
+  offerSlug: string;
+  volumeGB: number;
+} {
   const net = bundle.network || '';
-  if (net === 'mtn') return 'mtn';
-  if (net === 'at') {
-    const volumeMb = parseInt(bundle.volume || '0', 10);
-    return volumeMb >= 30000 ? 'big-time' : 'at';
+  const volumeGB = Math.round(parseInt(bundle.volume || '0', 10) / 1000);
+
+  if (net === 'mtn') {
+    return { network: 'mtn', offerSlug: 'mtn_master_beneficiary_portal', volumeGB };
   }
-  // telecel not in docs — add if Hubnet supports it
-  return net;
+
+  if (net === 'at') {
+    const isBigTime = volumeGB >= 30;
+    return {
+      network: 'at',
+      offerSlug: isBigTime ? 'airteltigo_bigtime_portal' : 'airteltigo_ishare_portal',
+      volumeGB,
+    };
+  }
+
+  if (net === 'telecel') {
+    return { network: 'telecel', offerSlug: 'telecel_group_share_portal', volumeGB };
+  }
+
+  return { network: net, offerSlug: '', volumeGB };
 }

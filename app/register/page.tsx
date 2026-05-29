@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import { slugify } from '@/lib/utils';
 import { useSimpleToast } from '@/components/ui/Toast';
@@ -94,7 +95,9 @@ export default function RegisterPage() {
     <div className="auth-page" style={{ alignItems: 'flex-start', padding: '32px 20px' }}>
       <div style={{ width: '100%', maxWidth: 480, margin: '0 auto' }}>
         <div className="auth-logo" style={{ justifyContent: 'center' }}>
-          <div className="logo-mark">A</div>
+          <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
+  <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+</div>
           <div className="logo-text"><strong>ADMUNZ</strong><span>Reseller Programme</span></div>
         </div>
 
