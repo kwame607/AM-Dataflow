@@ -374,7 +374,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {(['mtn','at'] as const).map(net => (
+              {(['mtn','at','telecel'] as const).map(net => (
                 <div key={net} className="card" style={{ marginBottom: 16 }}>
                   <div className="card-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

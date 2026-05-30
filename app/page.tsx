@@ -252,7 +252,9 @@ export default function MainStorePage() {
   if (!mounted) return (
     <div style={{ minHeight: '100vh', background: '#06090e', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: '#00d4aa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, color: '#000', fontFamily: 'sans-serif' }}>A</div>
+        <div style={{ width: 52, height: 52, borderRadius: 14, overflow: 'hidden', flexShrink: 0 }}>
+  <Image src="/admunz.png" alt="ADMUNZ" width={52} height={52} style={{ objectFit: 'cover' }} />
+</div>
         <div>
           <div style={{ fontFamily: 'sans-serif', fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>ADMUNZ</div>
           <div style={{ fontFamily: 'sans-serif', fontSize: 12, color: '#64748b', marginTop: 2 }}>Data</div>
