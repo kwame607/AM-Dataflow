@@ -426,10 +426,13 @@ export default function MainStorePage() {
                       toast('Reference copied!', 'success', 2000);
                     }}>Copy</button>
                   </div>
-                  <a href={waLink(successRef, phone)} className="btn btn-full" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', marginTop: 12, justifyContent: 'center' }}>
-                    WhatsApp Support
-                  </a>
-                  <button className="btn btn-secondary btn-full" style={{ marginTop: 10 }} onClick={() => { setOrderOpen(false); setStep(1); }}>Buy Another</button>
+                  <a href={`/receipt/${successRef}`} className="btn btn-full" style={{ background: 'linear-gradient(135deg,#00d4aa,#00b894)', color: '#060910', marginTop: 12, justifyContent: 'center', fontWeight: 700 }}>
+  🧾 View Full Receipt
+</a>
+<a href={waLink(successRef, phone)} className="btn btn-full" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', marginTop: 8, justifyContent: 'center' }}>
+  WhatsApp Support
+</a>
+<button className="btn btn-secondary btn-full" style={{ marginTop: 8 }} onClick={() => { setOrderOpen(false); setStep(1); }}>Buy Another</button>
                 </div>
               )}
             </div>

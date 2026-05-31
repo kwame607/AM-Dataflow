@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from('orders')
-      .select('reference, phone, network, size, status, delivery_status, created_at, buyer_name')
+      .select('reference, phone, network, size, status, delivery_status, created_at, buyer_name, source, agent_slug')
       .eq('reference', ref.toUpperCase())
       .single();
 
