@@ -642,41 +642,145 @@ export default function AdminPage() {
             <FinanceTab orders={orders} withdrawals={withdrawals} agents={agents} hubBalance={hubBalance} />
           )}
 
-          {/* SETTINGS */}
-         {tab === 'settings' && (
-  <div>
+         {/* SETTINGS */}
+{tab === 'settings' && (
+  <>
     <div className="card" style={{ marginBottom: 16 }}>
-      <div className="card-header"><div className="card-title">API Information</div></div>
+      <div className="card-header">
+        <div className="card-title">Email Notifications</div>
+      </div>
       <div className="card-body">
-        {[
-          { label: 'XpresPortal Webhook URL', val: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://yourdomain.com'}/api/xpresportal/webhook` },
-          { label: 'Paystack Callback URL', val: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/paystack/verify` },
-          { label: 'Paystack Webhook URL', val: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/paystack/webhook` },
-        ].map(row => (
-          <div key={row.label} className="form-group">
-            <label className="form-label">{row.label}</label>
-            <div className="copy-box">
-              <span className="copy-url">{row.val}</span>
-              <button className="copy-btn" onClick={() => { navigator.clipboard.writeText(row.val); toast('Copied!', 'success', 1500); }}>Copy</button>
-            </div>
-          </div>
-        ))}
+        <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 14 }}>
+          Test that your email alerts are working correctly.
+        </p>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={async () => {
+              const r = await authFetch('/api/admin/test-email', {
+                method: 'POST',
+                body: JSON.stringify({ type: 'withdrawal' }),
+              });
+
+              const d = await r.json();
+
+              toast(
+                d.ok ? 'Test withdrawal email sent!' : 'Failed: ' + d.error,
+                d.ok ? 'success' : 'error'
+              );
+            }}
+          >
+            📧 Test Withdrawal Email
+          </button>
+
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={async () => {
+              const r = await authFetch('/api/admin/test-email', {
+                method: 'POST',
+                body: JSON.stringify({ type: 'low_wallet' }),
+              });
+
+              const d = await r.json();
+
+              toast(
+                d.ok ? 'Test wallet alert sent!' : 'Failed: ' + d.error,
+                d.ok ? 'success' : 'error'
+              );
+            }}
+          >
+            🔔 Test Low Wallet Alert
+          </button>
+        </div>
       </div>
     </div>
 
-    <div className="card">
-      <div className="card-header"><div className="card-title">XpresPortal Balance</div></div>
-      <div className="card-body">
-        <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 32, fontWeight: 800, color: 'var(--accent)', marginBottom: 12 }}>
-          {hubBalance !== null ? fmt(hubBalance) : '—'}
+    <div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-header">
+          <div className="card-title">API Information</div>
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={async () => {
-          const r = await fetch('/api/hubnet/balance').then(x => x.json()).catch(() => null);
-          if (r?.balance !== undefined) { setHubBalance(r.balance); toast('Balance refreshed', 'success'); }
-        }}>↻ Refresh Balance</button>
+
+        <div className="card-body">
+          {[
+            {
+              label: 'XpresPortal Webhook URL',
+              val: `${
+                process.env.NEXT_PUBLIC_SITE_URL || 'https://yourdomain.com'
+              }/api/xpresportal/webhook`,
+            },
+            {
+              label: 'Paystack Callback URL',
+              val: `${
+                process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+              }/api/paystack/verify`,
+            },
+            {
+              label: 'Paystack Webhook URL',
+              val: `${
+                process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+              }/api/paystack/webhook`,
+            },
+          ].map((row) => (
+            <div key={row.label} className="form-group">
+              <label className="form-label">{row.label}</label>
+
+              <div className="copy-box">
+                <span className="copy-url">{row.val}</span>
+
+                <button
+                  className="copy-btn"
+                  onClick={() => {
+                    navigator.clipboard.writeText(row.val);
+                    toast('Copied!', 'success', 1500);
+                  }}
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">XpresPortal Balance</div>
+        </div>
+
+        <div className="card-body">
+          <div
+            style={{
+              fontFamily: 'Syne,sans-serif',
+              fontSize: 32,
+              fontWeight: 800,
+              color: 'var(--accent)',
+              marginBottom: 12,
+            }}
+          >
+            {hubBalance !== null ? fmt(hubBalance) : '—'}
+          </div>
+
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={async () => {
+              const r = await fetch('/api/hubnet/balance')
+                .then((x) => x.json())
+                .catch(() => null);
+
+              if (r?.balance !== undefined) {
+                setHubBalance(r.balance);
+                toast('Balance refreshed', 'success');
+              }
+            }}
+          >
+            ↻ Refresh Balance
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  </>
 )}
 
         </div>
