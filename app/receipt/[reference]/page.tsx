@@ -15,6 +15,7 @@ interface OrderReceipt {
   created_at: string;
   buyer_name?: string;
   agent_price: number;
+  admin_price: number;
   source: string;
   agent_slug?: string;
 }
@@ -243,7 +244,7 @@ export default function ReceiptPage() {
               },
               { label: 'Bundle',       value: <strong style={{ color: '#f1f5f9' }}>{order.size}</strong> },
               { label: 'Sent To',      value: <strong style={{ color: '#f1f5f9', fontFamily: 'monospace' }}>{order.phone}</strong> },
-              { label: 'Amount Paid',  value: <strong style={{ color: '#00d4aa', fontFamily: 'Syne,sans-serif', fontSize: 16 }}>{fmt(order.agent_price)}</strong> },
+              { label: 'Amount Paid', value: <strong style={{ color: '#00d4aa', fontFamily: 'Syne,sans-serif', fontSize: 16 }}>{fmt(order.agent_price || order.admin_price || 0)}</strong> },
               { label: 'Date & Time',  value: <span style={{ color: '#94a3b8', fontSize: 12 }}>{fmtDate(order.created_at)}</span> },
               { label: 'Store',        value: <span style={{ color: '#94a3b8' }}>{storeName}</span> },
               {
