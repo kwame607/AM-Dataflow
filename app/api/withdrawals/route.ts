@@ -1,5 +1,8 @@
+// app/api/withdrawals/route.ts  ← REPLACE your existing file with this
+// Added: sendWithdrawalRequestEmail() call on POST
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
+import { sendWithdrawalRequestEmail } from '@/lib/email';
 
 export async function GET(req: NextRequest) {
   const agentId = req.nextUrl.searchParams.get('agentId');
@@ -16,6 +19,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const { agentId, amount, momoNumber, momoName, network, type } = await req.json();
+
     if (!amount || !momoNumber || !momoName || !network) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -25,45 +29,75 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
 
-    // Validate agent balance if agent withdrawal
+    // ── validate agent balance ───────────────────────────────
+    let agentName = 'Unknown Agent';
+    let agentSlug = '';
+
     if (type === 'agent' && agentId) {
-      const { data: agent } = await supabase.from('agents').select('id').eq('id', agentId).single();
+      const { data: agent } = await supabase
+        .from('agents')
+        .select('id, name, slug')
+        .eq('id', agentId)
+        .single();
+
       if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
 
-      // Calculate available balance
+      agentName = agent.name;
+      agentSlug = agent.slug;
+
       const { data: orders } = await supabase
         .from('orders')
         .select('agent_profit')
         .eq('agent_id', agentId)
         .eq('status', 'success');
 
-      const { data: prevWithdrawals } = await supabase
+      const { data: prevWds } = await supabase
         .from('withdrawals')
         .select('amount')
         .eq('agent_id', agentId)
         .in('status', ['pending', 'approved', 'paid']);
 
-      const totalEarned = (orders || []).reduce((s: number, o: { agent_profit: number }) => s + (o.agent_profit || 0), 0);
-      const totalWithdrawn = (prevWithdrawals || []).reduce((s: number, w: { amount: number }) => s + (w.amount || 0), 0);
+      const totalEarned   = (orders  || []).reduce((s: number, o: { agent_profit: number }) => s + (o.agent_profit || 0), 0);
+      const totalWithdrawn = (prevWds || []).reduce((s: number, w: { amount: number }) => s + (w.amount || 0), 0);
       const available = totalEarned - totalWithdrawn;
 
       if (amount > available) {
-        return NextResponse.json({ error: `Insufficient balance. Available: ₵${available.toFixed(2)}` }, { status: 400 });
+        return NextResponse.json({
+          error: `Insufficient balance. Available: ₵${available.toFixed(2)}`,
+        }, { status: 400 });
       }
     }
 
-    const { data, error } = await supabase.from('withdrawals').insert({
-      type: type || 'agent',
-      agent_id: agentId || null,
-      amount,
-      momo_number: momoNumber,
-      momo_name: momoName,
-      network,
-      status: 'pending',
-      requested_at: new Date().toISOString(),
-    }).select().single();
+    // ── save withdrawal ──────────────────────────────────────
+    const { data, error } = await supabase
+      .from('withdrawals')
+      .insert({
+        type:         type || 'agent',
+        agent_id:     agentId || null,
+        amount,
+        momo_number:  momoNumber,
+        momo_name:    momoName,
+        network,
+        status:       'pending',
+        requested_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // ── 🔔 send admin email notification (non-blocking) ──────
+    sendWithdrawalRequestEmail({
+      agentName,
+      agentSlug,
+      amount,
+      momoNumber,
+      momoName,
+      network,
+      withdrawalId:  data.id,
+      requestedAt:   data.requested_at,
+    }).catch(e => console.error('[withdrawals] email error:', e));
+
     return NextResponse.json({ success: true, withdrawal: data });
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
