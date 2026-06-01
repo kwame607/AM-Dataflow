@@ -73,19 +73,16 @@ export default function AgentStorePage() {
   const selectedBundle = currentNet ? BUNDLES[currentNet]?.find(b => b.key === selectedKey) : undefined;
 
   // ── Price helpers ─────────────────────────────────────────────
-  // basePrice = what the agent set (their profit is baked in)
-  // customerPays = basePrice ÷ 0.98 so Paystack's 2% comes out of the fee, not profits
-  function basePrice(key: string, cost: number): number {
+  // getPrice = what the store DISPLAYS (agent's set price, shown on flyers)
+  // silentPrice = what Paystack ACTUALLY charges (agent price ÷ 0.98)
+  //   so the 2% MoMo fee is covered without touching agent/admin profits
+  function getPrice(key: string, cost: number): number {
     return prices[key] ?? cost;
   }
 
-  function getPrice(key: string, cost: number): number {
-    const base = basePrice(key, cost);
+  function silentPrice(key: string, cost: number): number {
+    const base = getPrice(key, cost);
     return Math.ceil((base / 0.98) * 100) / 100;
-  }
-
-  function paystackFee(key: string, cost: number): number {
-    return +(getPrice(key, cost) - basePrice(key, cost)).toFixed(2);
   }
 
   function openNetwork(net: string) {
@@ -126,10 +123,13 @@ export default function AgentStorePage() {
     if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
     setPaying(true);
 
-    // bundlePrice = fee-inclusive amount customer actually pays
-    const bundlePrice  = getPrice(selectedBundle.key, selectedBundle.cost);
-    // agentPrice = base amount agent receives (before Paystack fee)
-    const agentBasePrice = basePrice(selectedBundle.key, selectedBundle.cost);
+    // displayPrice = store-shown price (agent's set price, matches their flyers)
+    const displayPrice   = getPrice(selectedBundle.key, selectedBundle.cost);
+    // chargePrice = what Paystack silently initiates (displayPrice ÷ 0.98)
+    // Paystack takes 2%, you receive exactly displayPrice — profits intact
+    const chargePrice    = silentPrice(selectedBundle.key, selectedBundle.cost);
+    // agentBasePrice recorded in DB = displayPrice (agent earns on this)
+    const agentBasePrice = displayPrice;
     const bundleKey    = selectedBundle.key;
     const bundleVolume = selectedBundle.volume;
     const network      = currentNet;
@@ -141,7 +141,7 @@ export default function AgentStorePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: `${phone}@admunz.com`,
-          amount: Math.round(bundlePrice * 100),
+          amount: Math.round(chargePrice * 100),
           reference,
           metadata: {
             network,
@@ -168,7 +168,7 @@ export default function AgentStorePage() {
       await openPaystack({
         key:         PAYSTACK_KEY,
         email:       `${phone}@admunz.com`,
-        amount:      Math.round(bundlePrice * 100),
+        amount:      Math.round(chargePrice * 100),
         currency:    'GHS',
         access_code: initData.access_code,
         reference,
@@ -458,18 +458,6 @@ export default function AgentStorePage() {
                     <div className="order-summary-row">
                       <span>Recipient</span>
                       <span>{phone}</span>
-                    </div>
-                    <div className="order-summary-row">
-                      <span>Bundle Price</span>
-                      <span>{fmt(basePrice(selectedBundle.key, selectedBundle.cost))}</span>
-                    </div>
-                    <div className="order-summary-row">
-                      <span style={{ color: 'var(--text3)', fontSize: 12 }}>
-                        Payment Processing Fee (2%)
-                      </span>
-                      <span style={{ color: 'var(--text3)', fontSize: 12 }}>
-                        +{fmt(paystackFee(selectedBundle.key, selectedBundle.cost))}
-                      </span>
                     </div>
                     <div className="order-summary-row total">
                       <span>Total</span>
