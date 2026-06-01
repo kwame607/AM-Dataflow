@@ -72,8 +72,20 @@ export default function AgentStorePage() {
 
   const selectedBundle = currentNet ? BUNDLES[currentNet]?.find(b => b.key === selectedKey) : undefined;
 
-  function getPrice(key: string, cost: number) {
+  // ── Price helpers ─────────────────────────────────────────────
+  // basePrice = what the agent set (their profit is baked in)
+  // customerPays = basePrice ÷ 0.98 so Paystack's 2% comes out of the fee, not profits
+  function basePrice(key: string, cost: number): number {
     return prices[key] ?? cost;
+  }
+
+  function getPrice(key: string, cost: number): number {
+    const base = basePrice(key, cost);
+    return Math.ceil((base / 0.98) * 100) / 100;
+  }
+
+  function paystackFee(key: string, cost: number): number {
+    return +(getPrice(key, cost) - basePrice(key, cost)).toFixed(2);
   }
 
   function openNetwork(net: string) {
@@ -114,15 +126,16 @@ export default function AgentStorePage() {
     if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
     setPaying(true);
 
-    // Capture these now — stable inside the async callback
-    const bundlePrice = getPrice(selectedBundle.key, selectedBundle.cost);
-    const bundleKey   = selectedBundle.key;
+    // bundlePrice = fee-inclusive amount customer actually pays
+    const bundlePrice  = getPrice(selectedBundle.key, selectedBundle.cost);
+    // agentPrice = base amount agent receives (before Paystack fee)
+    const agentBasePrice = basePrice(selectedBundle.key, selectedBundle.cost);
+    const bundleKey    = selectedBundle.key;
     const bundleVolume = selectedBundle.volume;
-    const network     = currentNet;
-    const reference   = genRef('DF');
+    const network      = currentNet;
+    const reference    = genRef('DF');
 
     try {
-      // 1. Initialize Paystack server-side
       const initRes = await fetch('/api/paystack/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -135,9 +148,9 @@ export default function AgentStorePage() {
             bundle_key: bundleKey,
             source: 'agent',
             agent_slug: slug,
-            agent_price: bundlePrice,
+            agent_price: agentBasePrice,
             custom_fields: [
-              { display_name: 'Phone Number', variable_name: 'phone', value: phone },
+              { display_name: 'Phone Number', variable_name: 'phone',   value: phone },
               { display_name: 'Network',      variable_name: 'network', value: network },
               { display_name: 'Volume (MB)',  variable_name: 'volume',  value: bundleVolume },
             ],
@@ -152,7 +165,6 @@ export default function AgentStorePage() {
         return;
       }
 
-      // 2. Open Paystack popup
       await openPaystack({
         key:         PAYSTACK_KEY,
         email:       `${phone}@admunz.com`,
@@ -162,15 +174,11 @@ export default function AgentStorePage() {
         reference,
 
         callback: async (_ps: { reference: string }) => {
-          // User has paid. The Paystack webhook may have already saved the order
-          // server-to-server before we even get here.
-          // Strategy: poll DB first (fast path), then verify as fallback.
           try {
             setProcessing(true);
             const paidRef = _ps.reference;
             let found = false;
 
-            // Poll up to 8 seconds waiting for webhook to save the order
             for (let i = 0; i < 8; i++) {
               await new Promise(r => setTimeout(r, 1000));
               const pollRes  = await fetch(`/api/paystack/poll?ref=${encodeURIComponent(paidRef)}`);
@@ -184,15 +192,13 @@ export default function AgentStorePage() {
               return;
             }
 
-            // Webhook hasn't arrived yet — call verify as fallback
-            // Use paidRef (Paystack's real reference), not our pre-generated one
             const orderData = {
               phone,
               network,
               bundleKey,
-              source:    'agent' as const,
-              agentSlug: slug,
-              agentPrice: bundlePrice,
+              source:     'agent' as const,
+              agentSlug:  slug,
+              agentPrice: agentBasePrice,
             };
             const verifyRes = await fetch('/api/paystack/verify', {
               method:  'POST',
@@ -208,7 +214,6 @@ export default function AgentStorePage() {
               toast(result.error || 'Order failed. Contact support with ref: ' + paidRef, 'error');
             }
           } catch {
-            // Even if network fails, webhook has the order — show success
             setSuccessRef(_ps.reference);
             setOrderStep(3);
             toast('Payment received! Ref: ' + _ps.reference, 'success');
@@ -259,7 +264,7 @@ export default function AgentStorePage() {
     ? `https://wa.me/233${agent.whatsapp.replace(/^0/, '')}?text=${encodeURIComponent(`Hi, I need help with order ${ref}. Phone: ${phone}`)}`
     : '#';
 
-  // ── Loading / not-found / no-prices screens ────────────────────────────────
+  // ── Loading / not-found / no-prices screens ──────────────────
   if (loadingAgent) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
       <div style={{ textAlign: 'center' }}>
@@ -303,15 +308,14 @@ export default function AgentStorePage() {
     { key: 'telecel', sub: 'Group Share bundles — 90 days' },
   ];
 
-  // ── Main store render ───────────────────────────────────────────────────────
   return (
     <>
       {/* HEADER */}
       <header className="store-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
-  <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
-</div>
+            <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+          </div>
           <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>
             {agent.store_name || agent.name}
           </div>
@@ -398,6 +402,7 @@ export default function AgentStorePage() {
                     <div className="bundle-size">{b.size}</div>
                     <div className="bundle-validity">{b.validity}{b.type ? ` · ${b.type}` : ''}</div>
                   </div>
+                  {/* Show fee-inclusive price to customer */}
                   <div className="bundle-price">{fmt(getPrice(b.key, b.cost))}</div>
                 </div>
               ))}
@@ -442,10 +447,34 @@ export default function AgentStorePage() {
                 <div>
                   <h3 style={{ fontFamily: 'Syne,sans-serif', fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Order Summary</h3>
                   <div className="order-summary" style={{ marginBottom: 18 }}>
-                    <div className="order-summary-row"><span>Bundle</span><span>{selectedBundle.size}</span></div>
-                    <div className="order-summary-row"><span>Network</span><span>{NET_NAMES[currentNet]}</span></div>
-                    <div className="order-summary-row"><span>Recipient</span><span>{phone}</span></div>
-                    <div className="order-summary-row total"><span>Total</span><span>{fmt(getPrice(selectedBundle.key, selectedBundle.cost))}</span></div>
+                    <div className="order-summary-row">
+                      <span>Bundle</span>
+                      <span>{selectedBundle.size}</span>
+                    </div>
+                    <div className="order-summary-row">
+                      <span>Network</span>
+                      <span>{NET_NAMES[currentNet]}</span>
+                    </div>
+                    <div className="order-summary-row">
+                      <span>Recipient</span>
+                      <span>{phone}</span>
+                    </div>
+                    <div className="order-summary-row">
+                      <span>Bundle Price</span>
+                      <span>{fmt(basePrice(selectedBundle.key, selectedBundle.cost))}</span>
+                    </div>
+                    <div className="order-summary-row">
+                      <span style={{ color: 'var(--text3)', fontSize: 12 }}>
+                        Payment Processing Fee (2%)
+                      </span>
+                      <span style={{ color: 'var(--text3)', fontSize: 12 }}>
+                        +{fmt(paystackFee(selectedBundle.key, selectedBundle.cost))}
+                      </span>
+                    </div>
+                    <div className="order-summary-row total">
+                      <span>Total</span>
+                      <span>{fmt(getPrice(selectedBundle.key, selectedBundle.cost))}</span>
+                    </div>
                   </div>
                   <button className="btn btn-primary btn-full btn-lg" onClick={placeOrder} disabled={paying || processing}>
                     {paying || processing ? <><span className="spinner" /> Processing…</> : 'Place Order & Pay'}
@@ -465,14 +494,14 @@ export default function AgentStorePage() {
                     <button className="copy-btn" onClick={() => copyRef(successRef)}>Copy</button>
                   </div>
                   <a href={`/receipt/${successRef}`} className="btn btn-full" style={{ background: 'linear-gradient(135deg,#00d4aa,#00b894)', color: '#060910', marginTop: 12, justifyContent: 'center', fontWeight: 700 }}>
-  🧾 View Full Receipt
-</a>
-{agent?.whatsapp && (
-  <a href={waLink(successRef)} className="btn btn-full" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', marginTop: 8, justifyContent: 'center' }} target="_blank" rel="noopener noreferrer">
-    WhatsApp Support
-  </a>
-)}
-<button className="btn btn-secondary btn-full" style={{ marginTop: 8 }} onClick={() => { setOrderOpen(false); setOrderStep(1); }}>Buy Another</button>
+                    🧾 View Full Receipt
+                  </a>
+                  {agent?.whatsapp && (
+                    <a href={waLink(successRef)} className="btn btn-full" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', marginTop: 8, justifyContent: 'center' }} target="_blank" rel="noopener noreferrer">
+                      WhatsApp Support
+                    </a>
+                  )}
+                  <button className="btn btn-secondary btn-full" style={{ marginTop: 8 }} onClick={() => { setOrderOpen(false); setOrderStep(1); }}>Buy Another</button>
                 </div>
               )}
             </div>
