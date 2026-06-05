@@ -15,10 +15,10 @@ export default function ServiceBanner() {
         </div>
         <div style={{ padding: '20px' }}>
           <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, marginBottom: 12 }}>
-            We are currently experiencing a delivery delay on all data bundle orders. Our provider (Yello Portal) has been working to resolve a network issue since <strong>Wednesday, 4:00 PM</strong>.
+            We are currently experiencing a delivery delay on <strong>MTN data bundle orders only</strong>. Our provider (Yello Portal) has been working to resolve an MTN network issue since <strong>Wednesday, 4:00 PM</strong>.
           </p>
           <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, marginBottom: 16 }}>
-            All orders placed during this time are safe and <strong>will be fulfilled once the issue is resolved</strong>. We appreciate your patience.
+            <strong>Telecel and AirtelTigo orders are working normally.</strong> All pending MTN orders are safe and will be fulfilled once the issue is resolved. We appreciate your patience.
           </p>
           <div style={{ background: 'var(--surface2)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', fontSize: 13, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 16 }}>
             ℹ️ Do not place duplicate orders — your payment has been received and recorded.
