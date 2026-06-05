@@ -8,6 +8,7 @@ import { useSimpleToast } from '@/components/ui/Toast';
 import { StatusBadge, NetworkBadge, DeliveryBadge } from '@/components/ui/Badge';
 import type { Agent, Order, AgentPrice, AdminPrice, Withdrawal } from '@/types';
 import Image from 'next/image';
+import ServiceBanner from '@/components/ui/ServiceBanner';
 
 type Tab = 'overview' | 'prices' | 'orders' | 'earnings' | 'store';
 
@@ -656,6 +657,7 @@ export default function DashboardPage() {
       </nav>
 
       <ToastContainer />
+      <ServiceBanner />
     </>
   );
 }
