@@ -1,20 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
-
-const DISMISSED_KEY = 'service_notice_dismissed_2025_yello';
+import { useState } from 'react';
 
 export default function ServiceBanner() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const dismissed = sessionStorage.getItem(DISMISSED_KEY);
-    if (!dismissed) setVisible(true);
-  }, []);
-
-  function dismiss() {
-    sessionStorage.setItem(DISMISSED_KEY, '1');
-    setVisible(false);
-  }
+  const [visible, setVisible] = useState(true);
 
   if (!visible) return null;
 
@@ -35,7 +23,7 @@ export default function ServiceBanner() {
           <div style={{ background: 'var(--surface2)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', fontSize: 13, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 16 }}>
             ℹ️ Do not place duplicate orders — your payment has been received and recorded.
           </div>
-          <button className="btn btn-primary btn-full" onClick={dismiss}>
+          <button className="btn btn-primary btn-full" onClick={() => setVisible(false)}>
             I understand — dismiss
           </button>
         </div>
