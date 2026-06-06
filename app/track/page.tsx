@@ -93,11 +93,11 @@ export default function TrackPage() {
             <div style={{ marginTop: 20, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: order.status === 'success' ? 'var(--ok-dim)' : 'var(--warn-dim)', border: `1px solid ${statusColor[order.status] || 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-                  {order.status === 'success' ? '✓' : order.status === 'failed' ? '✕' : '⏳'}
+                  {order.status === 'success' ? '✓' : order.status === 'failed' ? '⏳' : '⏳'}
                 </div>
                 <div>
                   <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 14, fontWeight: 700 }}>
-                    {order.status === 'success' ? 'Delivered' : order.status === 'failed' ? 'Failed' : 'Processing'}
+                    {order.status === 'success' ? 'Delivered' : order.status === 'failed' ? 'Placed' : 'Processing'}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)' }}>{fmtDate(order.created_at)}</div>
                 </div>
@@ -110,7 +110,13 @@ export default function TrackPage() {
                 { label: 'Recipient', val: order.phone },
                 ...(order.buyer_name ? [{ label: 'Buyer', val: order.buyer_name }] : []),
                 { label: 'Payment', val: order.status.toUpperCase() },
-                { label: 'Delivery', val: (order.delivery_status || 'pending').toUpperCase() },
+                {
+  label: 'Delivery',
+  val:
+    (order.delivery_status === 'failed' || order.status === 'failed')
+      ? 'PLACED'
+      : (order.delivery_status || 'pending').toUpperCase()
+},
               ].map(row => (
                 <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                   <span style={{ color: 'var(--text3)' }}>{row.label}</span>

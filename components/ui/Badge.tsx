@@ -24,12 +24,12 @@ export function NetworkBadge({ network }: { network: string }) {
 }
 
 export function DeliveryBadge({ status }: { status?: string }) {
-  if (!status || status === 'pending') return <Badge type="pending">Pending</Badge>;
+  if (!status || status === 'pending') return <Badge type="pending">Processing</Badge>;
   if (status === 'processing') return <Badge type="processing">Processing</Badge>;
   if (status === 'delivered') return <Badge type="success">Delivered</Badge>;
-  return <Badge type="failed">Failed</Badge>;
+  if (status === 'failed') return <Badge type="pending">Placed</Badge>;
+  return <Badge type="pending">Placed</Badge>;
 }
-
 export function StatusBadge({ status }: { status: string }) {
   const map: Record<string, 'success' | 'pending' | 'failed' | 'processing'> = {
     success: 'success',

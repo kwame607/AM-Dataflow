@@ -71,6 +71,23 @@ export async function POST(req: NextRequest) {
       }).eq('id', order.id);
       return NextResponse.json({ success: true, message: 'Delivery sent to XpresPortal — awaiting confirmation' });
     } else {
+      // Check if XpresPortal is saying it already has this order
+      const alreadySubmitted =
+        result.message?.toLowerCase().includes('already') ||
+        result.message?.toLowerCase().includes('duplicate') ||
+        result.message?.toLowerCase().includes('exist');
+
+      if (alreadySubmitted) {
+        // Already with XpresPortal, just mark as processing and wait
+        await supabase.from('orders').update({
+          delivery_status: 'processing',
+        }).eq('id', order.id);
+        return NextResponse.json({
+          success: true,
+          message: 'Order is already with XpresPortal and being processed — please wait for delivery confirmation',
+        });
+      }
+
       await supabase.from('orders').update({ delivery_status: 'failed' }).eq('id', order.id);
       return NextResponse.json({ success: false, message: result.message || 'XpresPortal rejected the request' }, { status: 502 });
     }

@@ -467,7 +467,7 @@ export default function MainStorePage() {
                   delivered:  { label: 'Delivered',  color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✓' },
                   pending:    { label: 'Processing',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
                   processing: { label: 'Processing',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
-                  failed:     { label: 'Failed',      color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: '✕' },
+                  failed:     { label: 'Placed',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
                 };
                 const d = dlvMap[dlv] ?? dlvMap.pending;
                 return (

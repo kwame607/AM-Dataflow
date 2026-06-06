@@ -108,7 +108,7 @@ export default function ReceiptPage() {
     delivered:  { color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✓', label: 'Delivered' },
     processing: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳', label: 'Processing' },
     pending:    { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳', label: 'Processing' },
-    failed:     { color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  icon: '✕', label: 'Failed' },
+    failed:     { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳', label: 'Placed' },
   };
 
   // ── Loading ──────────────────────────────────────────────────
