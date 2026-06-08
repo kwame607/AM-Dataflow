@@ -8,7 +8,7 @@ import { openPaystack } from '@/lib/paystack';
 import type { Bundle, AdminPrice } from '@/types';
 import { useSimpleToast } from '@/components/ui/Toast';
 import Image from 'next/image';
-
+import ServiceBanner from '@/components/ui/ServiceBanner';
 
 
 interface SelectedBundle extends Bundle {
@@ -521,7 +521,7 @@ export default function MainStorePage() {
       )}
 
       <ToastContainer />
-      
+      <ServiceBanner />
     </>
   );
 }
