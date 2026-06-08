@@ -7,7 +7,7 @@ import { BUNDLES, NET_NAMES, ALL_BUNDLES, getDefaultAdminPrice } from '@/lib/bun
 import { fmt, genRef, detectNetwork } from '@/lib/utils';
 import { openPaystack } from '@/lib/paystack';
 import { useSimpleToast } from '@/components/ui/Toast';
-import ServiceBanner from '@/components/ui/ServiceBanner';
+
 
 interface AgentInfo {
   id: string; name: string; store_name?: string; slug: string; phone?: string; whatsapp?: string;
@@ -578,7 +578,6 @@ export default function AgentStorePage() {
       )}
 
       <ToastContainer />
-      <ServiceBanner />
     </>
   );
 }
