@@ -9,8 +9,10 @@ import { StatusBadge, NetworkBadge, DeliveryBadge } from '@/components/ui/Badge'
 import type { Agent, Order, AgentPrice, AdminPrice, Withdrawal } from '@/types';
 import Image from 'next/image';
 import ServiceBanner from '@/components/ui/ServiceBanner';
+import { SupportTab } from '@/components/SupportTab';
+import { NotificationBell } from '@/components/SupportNotificationBell';
 
-type Tab = 'overview' | 'prices' | 'orders' | 'earnings' | 'store';
+type Tab = 'overview' | 'prices' | 'orders' | 'earnings' | 'store' | 'support';
 
 export default function DashboardPage() {
   const { toast, ToastContainer } = useSimpleToast();
@@ -45,7 +47,27 @@ export default function DashboardPage() {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL !== 'http://localhost:3000')
     ? process.env.NEXT_PUBLIC_SITE_URL
     : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+  const authFetch = useCallback(
+  async (url: string, options: RequestInit = {}) => {
+    const supabase = getSupabaseClient();
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const token = session?.access_token;
+
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json',
+      },
+    });
+  },
+  []
+);
   const loadData = useCallback(async (agentId: string) => {
     const [ordersRes, agentPricesRes, adminPricesRes, withdrawalsRes] = await Promise.all([
       fetch(`/api/orders?agentId=${agentId}`).then(r => r.json()).catch(() => []),
@@ -189,6 +211,18 @@ export default function DashboardPage() {
     { id: 'orders', label: 'My Orders', icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg> },
     { id: 'earnings', label: 'Earnings', icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
     { id: 'store', label: 'My Store', icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg> },
+    {
+  id: 'support',
+  label: 'Support',
+  icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"
+    />
+  </svg>,
+},
   ];
 
   const filteredOrders = orderFilter === 'all' ? orders : orders.filter(o => o.status === orderFilter);
@@ -257,6 +291,15 @@ export default function DashboardPage() {
         <div className="topbar-right">
           <div className="topbar-avatar">{agent?.name?.[0]}</div>
         </div>
+        {agent && (
+  <NotificationBell
+    authFetch={authFetch}
+    agentId={agent.id}
+    onOpenTicket={(ticketId) => {
+      setTab('support');
+    }}
+  />
+)}
       </header>
 
       {/* MAIN */}
@@ -563,6 +606,15 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
+          
+          {/* ── SUPPORT ── */}
+          {tab === 'support' && agent && (
+  <SupportTab
+    agent={{ id: agent.id, name: agent.name, slug: agent.slug }}
+    authFetch={authFetch}
+    toast={toast}
+  />
+)}
 
           {/* ── MY STORE ── */}
           {tab === 'store' && agent && (
