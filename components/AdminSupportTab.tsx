@@ -10,7 +10,11 @@ import { fmtDate } from '@/lib/utils';
 
 interface AdminSupportTabProps {
   authFetch: (url: string, options?: RequestInit) => Promise<Response>;
-  toast:     (msg: string, type?: string) => void;
+  toast: (
+  msg: string,
+  type?: 'error' | 'success' | 'info' | 'warn',
+  duration?: number
+) => void;
 }
 
 export function AdminSupportTab({ authFetch, toast }: AdminSupportTabProps) {

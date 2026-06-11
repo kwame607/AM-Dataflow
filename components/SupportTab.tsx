@@ -11,7 +11,11 @@ import { fmtDate } from '@/lib/utils';
 interface SupportTabProps {
   agent: { id: string; name: string; slug: string };
   authFetch: (url: string, options?: RequestInit) => Promise<Response>;
-  toast: (msg: string, type?: string) => void;
+  toast: (
+  msg: string,
+  type?: 'warn' | 'error' | 'success' | 'info',
+  duration?: number
+) => void;
 }
 
 export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
