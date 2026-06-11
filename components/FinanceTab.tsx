@@ -140,7 +140,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     const successRate       = orders.length > 0 ? (allSucc.length / orders.length) * 100 : 0;
 
     const totalAgentEarnings = allSucc.reduce((s, o) => s + (o.agent_profit || 0), 0);
-    const paidOut            = withdrawals.filter(w => ['paid','approved'].includes(w.status)).reduce((s, w) => s + w.amount, 0);
+    const paidOut            = withdrawals.filter(w => w.status === 'paid').reduce((s, w) => s + w.amount, 0);
     const pendingWd          = withdrawals.filter(w => w.status === 'pending').reduce((s, w) => s + w.amount, 0);
     const outstanding        = Math.max(0, totalAgentEarnings - paidOut - pendingWd);
     const totalLiabilities   = pendingWd + outstanding;
@@ -172,7 +172,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
       const ao     = succ.filter(o => o.agent_id === a.id);
       const rev    = ao.reduce((s, o) => s + (o.agent_price || 0), 0);
       const comm   = ao.reduce((s, o) => s + (o.agent_profit || 0), 0);
-      const wdPaid = withdrawals.filter(w => w.agent_id === a.id && ['paid','approved'].includes(w.status)).reduce((s, w) => s + w.amount, 0);
+      const wdPaid = withdrawals.filter(w => w.agent_id === a.id && w.status === 'paid').reduce((s, w) => s + w.amount, 0);
       const wdPend = withdrawals.filter(w => w.agent_id === a.id && w.status === 'pending').reduce((s, w) => s + w.amount, 0);
       const wkCutoff  = new Date(now); wkCutoff.setDate(now.getDate() - 7);
       const prevCutoff = new Date(now); prevCutoff.setDate(now.getDate() - 14);
@@ -205,9 +205,9 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
   // ── Net Capital ───────────────────────────────────────────────
   const allSuccOrders     = orders.filter(o => o.status === 'success');
   const totalAdminProfit  = allSuccOrders.reduce((s, o) => s + (o.admin_profit || 0), 0);
-  const agentPaidOut      = withdrawals.filter(w => ['paid','approved'].includes(w.status) && w.type === 'agent').reduce((s, w) => s + w.amount, 0);
-  const agentPendingWd    = withdrawals.filter(w => w.status === 'pending' && w.type === 'agent').reduce((s, w) => s + w.amount, 0);
-  const totalPaidOut      = withdrawals.filter(w => ['paid','approved'].includes(w.status)).reduce((s, w) => s + w.amount, 0);
+  const agentPaidOut      = withdrawals.filter(w => w.status === 'paid').reduce((s, w) => s + w.amount, 0);
+  const agentPendingWd    = withdrawals.filter(w => w.status === 'pending').reduce((s, w) => s + w.amount, 0);
+  const totalPaidOut      = withdrawals.filter(w => w.status === 'paid').reduce((s, w) => s + w.amount, 0);
   const pendingWdAll      = withdrawals.filter(w => w.status === 'pending').reduce((s, w) => s + w.amount, 0);
   const totalAgentEarnedAll = allSuccOrders.reduce((s, o) => s + (o.agent_profit || 0), 0);
   const agentLiability    = Math.max(0, totalAgentEarnedAll - agentPaidOut - agentPendingWd);
@@ -283,32 +283,33 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
 
   // ── Health score ──────────────────────────────────────────────
   const healthData = useMemo(() => {
-    const allSucc    = orders.filter(o => o.status === 'success');
+    const allSucc     = orders.filter(o => o.status === 'success');
     const successRate = orders.length > 0 ? allSucc.length / orders.length : 1;
-    const margin     = alltimeStats.grossRevenue > 0 ? alltimeStats.netProfit / alltimeStats.grossRevenue : 0;
-    const liabRatio  = totalAgentEarnedAll > 0 ? (pendingWdAll / totalAgentEarnedAll) : 0;
-    const delivFail  = orders.length > 0 ? orders.filter(o => o.delivery_status === 'failed').length / orders.length : 0;
-    const walletOk   = hubBalance !== null ? (hubBalance >= 500 ? 1 : hubBalance >= 100 ? 0.5 : 0) : 0.5;
-    const liquidity  = netCapital > 0 ? Math.min(1, netCapital / 500) : 0;
+    const margin      = stats.grossRevenue > 0 ? stats.netProfit / stats.grossRevenue : 0;
+    const totalEarned = allSucc.reduce((s, o) => s + (o.agent_profit || 0), 0);
+    const paidOut     = withdrawals.filter(w => w.status === 'paid').reduce((s, w) => s + w.amount, 0);
+    const pend        = withdrawals.filter(w => w.status === 'pending').reduce((s, w) => s + w.amount, 0);
+    const liabRatio   = totalEarned > 0 ? (pend / totalEarned) : 0;
+    const delivFailRate = orders.length > 0
+      ? orders.filter(o => o.delivery_status === 'failed').length / orders.length : 0;
+    const walletOk    = hubBalance !== null ? (hubBalance >= 500 ? 1 : hubBalance >= 100 ? 0.5 : 0) : 0.5;
 
     let score = 0;
     score += successRate * 25;
-    score += Math.max(0, Math.min(margin, 0.3)) / 0.3 * 20;
+    score += Math.max(0, Math.min(margin, 0.3)) / 0.3 * 25;
     score += Math.max(0, 1 - liabRatio) * 15;
-    score += Math.max(0, 1 - delivFail * 5) * 20;
-    score += walletOk * 12;
-    score += liquidity * 8;
+    score += Math.max(0, 1 - delivFailRate * 5) * 20;
+    score += walletOk * 15;
 
     const reasons: string[] = [];
     if (successRate < 0.8) reasons.push('Low payment success rate');
-    if (alltimeStats.margin < 5) reasons.push('Thin profit margin');
+    if (stats.margin < 5) reasons.push('Thin profit margin');
     if (failStats.rate > 15) reasons.push('High order failure rate');
     if (hubBalance !== null && hubBalance < 100) reasons.push('Provider wallet critically low');
-    if (pendingWdAll > totalAgentEarnedAll * 0.5 && totalAgentEarnedAll > 0) reasons.push('High pending withdrawal burden');
-    if (netCapital < 50) reasons.push('Low net capital position');
+    if (pend > totalEarned * 0.5 && totalEarned > 0) reasons.push('High pending withdrawal burden');
 
     return { score: Math.round(Math.min(100, Math.max(0, score))), reasons };
-  }, [orders, withdrawals, hubBalance, alltimeStats, failStats, netCapital]); // eslint-disable-line
+  }, [orders, withdrawals, hubBalance, stats, failStats]); // eslint-disable-line
 
   // ── Intelligent alerts ────────────────────────────────────────
   const intelligentAlerts = useMemo(() => {
@@ -326,6 +327,9 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
   }, [alltimeStats, failStats, hubBalance, pendingWdAll, netCapital, todayStats]); // eslint-disable-line
 
   // ── Loss alerts (period-based) ────────────────────────────────
+  const periodLabels: Record<Period, string> = { today: 'Today', yesterday: 'Yesterday', week: 'This Week', month: 'This Month', alltime: 'All Time' };
+  const periodLabel = periodLabels[period];
+
   const lossAlerts = useMemo(() => {
     const alerts: { severity: 'error' | 'warn'; msg: string }[] = [];
     if (stats.netProfit < 0) alerts.push({ severity: 'error', msg: `Running at a LOSS of ${fmt(Math.abs(stats.netProfit))} for ${periodLabel}` });
@@ -392,8 +396,6 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     a.click();
   }
 
-  const periodLabels: Record<Period, string> = { today: 'Today', yesterday: 'Yesterday', week: 'This Week', month: 'This Month', alltime: 'All Time' };
-  const periodLabel = periodLabels[period];
   const netNames:  Record<string, string> = { mtn: 'MTN', at: 'AirtelTigo', telecel: 'Telecel' };
   const netColors: Record<string, string> = { mtn: '#f59e0b', at: '#3b82f6', telecel: '#ef4444' };
 

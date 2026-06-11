@@ -657,7 +657,7 @@ export default function DashboardPage() {
       </nav>
 
       <ToastContainer />
-      <ServiceBanner />
+      
     </>
   );
 }

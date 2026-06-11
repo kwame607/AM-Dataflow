@@ -521,7 +521,7 @@ export default function MainStorePage() {
       )}
 
       <ToastContainer />
-      <ServiceBanner />
+      
     </>
   );
 }
