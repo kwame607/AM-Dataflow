@@ -124,6 +124,16 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayStr, yesterdayStr]);
 
+  // Fallback: if agent_profit is NULL/0 but prices differ, derive from price gap.
+  // This fixes old orders where agent_profit was never written to the DB.
+  function realAgentProfit(o: Order): number {
+    if (o.agent_profit !== null && o.agent_profit !== undefined && o.agent_profit > 0) {
+      return o.agent_profit;
+    }
+    const derived = (o.agent_price ?? 0) - (o.admin_price ?? 0);
+    return derived > 0 ? derived : 0;
+  }
+
   function computeStats(p: Period) {
     const succ    = orders.filter(o => o.status === 'success' && inPeriod(o.created_at, p));
     const fail    = orders.filter(o => o.status === 'failed'  && inPeriod(o.created_at, p));
@@ -131,7 +141,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
 
     const grossRevenue      = succ.reduce((s, o) => s + (o.agent_price || o.admin_price || 0), 0);
     const providerCost      = succ.reduce((s, o) => s + (o.hubnet_cost || 0), 0);
-    const agentComm         = succ.reduce((s, o) => s + (o.agent_profit || 0), 0);
+    const agentComm         = succ.reduce((s, o) => s + realAgentProfit(o), 0);
     const adminProfit       = succ.reduce((s, o) => s + (o.admin_profit || 0), 0);
     const netProfit         = grossRevenue - providerCost - agentComm;
     const margin            = grossRevenue > 0 ? (netProfit / grossRevenue) * 100 : 0;
@@ -139,7 +149,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     const avgProfitPerOrder = succ.length > 0 ? netProfit / succ.length : 0;
     const successRate       = orders.length > 0 ? (allSucc.length / orders.length) * 100 : 0;
 
-    const totalAgentEarnings = allSucc.reduce((s, o) => s + (o.agent_profit || 0), 0);
+    const totalAgentEarnings = allSucc.reduce((s, o) => s + realAgentProfit(o), 0);
     const paidOut            = withdrawals.filter(w => w.status === 'paid').reduce((s, w) => s + w.amount, 0);
     const pendingWd          = withdrawals.filter(w => w.status === 'pending').reduce((s, w) => s + w.amount, 0);
     const outstanding        = Math.max(0, totalAgentEarnings - paidOut - pendingWd);
@@ -163,7 +173,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
       bundleMap[k].count++;
       bundleMap[k].revenue   += o.agent_price || o.admin_price || 0;
       bundleMap[k].cost      += o.hubnet_cost || 0;
-      bundleMap[k].agentComm += o.agent_profit || 0;
+      bundleMap[k].agentComm += realAgentProfit(o);
       bundleMap[k].profit    += o.admin_profit || 0;
     });
     const bundles = Object.values(bundleMap).sort((a, b) => b.revenue - a.revenue);
@@ -171,7 +181,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     const agentStats = agents.filter(a => a.status === 'active').map(a => {
       const ao     = succ.filter(o => o.agent_id === a.id);
       const rev    = ao.reduce((s, o) => s + (o.agent_price || 0), 0);
-      const comm   = ao.reduce((s, o) => s + (o.agent_profit || 0), 0);
+      const comm   = ao.reduce((s, o) => s + realAgentProfit(o), 0);
       const wdPaid = withdrawals.filter(w => w.agent_id === a.id && w.status === 'paid').reduce((s, w) => s + w.amount, 0);
       const wdPend = withdrawals.filter(w => w.agent_id === a.id && w.status === 'pending').reduce((s, w) => s + w.amount, 0);
       const wkCutoff  = new Date(now); wkCutoff.setDate(now.getDate() - 7);
@@ -209,7 +219,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
   const agentPendingWd    = withdrawals.filter(w => w.status === 'pending').reduce((s, w) => s + w.amount, 0);
   const totalPaidOut      = withdrawals.filter(w => w.status === 'paid').reduce((s, w) => s + w.amount, 0);
   const pendingWdAll      = withdrawals.filter(w => w.status === 'pending').reduce((s, w) => s + w.amount, 0);
-  const totalAgentEarnedAll = allSuccOrders.reduce((s, o) => s + (o.agent_profit || 0), 0);
+  const totalAgentEarnedAll = allSuccOrders.reduce((s, o) => s + realAgentProfit(o), 0);
   const agentLiability    = Math.max(0, totalAgentEarnedAll - agentPaidOut - agentPendingWd);
   const netCapital        = totalAdminProfit;
   const platformCash      = hubBalance ?? 0;
@@ -238,7 +248,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
       const dayO = orders.filter(o => o.status === 'success' && o.created_at?.slice(0, 10) === ds);
       const rev  = dayO.reduce((s, o) => s + (o.agent_price || o.admin_price || 0), 0);
       const cost = dayO.reduce((s, o) => s + (o.hubnet_cost || 0), 0);
-      const comm = dayO.reduce((s, o) => s + (o.agent_profit || 0), 0);
+      const comm = dayO.reduce((s, o) => s + realAgentProfit(o), 0);
       const prof = dayO.reduce((s, o) => s + (o.admin_profit || 0), 0);
       return { ds, label: d.toLocaleDateString('en-GH', { day: 'numeric', month: 'short' }), rev, cost, comm, prof };
     });
@@ -286,7 +296,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     const allSucc     = orders.filter(o => o.status === 'success');
     const successRate = orders.length > 0 ? allSucc.length / orders.length : 1;
     const margin      = stats.grossRevenue > 0 ? stats.netProfit / stats.grossRevenue : 0;
-    const totalEarned = allSucc.reduce((s, o) => s + (o.agent_profit || 0), 0);
+    const totalEarned = allSucc.reduce((s, o) => s + realAgentProfit(o), 0);
     const paidOut     = withdrawals.filter(w => w.status === 'paid').reduce((s, w) => s + w.amount, 0);
     const pend        = withdrawals.filter(w => w.status === 'pending').reduce((s, w) => s + w.amount, 0);
     const liabRatio   = totalEarned > 0 ? (pend / totalEarned) : 0;
