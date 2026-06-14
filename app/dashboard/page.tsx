@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatTooltip, setChatTooltip] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [supportView, setSupportView] = useState<'list'|'new'|'thread'>('list');
 
   // Data
   const [orders, setOrders] = useState<Order[]>([]);
@@ -645,6 +646,8 @@ export default function DashboardPage() {
     agent={{ id: agent.id, name: agent.name, slug: agent.slug }}
     authFetch={authFetch}
     toast={toast}
+    initialView={supportView}
+    onViewChange={setSupportView}
   />
 )}
 
@@ -743,7 +746,7 @@ export default function DashboardPage() {
       {/* ── Floating Chat Button ── */}
       {tab !== 'support' && (
         <button
-          onClick={() => setTab('support')}
+          onClick={() => { setSupportView('new'); setTab('support'); }}
           onMouseEnter={() => setChatTooltip(true)}
           onMouseLeave={() => setChatTooltip(false)}
           style={{

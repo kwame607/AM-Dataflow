@@ -4,22 +4,28 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { SupportTicket, TicketMessage, TicketCategory } from '@/types/support';
-import { TICKET_CATEGORIES, STATUS_CONFIG, PRIORITY_CONFIG } from '@/types/support';
+import type { SupportTicket, TicketMessage } from '@/types/support';
+import { STATUS_CONFIG, PRIORITY_CONFIG } from '@/types/support';
 import { fmtDate } from '@/lib/utils';
 
 interface SupportTabProps {
-  agent: { id: string; name: string; slug: string };
-  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
-  toast: (
-  msg: string,
-  type?: 'warn' | 'error' | 'success' | 'info',
-  duration?: number
-) => void;
+  agent:         { id: string; name: string; slug: string };
+  authFetch:     (url: string, options?: RequestInit) => Promise<Response>;
+  toast:         (msg: string, type?: 'warn' | 'error' | 'success' | 'info', duration?: number) => void;
+  initialView?:  'list' | 'new' | 'thread';
+  onViewChange?: (v: 'list' | 'new' | 'thread') => void;
 }
 
-export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
-  const [view, setView]               = useState<'list' | 'thread' | 'new'>('list');
+export function SupportTab({ agent, authFetch, toast, initialView = 'list', onViewChange }: SupportTabProps) {
+  const [view, setView]               = useState<'list' | 'thread' | 'new'>(initialView);
+
+  // Sync when parent changes initialView (e.g. floating button sets 'new')
+  useEffect(() => { changeView(initialView); }, [initialView]);
+
+  function changeView(v: 'list' | 'new' | 'thread') {
+    setView(v);
+    onViewChange?.(v);
+  }
   const [tickets, setTickets]         = useState<SupportTicket[]>([]);
   const [activeTicket, setActiveTicket] = useState<SupportTicket | null>(null);
   const [messages, setMessages]       = useState<TicketMessage[]>([]);
@@ -36,12 +42,12 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef   = useRef<HTMLInputElement>(null);
 
-  // ── New ticket form ───────────────────────────────────────
-  const [form, setForm] = useState({
-    subject: '', category: '' as TicketCategory | '',
-    message: '', transactionRef: '',
-  });
-  const [formErr, setFormErr] = useState('');
+  // ── New ticket form (chat-first — subject/category auto-derived) ──
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatRef, setChatRef]         = useState('');
+  const [showRefField, setShowRefField] = useState(false);
+  const [formErr, setFormErr]         = useState('');
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   const loadTickets = useCallback(async () => {
     try {
@@ -73,7 +79,7 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
 
   async function openTicket(ticket: SupportTicket) {
     setActiveTicket(ticket);
-    setView('thread');
+    changeView('thread');
     setLoading(true);
     await loadMessages(ticket.id);
     setLoading(false);
@@ -82,26 +88,28 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
   }
 
   async function submitTicket() {
-    if (!form.subject.trim()) { setFormErr('Enter a subject'); return; }
-    if (!form.category)       { setFormErr('Select a category'); return; }
-    if (!form.message.trim()) { setFormErr('Enter a message'); return; }
+    if (!chatMessage.trim()) { setFormErr('Type your message first'); return; }
     setFormErr('');
     setSending(true);
     try {
+      // Auto-derive subject from first 60 chars of message
+      const autoSubject = chatMessage.trim().slice(0, 60) + (chatMessage.trim().length > 60 ? '…' : '');
       const r = await authFetch('/api/support/tickets', {
         method: 'POST',
         body: JSON.stringify({
           agentId:              agent.id,
-          subject:              form.subject,
-          category:             form.category,
-          message:              form.message,
-          transactionReference: form.transactionRef || undefined,
+          subject:              autoSubject,
+          category:             'General',
+          message:              chatMessage.trim(),
+          transactionReference: chatRef.trim() || undefined,
         }),
       });
       const d = await r.json();
-      if (!r.ok) { toast(d.error || 'Failed to create ticket', 'error'); return; }
-      toast(`Ticket ${d.ticket.ticket_number} created!`, 'success');
-      setForm({ subject: '', category: '', message: '', transactionRef: '' });
+      if (!r.ok) { toast(d.error || 'Failed to send', 'error'); return; }
+      toast("Message sent! We'll reply shortly.", 'success');
+      setChatMessage('');
+      setChatRef('');
+      setShowRefField(false);
       await loadTickets();
       openTicket(d.ticket);
     } catch { toast('Network error', 'error'); }
@@ -185,7 +193,7 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
           <div className="page-title">Support</div>
           <div className="page-subtitle">We typically reply in 2–10 mins</div>
         </div>
-        <button className="btn btn-primary" onClick={() => setView('new')} style={{ gap: 6 }}>
+        <button className="btn btn-primary" onClick={() => changeView('new')} style={{ gap: 6 }}>
           💬 New Message
         </button>
       </div>
@@ -229,7 +237,7 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
               <div className="empty-icon">💬</div>
               <div className="empty-title">No messages yet</div>
               <div className="empty-text">Need help? We're here. Send us a message and we'll get back to you in 2–10 mins.</div>
-              <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setView('new')}>
+              <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => changeView('new')}>
                 Send a Message
               </button>
             </div>
@@ -264,68 +272,101 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
     </div>
   );
 
-  // ── NEW TICKET FORM ───────────────────────────────────────
+  // ── NEW TICKET — CHAT FIRST ──────────────────────────────
   if (view === 'new') return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <button className="btn btn-secondary btn-sm" onClick={() => setView('list')}>← Back to Messages</button>
+    <div style={{ maxWidth: 560 }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+        <button className="btn btn-secondary btn-sm" onClick={() => { changeView('list'); setFormErr(''); setChatMessage(''); setChatRef(''); setShowRefField(false); }}>
+          ← Back
+        </button>
         <div>
-          <div className="page-title">Contact Support</div>
-          <div className="page-subtitle">Fill in the details below and we'll get back to you shortly</div>
+          <div className="page-title" style={{ fontSize: 18 }}>💬 New Message</div>
+          <div className="page-subtitle">We reply in 2–10 mins</div>
         </div>
       </div>
 
-      <div className="card" style={{ maxWidth: 580 }}>
-        <div className="card-body">
-          <div className="form-group">
-            <label className="form-label">Subject <span style={{ color: 'var(--err)' }}>*</span></label>
-            <input className="form-input" placeholder="Brief description of your issue"
-              value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
+      {/* Chat-style card */}
+      <div className="card">
+        <div className="card-body" style={{ padding: '20px 18px' }}>
+
+          {/* Support avatar + prompt */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: '50%',
+              background: 'var(--accent-dim)', border: '2px solid rgba(0,212,170,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, flexShrink: 0,
+            }}>🛟</div>
+            <div style={{
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: '16px 16px 16px 4px',
+              padding: '10px 14px', fontSize: 13, color: 'var(--text1)', lineHeight: 1.5,
+            }}>
+              Hi <strong>{agent.name.split(' ')[0]}</strong>! What do you need help with?
+            </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Category <span style={{ color: 'var(--err)' }}>*</span></label>
-            <select className="form-input" value={form.category}
-              onChange={e => setForm(f => ({ ...f, category: e.target.value as TicketCategory }))}>
-              <option value="">What is your issue about?</option>
-              {TICKET_CATEGORIES.map(c => {
-                const emoji: Record<string, string> = {
-                  'Payment Issue': '💳',
-                  'Order Problem': '📦',
-                  'Withdrawal': '💰',
-                  'Delivery Issue': '🚚',
-                  'Account Issue': '👤',
-                  'Pricing': '🏷️',
-                  'Other': '💬',
-                };
-                const icon = emoji[c] || '📌';
-                return <option key={c} value={c}>{icon} {c}</option>;
-              })}
-            </select>
-            <div className="form-hint">Pick the option that best matches your issue</div>
-          </div>
+          {/* Message textarea */}
+          <textarea
+            ref={chatInputRef}
+            className="form-input"
+            rows={4}
+            placeholder="Type your message here… e.g. My customer's data hasn't arrived"
+            style={{ resize: 'none', marginBottom: 12, fontSize: 13 }}
+            value={chatMessage}
+            onChange={e => { setChatMessage(e.target.value); setFormErr(''); }}
+            onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) submitTicket(); }}
+            autoFocus
+          />
 
-          <div className="form-group">
-            <label className="form-label">Message <span style={{ color: 'var(--err)' }}>*</span></label>
-            <textarea className="form-input" rows={5} placeholder="Describe your issue in detail. The more you share, the faster we can help…"
-              style={{ resize: 'vertical' }}
-              value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Transaction Reference <span style={{ color: 'var(--text3)', fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
-            <input className="form-input" placeholder="e.g. DF-MPV5REL5-06MHHV"
-              value={form.transactionRef} onChange={e => setForm(f => ({ ...f, transactionRef: e.target.value }))} />
-            <div className="form-hint">Find this in My Orders. Speeds up resolution for order/payment issues.</div>
-          </div>
-
-          {formErr && <div className="alert alert-error" style={{ marginBottom: 14 }}><span>⚠</span><span>{formErr}</span></div>}
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-secondary" onClick={() => setView('list')}>Cancel</button>
-            <button className="btn btn-primary" style={{ flex: 1 }} onClick={submitTicket} disabled={sending}>
-              {sending ? <><span className="spinner" /> Sending…</> : '💬 Send Message'}
+          {/* Optional ref toggle */}
+          {!showRefField ? (
+            <button
+              onClick={() => setShowRefField(true)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text3)', fontSize: 12, padding: '0 0 12px 0',
+                display: 'flex', alignItems: 'center', gap: 5,
+              }}
+            >
+              📎 <span style={{ textDecoration: 'underline' }}>Attach a transaction reference</span> <span style={{ color: 'var(--text3)', fontSize: 11 }}>(optional)</span>
             </button>
+          ) : (
+            <div style={{ marginBottom: 14 }}>
+              <input
+                className="form-input"
+                placeholder="Transaction reference — e.g. DF-MPV5REL5-06MHHV"
+                value={chatRef}
+                onChange={e => setChatRef(e.target.value)}
+                style={{ fontSize: 12, marginBottom: 4 }}
+              />
+              <div className="form-hint">Find this in My Orders. Helps us resolve faster.</div>
+            </div>
+          )}
+
+          {formErr && (
+            <div className="alert alert-error" style={{ marginBottom: 12 }}>
+              <span>⚠</span><span>{formErr}</span>
+            </div>
+          )}
+
+          {/* Send button */}
+          <button
+            className="btn btn-primary"
+            style={{ width: '100%', justifyContent: 'center', gap: 8 }}
+            onClick={submitTicket}
+            disabled={sending || !chatMessage.trim()}
+          >
+            {sending
+              ? <><span className="spinner" /> Sending…</>
+              : <><svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send Message</>
+            }
+          </button>
+
+          <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text3)', marginTop: 10 }}>
+            Ctrl+Enter to send
           </div>
         </div>
       </div>
@@ -337,7 +378,7 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)', maxHeight: 800 }}>
       {/* Thread header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexShrink: 0 }}>
-        <button className="btn btn-secondary btn-sm" onClick={() => { setView('list'); loadTickets(); }}>← Back</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => { changeView('list'); loadTickets(); }}>← Back</button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>{activeTicket.ticket_number}</span>
