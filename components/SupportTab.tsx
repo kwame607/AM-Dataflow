@@ -159,7 +159,9 @@ export function SupportTab({ agent, authFetch, toast, initialView = 'list', onVi
       const fd = new FormData();
       fd.append('file', file);
       fd.append('ticketId', activeTicket.id);
-      const r = await authFetch('/api/support/upload', { method: 'POST', body: fd });
+      // Use plain fetch here — authFetch sets Content-Type: application/json
+      // which breaks multipart/form-data. Let the browser set it automatically.
+      const r = await fetch('/api/support/upload', { method: 'POST', body: fd });
       const d = await r.json();
       if (!r.ok) { toast(d.error || 'Upload failed', 'error'); return; }
       setAttachmentUrl(d.url);
