@@ -35,8 +35,25 @@ export default function AdminPage() {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
+    // Fetch all orders in batches of 500 to avoid the API row limit
+    async function fetchAllOrders(): Promise<Order[]> {
+      const batchSize = 500;
+      let offset = 0;
+      const all: Order[] = [];
+      while (true) {
+        const res = await fetch(`/api/orders?limit=${batchSize}&offset=${offset}`)
+          .then(r => r.json())
+          .catch(() => []);
+        const batch: Order[] = Array.isArray(res) ? res : [];
+        all.push(...batch);
+        if (batch.length < batchSize) break; // no more pages
+        offset += batchSize;
+      }
+      return all;
+    }
+
     const [ordersRes, agentsRes, pricesRes, withdrawalsRes, balRes] = await Promise.all([
-      fetch('/api/orders').then(r => r.json()).catch(() => []),
+      fetchAllOrders(),
       fetch('/api/agents').then(r => r.json()).catch(() => []),
       fetch('/api/admin/prices').then(r => r.json()).catch(() => []),
       fetch('/api/withdrawals').then(r => r.json()).catch(() => []),

@@ -69,14 +69,32 @@ export default function DashboardPage() {
   []
 );
   const loadData = useCallback(async (agentId: string) => {
-    const [ordersRes, agentPricesRes, adminPricesRes, withdrawalsRes] = await Promise.all([
-      fetch(`/api/orders?agentId=${agentId}`).then(r => r.json()).catch(() => []),
+    // Paginate orders to avoid the default 200/1000 row cap in Supabase.
+    // Keeps fetching 500-row pages until we get a short page (end of data).
+    const fetchAllOrders = async (): Promise<Order[]> => {
+      const PAGE = 500;
+      let page = 0;
+      const all: Order[] = [];
+      while (true) {
+        const res = await fetch(
+          `/api/orders?agentId=${agentId}&limit=${PAGE}&offset=${page * PAGE}`
+        ).then(r => r.json()).catch(() => []);
+        const rows: Order[] = Array.isArray(res) ? res : [];
+        all.push(...rows);
+        if (rows.length < PAGE) break; // reached the last page
+        page++;
+      }
+      return all;
+    };
+
+    const [ordersAll, agentPricesRes, adminPricesRes, withdrawalsRes] = await Promise.all([
+      fetchAllOrders(),
       fetch(`/api/agents/prices?agentId=${agentId}`).then(r => r.json()).catch(() => []),
       fetch('/api/admin/prices').then(r => r.json()).catch(() => []),
       fetch(`/api/withdrawals?agentId=${agentId}`).then(r => r.json()).catch(() => []),
     ]);
 
-    setOrders(Array.isArray(ordersRes) ? ordersRes : []);
+    setOrders(ordersAll);
 
     const apMap: Record<string, number> = {};
     (Array.isArray(adminPricesRes) ? adminPricesRes : []).forEach((p: AdminPrice) => { apMap[p.bundle_key] = p.selling_price; });
