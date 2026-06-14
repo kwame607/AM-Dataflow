@@ -182,11 +182,11 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div className="page-title">Support Center</div>
-          <div className="page-subtitle">Get help from Admunz Support</div>
+          <div className="page-title">Support</div>
+          <div className="page-subtitle">We typically reply in 2–10 mins</div>
         </div>
-        <button className="btn btn-primary" onClick={() => setView('new')}>
-          + New Ticket
+        <button className="btn btn-primary" onClick={() => setView('new')} style={{ gap: 6 }}>
+          💬 New Message
         </button>
       </div>
 
@@ -226,11 +226,11 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
         {filteredTickets.length === 0
           ? (
             <div className="empty" style={{ padding: '48px 20px' }}>
-              <div className="empty-icon">🎫</div>
-              <div className="empty-title">No tickets found</div>
-              <div className="empty-text">Create a new ticket to get support</div>
+              <div className="empty-icon">💬</div>
+              <div className="empty-title">No messages yet</div>
+              <div className="empty-text">Need help? We're here. Send us a message and we'll get back to you in 2–10 mins.</div>
               <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setView('new')}>
-                Create Ticket
+                Send a Message
               </button>
             </div>
           )
@@ -268,10 +268,10 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
   if (view === 'new') return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <button className="btn btn-secondary btn-sm" onClick={() => setView('list')}>← Back</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => setView('list')}>← Back to Messages</button>
         <div>
-          <div className="page-title">New Support Ticket</div>
-          <div className="page-subtitle">Describe your issue and our team will respond shortly</div>
+          <div className="page-title">Contact Support</div>
+          <div className="page-subtitle">Fill in the details below and we'll get back to you shortly</div>
         </div>
       </div>
 
@@ -287,23 +287,36 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
             <label className="form-label">Category <span style={{ color: 'var(--err)' }}>*</span></label>
             <select className="form-input" value={form.category}
               onChange={e => setForm(f => ({ ...f, category: e.target.value as TicketCategory }))}>
-              <option value="">Select a category…</option>
-              {TICKET_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              <option value="">What is your issue about?</option>
+              {TICKET_CATEGORIES.map(c => {
+                const emoji: Record<string, string> = {
+                  'Payment Issue': '💳',
+                  'Order Problem': '📦',
+                  'Withdrawal': '💰',
+                  'Delivery Issue': '🚚',
+                  'Account Issue': '👤',
+                  'Pricing': '🏷️',
+                  'Other': '💬',
+                };
+                const icon = emoji[c] || '📌';
+                return <option key={c} value={c}>{icon} {c}</option>;
+              })}
             </select>
+            <div className="form-hint">Pick the option that best matches your issue</div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Message <span style={{ color: 'var(--err)' }}>*</span></label>
+            <textarea className="form-input" rows={5} placeholder="Describe your issue in detail. The more you share, the faster we can help…"
+              style={{ resize: 'vertical' }}
+              value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} />
           </div>
 
           <div className="form-group">
             <label className="form-label">Transaction Reference <span style={{ color: 'var(--text3)', fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
             <input className="form-input" placeholder="e.g. DF-MPV5REL5-06MHHV"
               value={form.transactionRef} onChange={e => setForm(f => ({ ...f, transactionRef: e.target.value }))} />
-            <div className="form-hint">Attach a transaction reference to speed up resolution</div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Message <span style={{ color: 'var(--err)' }}>*</span></label>
-            <textarea className="form-input" rows={5} placeholder="Describe your issue in detail…"
-              style={{ resize: 'vertical' }}
-              value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} />
+            <div className="form-hint">Find this in My Orders. Speeds up resolution for order/payment issues.</div>
           </div>
 
           {formErr && <div className="alert alert-error" style={{ marginBottom: 14 }}><span>⚠</span><span>{formErr}</span></div>}
@@ -311,7 +324,7 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn btn-secondary" onClick={() => setView('list')}>Cancel</button>
             <button className="btn btn-primary" style={{ flex: 1 }} onClick={submitTicket} disabled={sending}>
-              {sending ? <><span className="spinner" /> Creating…</> : '🎫 Submit Ticket'}
+              {sending ? <><span className="spinner" /> Sending…</> : '💬 Send Message'}
             </button>
           </div>
         </div>
@@ -420,7 +433,7 @@ export function SupportTab({ agent, authFetch, toast }: SupportTabProps) {
         </div>
       ) : (
         <div style={{ flexShrink: 0, padding: '12px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--text3)', textAlign: 'center' }}>
-          🔒 This ticket is closed. Create a new ticket if you need further help.
+          ✅ This conversation is resolved. If your issue isn't fixed, tap 💬 New Message above and we'll sort it out.
         </div>
       )}
     </div>
