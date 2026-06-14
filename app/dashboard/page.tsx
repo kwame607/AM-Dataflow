@@ -12,6 +12,7 @@ import Image from 'next/image';
 import ServiceBanner from '@/components/ui/ServiceBanner';
 import { SupportTab } from '@/components/SupportTab';
 import { NotificationBell } from '@/components/SupportNotificationBell';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 type Tab = 'overview' | 'prices' | 'orders' | 'earnings' | 'store' | 'support';
 
@@ -323,7 +324,9 @@ export default function DashboardPage() {
           </button>
           <span className="topbar-title">{navItems.find(n => n.id === tab)?.label}</span>
         </div>
+        
         <div className="topbar-right">
+        <ThemeToggle />
           <div className="topbar-avatar">{agent?.name?.[0]}</div>
         </div>
         {agent && (
