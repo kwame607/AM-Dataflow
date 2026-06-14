@@ -83,7 +83,7 @@ export default function AgentStorePage() {
 
   function silentPrice(key: string, cost: number): number {
     const base = getPrice(key, cost);
-    return Math.ceil((base / 0.98) * 100) / 100;
+    return Math.ceil((base / 0.985) * 100) / 100;
   }
 
   function openNetwork(net: string) {
