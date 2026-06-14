@@ -21,6 +21,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatTooltip, setChatTooltip] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Data
   const [orders, setOrders] = useState<Order[]>([]);
@@ -133,6 +135,18 @@ export default function DashboardPage() {
         setAgent(agentData);
         setLoading(false);
         await loadData(agentData.id);
+
+        // Poll for unread support messages every 30s
+        const fetchUnread = async () => {
+          try {
+            const r = await fetch(`/api/support/unread?agentId=${agentData.id}`);
+            const d = await r.json();
+            setUnreadCount(d.total || 0);
+          } catch {}
+        };
+        fetchUnread();
+        const unreadInterval = setInterval(fetchUnread, 30000);
+        return () => clearInterval(unreadInterval);
       })
       .catch(() => { window.location.href = '/login'; });
   }, [loadData]);
@@ -725,6 +739,100 @@ export default function DashboardPage() {
           </button>
         ))}
       </nav>
+
+      {/* ── Floating Chat Button ── */}
+      {tab !== 'support' && (
+        <button
+          onClick={() => setTab('support')}
+          onMouseEnter={() => setChatTooltip(true)}
+          onMouseLeave={() => setChatTooltip(false)}
+          style={{
+            position: 'fixed',
+            bottom: 90,
+            right: 22,
+            zIndex: 999,
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            background: 'var(--accent)',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+            transition: 'transform 0.15s, box-shadow 0.15s',
+          }}
+          onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.93)')}
+          onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+        >
+          {/* Chat bubble icon */}
+          <svg width="22" height="22" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+
+          {/* Unread badge */}
+          {unreadCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              background: '#ef4444',
+              color: '#fff',
+              fontSize: 10,
+              fontWeight: 700,
+              borderRadius: 99,
+              minWidth: 16,
+              height: 16,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 4px',
+              lineHeight: 1,
+              border: '2px solid var(--bg)',
+            }}>
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+
+          {/* Hover tooltip */}
+          {chatTooltip && (
+            <div style={{
+              position: 'absolute',
+              bottom: 58,
+              right: 0,
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              padding: '10px 14px',
+              width: 210,
+              textAlign: 'left',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+              pointerEvents: 'none',
+            }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text1)', marginBottom: 4 }}>
+                💬 Start a conversation
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
+                Average response time: 2–10 mins
+              </div>
+              {/* tooltip arrow */}
+              <div style={{
+                position: 'absolute',
+                bottom: -6,
+                right: 18,
+                width: 10,
+                height: 10,
+                background: 'var(--card)',
+                border: '1px solid var(--border)',
+                borderTop: 'none',
+                borderLeft: 'none',
+                transform: 'rotate(45deg)',
+              }}/>
+            </div>
+          )}
+        </button>
+      )}
 
       <ToastContainer />
       
