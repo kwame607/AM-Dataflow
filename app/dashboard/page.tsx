@@ -7,6 +7,7 @@ import { fmt, fmtDate, exportCSV } from '@/lib/utils';
 import { useSimpleToast } from '@/components/ui/Toast';
 import { StatusBadge, NetworkBadge, DeliveryBadge } from '@/components/ui/Badge';
 import type { Agent, Order, AgentPrice, AdminPrice, Withdrawal } from '@/types';
+import type { SupportTicket } from '@/types/support';
 import Image from 'next/image';
 import ServiceBanner from '@/components/ui/ServiceBanner';
 import { SupportTab } from '@/components/SupportTab';
@@ -23,7 +24,8 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatTooltip, setChatTooltip] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [supportView, setSupportView] = useState<'list'|'new'|'thread'>('list');
+  const [supportView, setSupportView]     = useState<'list'|'new'|'thread'>('list');
+  const [lastActiveTicket, setLastActiveTicket] = useState<SupportTicket | null>(null);
 
   // Data
   const [orders, setOrders] = useState<Order[]>([]);
@@ -648,6 +650,7 @@ export default function DashboardPage() {
     toast={toast}
     initialView={supportView}
     onViewChange={setSupportView}
+    initialTicket={lastActiveTicket}
   />
 )}
 
@@ -746,7 +749,31 @@ export default function DashboardPage() {
       {/* ── Floating Chat Button ── */}
       {tab !== 'support' && (
         <button
-          onClick={() => { setSupportView('new'); setTab('support'); }}
+          onClick={async () => {
+            // Check for existing open/pending ticket first
+            try {
+              // Fetch open tickets first, fall back to pending
+              const [openRes, pendingRes] = await Promise.all([
+                authFetch(`/api/support/tickets?agentId=${agent?.id}&status=open`).then(r => r.json()),
+                authFetch(`/api/support/tickets?agentId=${agent?.id}&status=pending`).then(r => r.json()),
+              ]);
+              const allActive = [
+                ...(Array.isArray(openRes) ? openRes : []),
+                ...(Array.isArray(pendingRes) ? pendingRes : []),
+              ].sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
+              const active = allActive.length > 0 ? allActive[0] : null;
+              if (active) {
+                setLastActiveTicket(active);
+                setSupportView('thread');
+              } else {
+                setLastActiveTicket(null);
+                setSupportView('new');
+              }
+            } catch {
+              setSupportView('new');
+            }
+            setTab('support');
+          }}
           onMouseEnter={() => setChatTooltip(true)}
           onMouseLeave={() => setChatTooltip(false)}
           style={{

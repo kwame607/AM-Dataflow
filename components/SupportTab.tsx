@@ -9,18 +9,26 @@ import { STATUS_CONFIG, PRIORITY_CONFIG } from '@/types/support';
 import { fmtDate } from '@/lib/utils';
 
 interface SupportTabProps {
-  agent:         { id: string; name: string; slug: string };
-  authFetch:     (url: string, options?: RequestInit) => Promise<Response>;
-  toast:         (msg: string, type?: 'warn' | 'error' | 'success' | 'info', duration?: number) => void;
-  initialView?:  'list' | 'new' | 'thread';
-  onViewChange?: (v: 'list' | 'new' | 'thread') => void;
+  agent:          { id: string; name: string; slug: string };
+  authFetch:      (url: string, options?: RequestInit) => Promise<Response>;
+  toast:          (msg: string, type?: 'warn' | 'error' | 'success' | 'info', duration?: number) => void;
+  initialView?:   'list' | 'new' | 'thread';
+  onViewChange?:  (v: 'list' | 'new' | 'thread') => void;
+  initialTicket?: SupportTicket | null;
 }
 
-export function SupportTab({ agent, authFetch, toast, initialView = 'list', onViewChange }: SupportTabProps) {
+export function SupportTab({ agent, authFetch, toast, initialView = 'list', onViewChange, initialTicket }: SupportTabProps) {
   const [view, setView]               = useState<'list' | 'thread' | 'new'>(initialView);
 
   // Sync when parent changes initialView (e.g. floating button sets 'new')
   useEffect(() => { changeView(initialView); }, [initialView]);
+
+  // Open a specific ticket when parent passes one (e.g. floating button found an active ticket)
+  useEffect(() => {
+    if (initialTicket) {
+      openTicket(initialTicket);
+    }
+  }, [initialTicket]);
 
   function changeView(v: 'list' | 'new' | 'thread') {
     setView(v);
