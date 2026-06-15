@@ -1,7 +1,7 @@
 // app/layout.tsx
 import type { Metadata } from 'next';
 import Script from 'next/script';
-import { DM_Sans } from 'next/font/google';
+import { DM_Sans, Raleway, Space_Grotesk } from 'next/font/google';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import './globals.css';
 
@@ -9,6 +9,20 @@ const dmSans = DM_Sans({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
   variable: '--font-dm-sans',
+  display: 'swap',
+});
+
+const raleway = Raleway({
+  subsets: ['latin'],
+  weight: ['800'],
+  variable: '--font-raleway',
+  display: 'swap',
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+  variable: '--font-space-grotesk',
   display: 'swap',
 });
 
@@ -24,8 +38,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning>
-      <body className={dmSans.variable}>
+    <html lang="en" data-theme="light" suppressHydrationWarning>
+      <body className={`${dmSans.variable} ${raleway.variable} ${spaceGrotesk.variable}`}>
         {/*
           suppressHydrationWarning on <html> prevents React from
           complaining when ThemeProvider updates data-theme client-side.
@@ -39,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 try {
                   var saved = localStorage.getItem('admunz-theme');
                   var preferred = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-                  var theme = saved || preferred;
+                  var theme = saved || 'light';
                   document.documentElement.setAttribute('data-theme', theme);
                 } catch(e) {}
               })();

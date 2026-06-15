@@ -96,9 +96,16 @@ export default function RegisterPage() {
       <div style={{ width: '100%', maxWidth: 480, margin: '0 auto' }}>
         <div className="auth-logo" style={{ justifyContent: 'center' }}>
           <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
-  <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
-</div>
-          <div className="logo-text"><strong>ADMUNZ</strong><span>Reseller Programme</span></div>
+            <Image src="/admunz.png" alt="AdmunZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+          </div>
+          <div style={{ lineHeight: 1 }}>
+            <div style={{ fontFamily: "'Raleway', sans-serif", fontSize: 22, fontWeight: 800, letterSpacing: '0.02em', color: 'var(--text)', lineHeight: 1.1 }}>
+              Admun<span style={{ color: '#f59e0b' }}>Z</span>
+            </div>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: '0.2em', color: 'var(--text3)', textTransform: 'uppercase', marginTop: 3 }}>
+              Reseller Programme
+            </div>
+          </div>
         </div>
 
         {/* Benefits */}

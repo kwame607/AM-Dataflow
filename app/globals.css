@@ -180,8 +180,10 @@ input, select, textarea { font-family: inherit; }
 img { max-width: 100%; display: block; }
 
 /* ── TYPOGRAPHY ─────────────────────────────────────────────── */
-.font-display { font-family: var(--font-syne), 'Syne', sans-serif; }
-h1, h2, h3, h4 { font-family: var(--font-syne), 'Syne', sans-serif; }
+.font-display { font-family: var(--font-raleway), 'Raleway', sans-serif; }
+h1, h2, h3, h4 { font-family: var(--font-raleway), 'Raleway', sans-serif; }
+.font-logo { font-family: var(--font-raleway), 'Raleway', sans-serif; font-weight: 800; letter-spacing: 0.02em; }
+.font-sub  { font-family: var(--font-space-grotesk), 'Space Grotesk', sans-serif; }
 
 /* ── SCROLLBAR ──────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }

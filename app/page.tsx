@@ -255,11 +255,15 @@ export default function MainStorePage() {
     <div style={{ minHeight: '100vh', background: '#06090e', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ width: 52, height: 52, borderRadius: 14, overflow: 'hidden', flexShrink: 0 }}>
-  <Image src="/admunz.png" alt="ADMUNZ" width={52} height={52} style={{ objectFit: 'cover' }} />
-</div>
-        <div>
-          <div style={{ fontFamily: 'sans-serif', fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>ADMUNZ</div>
-          <div style={{ fontFamily: 'sans-serif', fontSize: 12, color: '#64748b', marginTop: 2 }}>Data</div>
+          <Image src="/admunz.png" alt="AdmunZ" width={52} height={52} style={{ objectFit: 'cover' }} />
+        </div>
+        <div style={{ lineHeight: 1 }}>
+          <div style={{ fontFamily: "'Raleway', sans-serif", fontSize: 26, fontWeight: 800, letterSpacing: '0.02em', color: '#f1f5f9', lineHeight: 1.1 }}>
+            Admun<span style={{ color: '#f59e0b' }}>Z</span>
+          </div>
+          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: '0.2em', color: '#475569', textTransform: 'uppercase', marginTop: 4 }}>
+            Data Hub
+          </div>
         </div>
       </div>
       <svg viewBox="0 0 40 40" width="40" height="40" style={{ animation: 'spin 0.9s linear infinite' }}>
@@ -277,9 +281,16 @@ export default function MainStorePage() {
       <header className="store-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
-            <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+            <Image src="/admunz.png" alt="AdmunZ" width={38} height={38} style={{ objectFit: 'cover' }} />
           </div>
-          <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>{STORE_NAME}</div>
+          <div style={{ lineHeight: 1 }}>
+            <div style={{ fontFamily: "'Raleway', sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: '0.02em', color: 'var(--text)', lineHeight: 1.1 }}>
+              Admun<span style={{ color: '#f59e0b' }}>Z</span>
+            </div>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 9, fontWeight: 600, letterSpacing: '0.2em', color: 'var(--text3)', textTransform: 'uppercase', marginTop: 3 }}>
+              Data Hub
+            </div>
+          </div>
         </div>
         <div className="store-header-btns" style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary btn-sm" onClick={() => { setTrackResult(null); setTrackOpen(true); }}>Track Order</button>

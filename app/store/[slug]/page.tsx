@@ -315,10 +315,24 @@ export default function AgentStorePage() {
       <header className="store-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
-            <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+            <Image src="/admunz.png" alt="AdmunZ" width={38} height={38} style={{ objectFit: 'cover' }} />
           </div>
-          <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>
-            {agent.store_name || agent.name}
+          <div style={{ lineHeight: 1 }}>
+            <div style={{ fontFamily: "'Raleway', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: '0.02em', color: 'var(--text)', lineHeight: 1.15 }}>
+              {(() => {
+                const name = agent.store_name || agent.name || '';
+                if (!name) return name;
+                return (
+                  <>
+                    {name.slice(0, -1)}
+                    <span style={{ color: '#f59e0b' }}>{name.slice(-1)}</span>
+                  </>
+                );
+              })()}
+            </div>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 9, fontWeight: 600, letterSpacing: '0.18em', color: 'var(--text3)', textTransform: 'uppercase', marginTop: 2 }}>
+              Data Hub
+            </div>
           </div>
         </div>
         <div className="store-header-btns" style={{ display: 'flex', gap: 8 }}>

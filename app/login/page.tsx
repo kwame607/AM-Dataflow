@@ -23,7 +23,6 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Resolve identifier → email
       const lookup = await fetch('/api/agents/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -45,7 +44,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Check agent profile
       const { data: agent } = await supabase.from('agents').select('*').eq('auth_user_id', data.user.id).single();
 
       if (!agent) {
@@ -82,11 +80,15 @@ export default function LoginPage() {
       <div className="auth-wrap">
         <div className="auth-logo" style={{ justifyContent: 'center' }}>
           <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
-  <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
-</div>
-          <div className="logo-text">
-            <strong>ADMUNZ</strong>
-            <span>Agent Portal</span>
+            <Image src="/admunz.png" alt="AdmunZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+          </div>
+          <div style={{ lineHeight: 1 }}>
+            <div style={{ fontFamily: "'Raleway', sans-serif", fontSize: 22, fontWeight: 800, letterSpacing: '0.02em', color: 'var(--text)', lineHeight: 1.1 }}>
+              Admun<span style={{ color: '#f59e0b' }}>Z</span>
+            </div>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: '0.2em', color: 'var(--text3)', textTransform: 'uppercase', marginTop: 3 }}>
+              Agent Portal
+            </div>
           </div>
         </div>
 

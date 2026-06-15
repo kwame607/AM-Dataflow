@@ -284,11 +284,15 @@ export default function DashboardPage() {
       <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sidebar-logo">
           <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
-  <Image src="/admunz.png" alt="ADMUNZ" width={38} height={38} style={{ objectFit: 'cover' }} />
-</div>
-          <div className="logo-text">
-            <strong>{agent?.name?.split(' ')[0] || 'Agent'}</strong>
-            <span>{agent?.slug}</span>
+            <Image src="/admunz.png" alt="AdmunZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+          </div>
+          <div style={{ lineHeight: 1 }}>
+            <div style={{ fontFamily: "'Raleway', sans-serif", fontSize: 22, fontWeight: 800, letterSpacing: '0.02em', color: 'var(--text)', lineHeight: 1.1 }}>
+              Admun<span style={{ color: '#f59e0b' }}>Z</span>
+            </div>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: '0.2em', color: 'var(--text3)', textTransform: 'uppercase', marginTop: 3 }}>
+              Data Hub
+            </div>
           </div>
         </div>
 
@@ -324,9 +328,8 @@ export default function DashboardPage() {
           </button>
           <span className="topbar-title">{navItems.find(n => n.id === tab)?.label}</span>
         </div>
-        
         <div className="topbar-right">
-        <ThemeToggle />
+          <ThemeToggle />
           <div className="topbar-avatar">{agent?.name?.[0]}</div>
         </div>
         {agent && (
