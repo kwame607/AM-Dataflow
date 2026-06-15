@@ -8,6 +8,7 @@ import { fmt, genRef, detectNetwork } from '@/lib/utils';
 import { openPaystack } from '@/lib/paystack';
 import { useSimpleToast } from '@/components/ui/Toast';
 import ServiceBanner from '@/components/ui/ServiceBanner';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface AgentInfo {
   id: string; name: string; store_name?: string; slug: string; phone?: string; whatsapp?: string;
@@ -335,7 +336,8 @@ export default function AgentStorePage() {
             </div>
           </div>
         </div>
-        <div className="store-header-btns" style={{ display: 'flex', gap: 8 }}>
+        <div className="store-header-btns" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <ThemeToggle />
           <button className="btn btn-secondary btn-sm" onClick={() => { setTrackResult(null); setTrackOpen(true); }}>Track Order</button>
           {agent.whatsapp && (
             <a href={waLink()} className="btn btn-sm" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366' }} target="_blank" rel="noopener noreferrer">
