@@ -19,7 +19,7 @@ import { StoreSettingsTab } from '@/components/StoreSettingsTab';
 import type { Wallet } from '@/types/wallet';
 import { QuickOrderModal } from '@/components/QuickOrderModal';
 
-type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support';
+type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support' | 'account';
 
 export default function DashboardPage() {
   const { toast, ToastContainer } = useSimpleToast();
