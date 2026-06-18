@@ -13,8 +13,13 @@ import ServiceBanner from '@/components/ui/ServiceBanner';
 import { SupportTab } from '@/components/SupportTab';
 import { NotificationBell } from '@/components/SupportNotificationBell';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { WalletTab } from '@/components/WalletTab';
+import { AccountDetailsTab } from '@/components/AccountDetailsTab';
+import { StoreSettingsTab } from '@/components/StoreSettingsTab';
+import type { Wallet } from '@/types/wallet';
+import { QuickOrderModal } from '@/components/QuickOrderModal';
 
-type Tab = 'overview' | 'prices' | 'orders' | 'earnings' | 'store' | 'support';
+type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support';
 
 export default function DashboardPage() {
   const { toast, ToastContainer } = useSimpleToast();
@@ -22,6 +27,7 @@ export default function DashboardPage() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('overview');
+  const [showQuickOrder, setShowQuickOrder] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatTooltip, setChatTooltip] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -49,6 +55,7 @@ export default function DashboardPage() {
   // Order filter
   const [orderFilter, setOrderFilter] = useState('all');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL !== 'http://localhost:3000')
     ? process.env.NEXT_PUBLIC_SITE_URL
@@ -246,6 +253,8 @@ export default function DashboardPage() {
     { id: 'prices', label: 'My Prices', icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg> },
     { id: 'orders', label: 'My Orders', icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg> },
     { id: 'earnings', label: 'Earnings', icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
+    { id: 'wallet', label: 'Wallet', icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg> },
+    { id: 'account', label: 'Account', icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg> },
     { id: 'store', label: 'My Store', icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg> },
     {
   id: 'support',
@@ -365,7 +374,7 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-
+	      <button className="btn btn-primary" onClick={() => setShowQuickOrder(true)}>⚡ Quick Order</button>
               {/* Onboarding */}
               {onboardProgress < onboardSteps.length && (
                 <div className="card" style={{ marginBottom: 20 }}>
@@ -393,6 +402,8 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
+              
+              
 
               {/* WhatsApp Community */}
               <a
@@ -439,6 +450,24 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
+          {/* ── MY WALLET ── */}
+          {tab === 'wallet' && agent && (
+  <WalletTab
+    agent={{ id: agent.id, name: agent.name, email: agent.email, slug: agent.slug }}
+    authFetch={authFetch}
+    toast={toast}
+    onWalletUpdate={setWallet}
+  />
+)}
+
+{tab === 'account' && agent && (
+  <AccountDetailsTab
+    agent={agent}
+    authFetch={authFetch}
+    toast={toast}
+    onAgentUpdate={() => loadData(agent.id)}
+  />
+)}
 
           {/* ── MY PRICES ── */}
           {tab === 'prices' && (
@@ -662,82 +691,16 @@ export default function DashboardPage() {
 
           {/* ── MY STORE ── */}
           {tab === 'store' && agent && (
-            <div>
-              {Object.keys(agentPrices).length === 0 ? (
-                /* LOCKED — no prices set yet */
-                <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-                  <div style={{ fontSize: 52, marginBottom: 16 }}>🔒</div>
-                  <div style={{ fontFamily: 'Syne, sans-serif', fontSize: 20, fontWeight: 800, marginBottom: 10 }}>Store Link Locked</div>
-                  <div style={{ fontSize: 14, color: 'var(--text3)', maxWidth: 320, margin: '0 auto 28px', lineHeight: 1.6 }}>
-                    You need to <strong style={{ color: 'var(--text)' }}>set your prices</strong> before your store goes live. This ensures your customers see the right prices when they visit.
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 260, margin: '0 auto' }}>
-                    <button
-                      className="btn btn-primary"
-                      style={{ width: '100%', justifyContent: 'center' }}
-                      onClick={() => setTab('prices')}
-                    >
-                      Set My Prices Now →
-                    </button>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>Your store link will unlock immediately after saving prices</div>
-                  </div>
-                </div>
-              ) : (
-                /* UNLOCKED — prices are set */
-                <div className="card" style={{ marginBottom: 16 }}>
-                  <div className="card-header"><div className="card-title">My Store</div></div>
-                  <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                    {/* Store name */}
-                    <div>
-                      <div className="form-label" style={{ marginBottom: 4 }}>Store Name</div>
-                      <div style={{ fontSize: 15, fontWeight: 700 }}>{agent.name}</div>
-                    </div>
-
-                    {/* Store URL */}
-                    <div>
-                      <div className="form-label" style={{ marginBottom: 6 }}>Store URL</div>
-                      <div className="copy-box">
-                        <span className="copy-url">{siteUrl}/store/{agent.slug}</span>
-                        <button className="copy-btn" onClick={() => { navigator.clipboard.writeText(`${siteUrl}/store/${agent.slug}`); toast('Copied!', 'success', 2000); }}>Copy</button>
-                      </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                      <a
-                        href={`https://wa.me/?text=${encodeURIComponent(`Buy data bundles from my store: ${siteUrl}/store/${agent.slug}`)}`}
-                        className="btn btn-sm"
-                        style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', display: 'inline-flex' }}
-                        target="_blank" rel="noopener noreferrer"
-                      >
-                        💬 Share on WhatsApp
-                      </a>
-                      <a
-                        href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${siteUrl}/store/${agent.slug}`)}&bgcolor=0d1117&color=00d4aa&margin=10`}
-                        download="store-qr.png"
-                        className="btn btn-secondary btn-sm"
-                        style={{ display: 'inline-flex' }}
-                      >
-                        ⬇ Download QR
-                      </a>
-                    </div>
-
-                    {/* QR Code */}
-                    <div style={{ textAlign: 'center', paddingTop: 8 }}>
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${siteUrl}/store/${agent.slug}`)}&bgcolor=0d1117&color=00d4aa&margin=10`}
-                        alt="Store QR Code"
-                        style={{ width: 160, height: 160, margin: '0 auto 8px', borderRadius: 12, border: '1px solid var(--border)', display: 'block' }}
-                      />
-                      <div style={{ fontSize: 12, color: 'var(--text3)' }}>Scan to visit your store</div>
-                    </div>
-
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+  <StoreSettingsTab
+    agent={agent}
+    hasPrices={Object.keys(agentPrices).length > 0}
+    siteUrl={siteUrl}
+    authFetch={authFetch}
+    toast={toast}
+    onGoToPrices={() => setTab('prices')}
+    onAgentUpdate={() => loadData(agent.id)}
+  />
+)}
 
         </div>
       </main>
@@ -869,6 +832,17 @@ export default function DashboardPage() {
           )}
         </button>
       )}
+      {showQuickOrder && agent && (
+  <QuickOrderModal
+    agent={agent}
+    wallet={wallet}
+    agentPrices={agentPrices}
+    authFetch={authFetch}
+    toast={toast}
+    onClose={() => setShowQuickOrder(false)}
+    onOrderPlaced={() => loadData(agent.id)}
+  />
+)}
 
       <ToastContainer />
       

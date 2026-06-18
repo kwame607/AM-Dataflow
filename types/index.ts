@@ -17,16 +17,25 @@ export interface BundleWithPrice extends Bundle {
 }
 
 export interface Agent {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  slug: string;
-  status: 'pending' | 'active' | 'suspended';
-  whatsapp?: string;
-  created_at: string;
-  auth_user_id?: string;
-}
+    id: string;
+    name: string;
+    phone: string;
+    email: string;
+    slug: string;
+    status: 'pending' | 'active' | 'suspended';
+    whatsapp?: string;
+    created_at: string;
+    auth_user_id?: string;
+    // ── Wallet/Flyer Store additions (all optional — zero impact on existing code) ──
+    store_description?: string;
+    store_logo_url?: string;
+    store_banner_text?: string;
+    store_color?: string;
+    show_mtn?: boolean;
+    show_at?: boolean;
+    show_telecel?: boolean;
+  }
+
 
 export interface AdminPrice {
   id: string;

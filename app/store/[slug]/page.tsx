@@ -2,7 +2,7 @@
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { NetworkLogo } from '@/components/ui/NetworkLogo';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { BUNDLES, NET_NAMES, ALL_BUNDLES, getDefaultAdminPrice } from '@/lib/bundles';
 import { fmt, genRef, detectNetwork } from '@/lib/utils';
 import { openPaystack } from '@/lib/paystack';
@@ -12,13 +12,25 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface AgentInfo {
   id: string; name: string; store_name?: string; slug: string; phone?: string; whatsapp?: string;
+  store_description?: string;
+  store_logo_url?: string;
+  store_banner_text?: string;
+  store_color?: string;
+  show_mtn?: boolean;
+  show_at?: boolean;
+  show_telecel?: boolean;
 }
 interface PriceMap { [bundleKey: string]: number }
 
 export default function AgentStorePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = params?.slug as string;
   const { toast, ToastContainer } = useSimpleToast();
+
+  // Flyer mode — hides chrome, enlarges branding, screenshot-friendly.
+  // Triggered via ?flyer=1 in the URL (see StoreSettingsTab "Open Flyer Mode" link).
+  const flyerMode = searchParams?.get('flyer') === '1';
 
   const [agent, setAgent] = useState<AgentInfo | null>(null);
   const [prices, setPrices] = useState<PriceMap>(() => {
@@ -73,11 +85,9 @@ export default function AgentStorePage() {
   }, [slug]);
 
   const selectedBundle = currentNet ? BUNDLES[currentNet]?.find(b => b.key === selectedKey) : undefined;
+  const accentColor = agent?.store_color || '#00d4aa';
 
   // ── Price helpers ─────────────────────────────────────────────
-  // getPrice = what the store DISPLAYS (agent's set price, shown on flyers)
-  // silentPrice = what Paystack ACTUALLY charges (agent price ÷ 0.98)
-  //   so the 2% MoMo fee is covered without touching agent/admin profits
   function getPrice(key: string, cost: number): number {
     return prices[key] ?? cost;
   }
@@ -125,12 +135,8 @@ export default function AgentStorePage() {
     if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
     setPaying(true);
 
-    // displayPrice = store-shown price (agent's set price, matches their flyers)
     const displayPrice   = getPrice(selectedBundle.key, selectedBundle.cost);
-    // chargePrice = what Paystack silently initiates (displayPrice ÷ 0.98)
-    // Paystack takes 2%, you receive exactly displayPrice — profits intact
     const chargePrice    = silentPrice(selectedBundle.key, selectedBundle.cost);
-    // agentBasePrice recorded in DB = displayPrice (agent earns on this)
     const agentBasePrice = displayPrice;
     const bundleKey    = selectedBundle.key;
     const bundleVolume = selectedBundle.volume;
@@ -304,49 +310,96 @@ export default function AgentStorePage() {
     </div>
   );
 
-  const networks: Array<{ key: string; sub: string }> = [
-    { key: 'mtn',     sub: 'Non-expiry data bundles — 90 days' },
-    { key: 'at',      sub: 'AT iShare & BigTime — 90 days' },
-    { key: 'telecel', sub: 'Group Share bundles — 90 days' },
+  const allNetworks: Array<{ key: string; sub: string; visible: boolean }> = [
+    { key: 'mtn',     sub: 'Non-expiry data bundles — 90 days', visible: agent.show_mtn !== false },
+    { key: 'at',      sub: 'AT iShare & BigTime — 90 days',     visible: agent.show_at !== false },
+    { key: 'telecel', sub: 'Group Share bundles — 90 days',     visible: agent.show_telecel !== false },
   ];
+  const networks = allNetworks.filter(n => n.visible);
 
   return (
     <>
-      {/* HEADER */}
-      <header className="store-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0 }}>
-            <Image src="/admunz.png" alt="AdmunZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+      {/* Flyer-mode-specific styling: enlarges branding, removes nav chrome */}
+      {flyerMode && (
+        <style>{`
+          .store-header { display: none !important; }
+          .store-hero { padding-top: 28px !important; }
+          body { background: var(--bg); }
+        `}</style>
+      )}
+
+      {/* HEADER — hidden entirely in flyer mode */}
+      {!flyerMode && (
+        <header className="store-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 11, overflow: 'hidden', flexShrink: 0, background: 'var(--surface2)' }}>
+              {agent.store_logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={agent.store_logo_url} alt={agent.name} width={38} height={38} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+              ) : (
+                <Image src="/admunz.png" alt="AdmunZ" width={38} height={38} style={{ objectFit: 'cover' }} />
+              )}
+            </div>
+            <div style={{ lineHeight: 1 }}>
+              <div style={{ fontFamily: "'Raleway', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: '0.02em', color: 'var(--text)', lineHeight: 1.15 }}>
+                {(() => {
+                  const name = agent.store_name || agent.name || '';
+                  if (!name) return name;
+                  return (
+                    <>
+                      {name.slice(0, -1)}
+                      <span style={{ color: '#f59e0b' }}>{name.slice(-1)}</span>
+                    </>
+                  );
+                })()}
+              </div>
+              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 9, fontWeight: 600, letterSpacing: '0.18em', color: 'var(--text3)', textTransform: 'uppercase', marginTop: 2 }}>
+                Data Hub
+              </div>
+            </div>
           </div>
-          <div style={{ lineHeight: 1 }}>
-            <div style={{ fontFamily: "'Raleway', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: '0.02em', color: 'var(--text)', lineHeight: 1.15 }}>
-              {(() => {
-                const name = agent.store_name || agent.name || '';
-                if (!name) return name;
-                return (
-                  <>
-                    {name.slice(0, -1)}
-                    <span style={{ color: '#f59e0b' }}>{name.slice(-1)}</span>
-                  </>
-                );
-              })()}
-            </div>
-            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 9, fontWeight: 600, letterSpacing: '0.18em', color: 'var(--text3)', textTransform: 'uppercase', marginTop: 2 }}>
-              Data Hub
-            </div>
+          <div className="store-header-btns" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <ThemeToggle />
+            <button className="btn btn-secondary btn-sm" onClick={() => { setTrackResult(null); setTrackOpen(true); }}>Track Order</button>
+            {agent.whatsapp && (
+              <a href={waLink()} className="btn btn-sm" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366' }} target="_blank" rel="noopener noreferrer">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.549 4.116 1.51 5.849L0 24l6.335-1.662A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.784 9.784 0 01-5.003-1.376l-.36-.214-3.722.977.993-3.634-.234-.374A9.78 9.78 0 012.182 12c0-5.423 4.395-9.818 9.818-9.818 5.424 0 9.818 4.395 9.818 9.818 0 5.424-4.394 9.818-9.818 9.818z"/></svg>
+                <span className="store-btn-label">Help</span>
+              </a>
+            )}
+          </div>
+        </header>
+      )}
+
+      {/* FLYER MODE BRANDING — large logo + name, screenshot-friendly */}
+      {flyerMode && (
+        <div style={{ textAlign: 'center', padding: '36px 20px 0' }}>
+          <div style={{ width: 84, height: 84, borderRadius: 22, overflow: 'hidden', margin: '0 auto 16px', background: 'var(--surface2)', border: `2px solid ${accentColor}55` }}>
+            {agent.store_logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={agent.store_logo_url} alt={agent.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, fontWeight: 800, color: accentColor }}>{agent.name?.[0] || 'A'}</div>
+            )}
+          </div>
+          <div style={{ fontFamily: "'Raleway', sans-serif", fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>
+            {agent.store_name || agent.name}
           </div>
         </div>
-        <div className="store-header-btns" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <ThemeToggle />
-          <button className="btn btn-secondary btn-sm" onClick={() => { setTrackResult(null); setTrackOpen(true); }}>Track Order</button>
-          {agent.whatsapp && (
-            <a href={waLink()} className="btn btn-sm" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366' }} target="_blank" rel="noopener noreferrer">
-              <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.549 4.116 1.51 5.849L0 24l6.335-1.662A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.784 9.784 0 01-5.003-1.376l-.36-.214-3.722.977.993-3.634-.234-.374A9.78 9.78 0 012.182 12c0-5.423 4.395-9.818 9.818-9.818 5.424 0 9.818 4.395 9.818 9.818 0 5.424-4.394 9.818-9.818 9.818z"/></svg>
-              <span className="store-btn-label">Help</span>
-            </a>
-          )}
+      )}
+
+      {/* Banner text — shown in both modes if set */}
+      {agent.store_banner_text && (
+        <div style={{ maxWidth: 600, margin: '16px auto 0', padding: '0 16px' }}>
+          <div style={{
+            background: `${accentColor}15`, border: `1px solid ${accentColor}40`,
+            borderRadius: 'var(--radius)', padding: '12px 18px', textAlign: 'center',
+            fontSize: 14, fontWeight: 700, color: accentColor,
+          }}>
+            ✨ {agent.store_banner_text}
+          </div>
         </div>
-      </header>
+      )}
 
       {/* HERO */}
       <section className="store-hero">
@@ -355,17 +408,19 @@ export default function AgentStorePage() {
           <span className="live-dot" />
           {agent.store_name || agent.name}
         </div>
-        <h1>Instant Data<br /><span className="hero-accent">Delivered Fast</span></h1>
+        <h1>Instant Data<br /><span className="hero-accent" style={{ background: `linear-gradient(90deg, ${accentColor}, var(--accent2))`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Delivered Fast</span></h1>
         <p style={{ color: 'var(--text2)', fontSize: 14, maxWidth: 380, margin: '0 auto' }}>
-          MTN · AirtelTigo · Telecel bundles at the best rates. Delivered in 5–60 minutes, 24/7.
+          {agent.store_description || 'MTN · AirtelTigo · Telecel bundles at the best rates. Delivered in 5–60 minutes, 24/7.'}
         </p>
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 12 }}>
-          Powered by <a href="/" style={{ color: 'var(--accent)', textDecoration: 'none' }}>{storeName}</a>
-        </div>
+        {!flyerMode && (
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 12 }}>
+            Powered by <a href="/" style={{ color: accentColor, textDecoration: 'none' }}>{storeName}</a>
+          </div>
+        )}
       </section>
 
-      {/* CONTACT BAR */}
-      {(agent.phone || agent.whatsapp) && (
+      {/* CONTACT BAR — hidden in flyer mode to keep it clean */}
+      {!flyerMode && (agent.phone || agent.whatsapp) && (
         <div style={{ maxWidth: 600, margin: '0 auto 8px', padding: '0 16px' }}>
           <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Contact {agent.store_name || agent.name}</div>
@@ -387,22 +442,46 @@ export default function AgentStorePage() {
         </div>
       )}
 
-      {/* NETWORK CARDS */}
-      <div className="store-networks">
-        {networks.map(({ key, sub }) => (
-          <button key={key} className="net-card" onClick={() => openNetwork(key)}>
-            <NetworkLogo network={key} size={52} />
-            <div>
-              <div className="net-card-name">{NET_NAMES[key]}</div>
-              <div className="net-card-sub">{sub}</div>
+      {/* NETWORK TABS — in flyer mode, render as a clean grid instead of clickable cards */}
+      {flyerMode ? (
+        <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 20px 60px' }}>
+          {networks.map(({ key }) => (
+            <div key={key} style={{ marginBottom: 28 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <NetworkLogo network={key} size={36} />
+                <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 16, fontWeight: 800 }}>{NET_NAMES[key]}</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {(BUNDLES[key] || []).map((b, i) => (
+                  <div key={i} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px', textAlign: 'center' }}>
+                    <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 15, fontWeight: 800 }}>{b.size}</div>
+                    <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 14, fontWeight: 700, color: accentColor, marginTop: 2 }}>{fmt(getPrice(b.key, b.cost))}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <svg className="net-card-arrow" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
-          </button>
-        ))}
-      </div>
+          ))}
+          <div style={{ textAlign: 'center', marginTop: 8, fontSize: 12, color: 'var(--text3)' }}>
+            {agent.whatsapp ? `Order via WhatsApp: ${agent.whatsapp}` : `Visit: ${typeof window !== 'undefined' ? window.location.origin : ''}/store/${agent.slug}`}
+          </div>
+        </div>
+      ) : (
+        <div className="store-networks">
+          {networks.map(({ key, sub }) => (
+            <button key={key} className="net-card" onClick={() => openNetwork(key)}>
+              <NetworkLogo network={key} size={52} />
+              <div>
+                <div className="net-card-name">{NET_NAMES[key]}</div>
+                <div className="net-card-sub">{sub}</div>
+              </div>
+              <svg className="net-card-arrow" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* BUNDLE PANEL OVERLAY */}
-      {panelOpen && (
+      {/* BUNDLE PANEL OVERLAY — disabled in flyer mode (no ordering there) */}
+      {!flyerMode && panelOpen && (
         <div className="overlay open" onClick={e => { if (e.target === e.currentTarget) setPanelOpen(false); }}>
           <div className="sheet">
             <div className="sheet-header">
@@ -419,7 +498,6 @@ export default function AgentStorePage() {
                     <div className="bundle-size">{b.size}</div>
                     <div className="bundle-validity">{b.validity}{b.type ? ` · ${b.type}` : ''}</div>
                   </div>
-                  {/* Show fee-inclusive price to customer */}
                   <div className="bundle-price">{fmt(getPrice(b.key, b.cost))}</div>
                 </div>
               ))}
@@ -429,7 +507,7 @@ export default function AgentStorePage() {
       )}
 
       {/* ORDER FLOW OVERLAY */}
-      {orderOpen && selectedBundle && (
+      {!flyerMode && orderOpen && selectedBundle && (
         <div className="overlay open" onClick={e => { if (e.target === e.currentTarget && orderStep < 3) { setOrderOpen(false); setPanelOpen(true); } }}>
           <div className="sheet" style={{ maxWidth: 480 }}>
             <div className="sheet-header">
@@ -443,7 +521,6 @@ export default function AgentStorePage() {
                 </div>
               )}
 
-              {/* Step 1 — Phone */}
               {orderStep === 1 && (
                 <div>
                   <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
@@ -459,7 +536,6 @@ export default function AgentStorePage() {
                 </div>
               )}
 
-              {/* Step 2 — Summary + Pay */}
               {orderStep === 2 && (
                 <div>
                   <h3 style={{ fontFamily: 'Syne,sans-serif', fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Order Summary</h3>
@@ -488,7 +564,6 @@ export default function AgentStorePage() {
                 </div>
               )}
 
-              {/* Step 3 — Success */}
               {orderStep === 3 && (
                 <div className="success-anim">
                   <div className="success-check">✓</div>
@@ -515,7 +590,7 @@ export default function AgentStorePage() {
       )}
 
       {/* TRACK ORDER OVERLAY */}
-      {trackOpen && (
+      {!flyerMode && trackOpen && (
         <div className="overlay open" onClick={e => { if (e.target === e.currentTarget) setTrackOpen(false); }}>
           <div className="sheet">
             <div className="sheet-header">
@@ -594,8 +669,6 @@ export default function AgentStorePage() {
       )}
 
       <ToastContainer />
-    
-
     </>
   );
 }
