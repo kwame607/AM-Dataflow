@@ -176,9 +176,6 @@ export default function DashboardPage() {
   const onboardSteps = [
     { label: 'Account Created', done: true, sub: 'You\'re registered and approved' },
     { label: 'Set Your Prices', done: Object.keys(agentPrices).length > 0, sub: 'Set prices in My Prices tab' },
-    { label: 'Share Your Store Link', done: false, sub: `${siteUrl}/store/${agent?.slug}` },
-    { label: 'Make Your First Sale', done: orders.length > 0, sub: orders.length > 0 ? `${orders.length} orders so far` : 'Share your store and start earning' },
-    { label: 'Request Your First Payout', done: withdrawals.length > 0, sub: 'Use the Earnings tab' },
   ];
   const onboardProgress = onboardSteps.filter(s => s.done).length;
 
