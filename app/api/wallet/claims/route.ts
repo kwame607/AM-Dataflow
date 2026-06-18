@@ -30,9 +30,19 @@ export async function GET(req: NextRequest) {
 
   try {
     let query = supabase
-      .from('deposit_claims')
-      .select(isAdmin ? '*, agents!deposit_claims_agent_id_fkey(name, slug)' : '*')
-      .order('created_at', { ascending: false });
+  .from('deposit_claims')
+  .select(
+    isAdmin
+      ? `
+          *,
+          agents (
+            name,
+            slug
+          )
+        `
+      : '*'
+  )
+  .order('created_at', { ascending: false });
 
     if (agentId) query = query.eq('agent_id', agentId);
     if (status && status !== 'all') query = query.eq('status', status);
@@ -40,13 +50,13 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    const result = (data || []).map((c: Record<string, unknown> & { agents?: { name: string; slug: string } }) => ({
-      ...c,
-      agent_name: c.agents?.name,
-      agent_slug: c.agents?.slug,
-      agents: undefined,
-    }));
+    const result = (data ?? []).map((c: any) => ({
+  ...c,
+  agent_name: c.agents?.name ?? null,
+  agent_slug: c.agents?.slug ?? null,
+}));
 
+result.forEach((c: any) => delete c.agents);
     return NextResponse.json(result);
   } catch (e) {
     console.error('[deposit claims GET]', e);
