@@ -18,6 +18,7 @@ import { AccountDetailsTab } from '@/components/AccountDetailsTab';
 import { StoreSettingsTab } from '@/components/StoreSettingsTab';
 import type { Wallet } from '@/types/wallet';
 import { QuickBuyPanel } from '@/components/QuickBuyPanel';
+import { ActivityAndAchievements } from '@/components/ActivityAndAchievements';
 
 type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support' | 'account';
 
@@ -414,8 +415,8 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
-              
-              
+
+              <ActivityAndAchievements orders={orders} withdrawals={withdrawals} />
 
               {/* WhatsApp Community */}
               <a
