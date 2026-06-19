@@ -17,7 +17,7 @@ import { WalletTab } from '@/components/WalletTab';
 import { AccountDetailsTab } from '@/components/AccountDetailsTab';
 import { StoreSettingsTab } from '@/components/StoreSettingsTab';
 import type { Wallet } from '@/types/wallet';
-import { QuickOrderModal } from '@/components/QuickOrderModal';
+import { QuickBuyPanel } from '@/components/QuickBuyPanel';
 
 type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support' | 'account';
 
@@ -27,7 +27,6 @@ export default function DashboardPage() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('overview');
-  const [showQuickOrder, setShowQuickOrder] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatTooltip, setChatTooltip] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -356,6 +355,22 @@ export default function DashboardPage() {
           {/* ── OVERVIEW ── */}
           {tab === 'overview' && (
             <div>
+              {/* Quick Buy — primary action, front and center */}
+              {agent && (
+                <div style={{ marginBottom: 24 }}>
+                  <div className="page-title" style={{ fontSize: 16, marginBottom: 12 }}>⚡ Quick Buy</div>
+                  <QuickBuyPanel
+                    agent={agent}
+                    wallet={wallet}
+                    agentPrices={agentPrices}
+                    orders={orders}
+                    authFetch={authFetch}
+                    toast={toast}
+                    onOrderPlaced={() => loadData(agent.id)}
+                  />
+                </div>
+              )}
+
               <div className="stats-grid">
                 {[
                   { label: 'Total Orders', val: orders.length, sub: `${successOrders.length} successful`, icon: '📦', bg: 'rgba(14,165,233,0.12)', color: 'var(--accent2)' },
@@ -371,7 +386,6 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-	      <button className="btn btn-primary" onClick={() => setShowQuickOrder(true)}>⚡ Quick Order</button>
               {/* Onboarding */}
               {onboardProgress < onboardSteps.length && (
                 <div className="card" style={{ marginBottom: 20 }}>
@@ -829,17 +843,6 @@ export default function DashboardPage() {
           )}
         </button>
       )}
-      {showQuickOrder && agent && (
-  <QuickOrderModal
-    agent={agent}
-    wallet={wallet}
-    agentPrices={agentPrices}
-    authFetch={authFetch}
-    toast={toast}
-    onClose={() => setShowQuickOrder(false)}
-    onOrderPlaced={() => loadData(agent.id)}
-  />
-)}
 
       <ToastContainer />
       
