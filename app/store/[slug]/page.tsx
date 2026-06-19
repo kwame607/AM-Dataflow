@@ -391,34 +391,8 @@ export default function AgentStorePage() {
               body { margin: 0; padding: 0; }
             }
             .flyer-wrap * { font-family: 'Inter', system-ui, sans-serif; box-sizing: border-box; }
-
-            /* Diagonal stripe decoration */
-            .flyer-stripe-bg {
-              background-color: #0a0f1e;
-              background-image:
-                repeating-linear-gradient(
-                  135deg,
-                  rgba(255,255,255,0.025) 0px,
-                  rgba(255,255,255,0.025) 1px,
-                  transparent 1px,
-                  transparent 32px
-                );
-            }
-
-            /* Decorative corner blobs */
-            .flyer-blob-tl {
-              position: absolute; top: -30px; left: -30px;
-              width: 140px; height: 140px; border-radius: 50%;
-              opacity: 0.18; pointer-events: none;
-            }
-            .flyer-blob-br {
-              position: absolute; bottom: -40px; right: -30px;
-              width: 180px; height: 180px; border-radius: 50%;
-              opacity: 0.14; pointer-events: none;
-            }
-
-            /* Net column hover */
-            .net-price-row:nth-child(even) { background: rgba(0,0,0,0.03); }
+            .flyer-col-row { border-bottom: 1px solid rgba(0,0,0,0.07); }
+            .flyer-col-row:last-child { border-bottom: none; }
           `}</style>
 
           {/* ── Toolbar (screen only) ── */}
@@ -430,11 +404,11 @@ export default function AgentStorePage() {
             borderBottom: '1px solid rgba(255,255,255,0.07)',
           }}>
             <span style={{ fontSize: 11, color: '#64748b', flex: 1 }}>
-              📸 Screenshot below the toolbar to share as a flyer
+              📸 Screenshot the flyer below to share with customers
             </span>
             <button onClick={() => window.print()} style={{
               padding: '6px 14px', borderRadius: 8, border: 'none',
-              background: accentColor, color: '#fff',
+              background: '#3b82f6', color: '#fff',
               fontSize: 12, fontWeight: 700, cursor: 'pointer',
             }}>
               🖨 Print
@@ -447,225 +421,223 @@ export default function AgentStorePage() {
           </div>
 
           {/* ═══════════════════════════════════════════════════════
-              THE FLYER — everything below is what gets screenshotted
+              THE FLYER
           ═══════════════════════════════════════════════════════ */}
-          <div className="flyer-wrap" style={{ background: '#fff', maxWidth: '100%' }}>
+          <div className="flyer-wrap" style={{
+            background: '#ffffff',
+            maxWidth: 480,
+            margin: '0 auto',
+            border: '1px solid #e2e8f0',
+          }}>
 
-            {/* ── HEADER BAND (dark, branded) ── */}
-            <div className="flyer-stripe-bg" style={{
-              position: 'relative', overflow: 'hidden',
-              padding: '20px 16px 18px',
-            }}>
-              {/* Decorative blobs */}
-              <div className="flyer-blob-tl" style={{ background: accentColor }} />
-              <div className="flyer-blob-br" style={{ background: accentColor }} />
-
-              {/* Top row: logo + name + QR */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 1 }}>
-
-                {/* Store logo */}
-                <div style={{
-                  width: 54, height: 54, borderRadius: 14, overflow: 'hidden', flexShrink: 0,
-                  border: `2px solid ${accentColor}55`,
-                  background: '#1e293b',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {/* Always show admunz.png as fallback if no custom logo */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={agent.store_logo_url || '/admunz.png'}
-                    alt={agentStoreName}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/admunz.png';
-                    }}
-                  />
-                </div>
-
-                {/* Store name + tagline */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: 21, fontWeight: 900, color: '#ffffff',
-                    letterSpacing: '-0.5px', lineHeight: 1.1,
-                  }}>
-                    {agentStoreName}
-                  </div>
-                  <div style={{
-                    fontSize: 11, color: accentColor,
-                    marginTop: 3, fontWeight: 600, letterSpacing: '0.02em',
-                  }}>
-                    {agent.store_description || 'Fast & Reliable Data Bundles'}
-                  </div>
-                </div>
-
-                {/* QR code */}
-                <div style={{
-                  background: '#fff', borderRadius: 8, padding: 3,
-                  flexShrink: 0, lineHeight: 0,
-                }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
-                      typeof window !== 'undefined'
-                        ? `${window.location.origin}/store/${agent.slug}`
-                        : `https://admunz.com/store/${agent.slug}`
-                    )}&margin=2&color=0a0f1e`}
-                    alt="QR"
-                    style={{ width: 52, height: 52, display: 'block', borderRadius: 4 }}
-                  />
-                </div>
-              </div>
-
-              {/* Tag line pill */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                marginTop: 14, position: 'relative', zIndex: 1,
-              }}>
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  background: `${accentColor}22`,
-                  border: `1px solid ${accentColor}44`,
-                  borderRadius: 100, padding: '4px 12px',
-                }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: accentColor }} />
-                  <span style={{ fontSize: 10, fontWeight: 700, color: accentColor, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                    {agent.store_banner_text || 'Best Prices · Fast Delivery · 90 Day Validity'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* ── SECTION LABEL ── */}
+            {/* ── TOP HEADER: store name + wifi icon ── */}
             <div style={{
-              background: accentColor,
-              padding: '7px 16px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: '#ffffff',
+              padding: '22px 20px 10px',
+              textAlign: 'center',
+              borderBottom: '2px solid #1a3faa',
             }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                📶 Data Bundle Prices
-              </span>
-              <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.75)', letterSpacing: '0.04em' }}>
-                NON-EXPIRY · 90 DAYS
-              </span>
+              {/* Big store name */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              }}>
+                <div style={{ lineHeight: 1 }}>
+                  <div style={{
+                    fontSize: 40, fontWeight: 900,
+                    color: '#0f172a',
+                    letterSpacing: '-1px',
+                    lineHeight: 1,
+                  }}>
+                    {(() => {
+                      const name = agentStoreName;
+                      const mid = Math.ceil(name.length / 2);
+                      return (
+                        <>
+                          <span style={{ color: '#0f172a' }}>{name.slice(0, mid)}</span>
+                          <span style={{ color: '#3b82f6' }}>{name.slice(mid)}</span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+                {/* WiFi icon */}
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  gap: 1, paddingTop: 4,
+                }}>
+                  <svg width="36" height="28" viewBox="0 0 36 28" fill="none">
+                    <path d="M18 22C19.657 22 21 23.343 21 25C21 26.657 19.657 28 18 28C16.343 28 15 26.657 15 25C15 23.343 16.343 22 18 22Z" fill="#3b82f6"/>
+                    <path d="M8 14C10.652 11.348 14.12 10 18 10C21.88 10 25.348 11.348 28 14" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+                    <path d="M2 8C6.418 3.582 11.91 1 18 1C24.09 1 29.582 3.582 34 8" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+                    <path d="M13 19C14.326 17.674 16.08 17 18 17C19.92 17 21.674 17.674 23 19" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+                  </svg>
+                </div>
+              </div>
+
+              {/* Tagline */}
+              <div style={{
+                fontSize: 11, fontWeight: 700, color: '#64748b',
+                letterSpacing: '0.18em', textTransform: 'uppercase',
+                marginTop: 4, marginBottom: 12,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}>
+                <span style={{ color: '#94a3b8' }}>——</span>
+                <span>{agent.store_description || 'FAST • RELIABLE • AFFORDABLE'}</span>
+                <span style={{ color: '#94a3b8' }}>——</span>
+              </div>
+
+              {/* DATA BUNDLES label */}
+              <div style={{
+                display: 'inline-block',
+                background: '#1a3faa',
+                color: '#ffffff',
+                fontSize: 13, fontWeight: 800,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                padding: '6px 28px',
+                borderRadius: 4,
+                marginBottom: 14,
+              }}>
+                {agent.store_banner_text || 'DATA BUNDLES'}
+              </div>
             </div>
 
             {/* ══════════════════════════════════════════════════
-                NETWORKS — 3 columns side by side
+                NETWORK COLUMNS
             ══════════════════════════════════════════════════ */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: `repeat(${networks.length}, 1fr)`,
-              background: '#fff',
+              borderBottom: '2px solid #1a3faa',
             }}>
               {networks.map(({ key }, colIndex) => {
+
+                // Per-network styling matching the reference flyer
                 const NS: Record<string, {
-                  bg: string; headerBg: string; headerText: string;
-                  accent: string; rowEven: string; logo: string; logoBg: string;
-                  divider: string;
+                  headerBg: string; headerText: string; headerBorder: string;
+                  colBg: string; labelBg: string; labelText: string;
+                  priceColor: string; colBorder: string;
+                  logoSrc: string; logoLabel: string;
                 }> = {
                   mtn: {
-                    bg: '#fffbeb',
                     headerBg: '#FFCB05',
-                    headerText: '#3d2800',
-                    accent: '#b45309',
-                    rowEven: '#fef3c7',
-                    logo: '/mtn.png',
-                    logoBg: '#FFCB05',
-                    divider: '#fcd34d',
+                    headerText: '#1a0a00',
+                    headerBorder: '#e6b800',
+                    colBg: '#ffffff',
+                    labelBg: '#FFCB05',
+                    labelText: '#1a0a00',
+                    priceColor: '#1a0a00',
+                    colBorder: '#e2e8f0',
+                    logoSrc: '/mtn.png',
+                    logoLabel: 'MTN',
                   },
                   at: {
-                    bg: '#fff0f0',
                     headerBg: '#E52020',
                     headerText: '#ffffff',
-                    accent: '#991b1b',
-                    rowEven: '#fee2e2',
-                    logo: '/at.jpg',
-                    logoBg: '#E52020',
-                    divider: '#fca5a5',
+                    headerBorder: '#cc1a1a',
+                    colBg: '#ffffff',
+                    labelBg: '#E52020',
+                    labelText: '#ffffff',
+                    priceColor: '#991b1b',
+                    colBorder: '#e2e8f0',
+                    logoSrc: '/at.jpg',
+                    logoLabel: 'airtel tigo',
                   },
                   telecel: {
-                    bg: '#f0f4ff',
-                    headerBg: '#1a3faa',
-                    headerText: '#ffffff',
-                    accent: '#1e3a8a',
-                    rowEven: '#dbeafe',
-                    logo: '/telecel.png',
-                    logoBg: '#ffffff',
-                    divider: '#93c5fd',
+                    headerBg: '#ffffff',
+                    headerText: '#0f172a',
+                    headerBorder: '#e2e8f0',
+                    colBg: '#ffffff',
+                    labelBg: '#E52020',
+                    labelText: '#ffffff',
+                    priceColor: '#1a3faa',
+                    colBorder: '#e2e8f0',
+                    logoSrc: '/telecel.png',
+                    logoLabel: 'telecel',
                   },
                 };
-                const ns = NS[key] ?? {
-                  bg: '#f8fafc', headerBg: '#64748b', headerText: '#fff',
-                  accent: '#334155', rowEven: '#f1f5f9',
-                  logo: '/admunz.png', logoBg: '#64748b', divider: '#cbd5e1',
-                };
+
+                const ns = NS[key] ?? NS.mtn;
                 const bundles = BUNDLES[key] || [];
                 const isLast = colIndex === networks.length - 1;
 
                 return (
                   <div key={key} style={{
-                    background: ns.bg,
-                    borderRight: isLast ? 'none' : `1.5px solid ${ns.divider}`,
+                    background: ns.colBg,
+                    borderRight: isLast ? 'none' : `1px solid #d1d5db`,
                     display: 'flex', flexDirection: 'column',
                   }}>
 
-                    {/* Network header with real logo */}
+                    {/* Network logo header */}
                     <div style={{
                       background: ns.headerBg,
-                      padding: '10px 8px 8px',
-                      display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', gap: 5,
+                      borderBottom: `2px solid ${ns.headerBorder}`,
+                      padding: '10px 6px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      minHeight: 52,
                     }}>
-                      {/* Logo box */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={ns.logoSrc}
+                        alt={NET_NAMES[key]}
+                        style={{
+                          maxHeight: 34, maxWidth: '90%',
+                          objectFit: 'contain',
+                        }}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+
+                    {/* DATA | PRICE column headers */}
+                    <div style={{
+                      display: 'grid', gridTemplateColumns: '1fr 1fr',
+                      background: ns.labelBg,
+                    }}>
                       <div style={{
-                        width: 38, height: 38, borderRadius: 10,
-                        background: ns.logoBg,
-                        overflow: 'hidden', flexShrink: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        border: '2px solid rgba(255,255,255,0.3)',
-                      }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={ns.logo}
-                          alt={NET_NAMES[key]}
-                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                        />
-                      </div>
-                      <span style={{
-                        fontSize: 11, fontWeight: 800,
-                        color: ns.headerText,
-                        letterSpacing: '0.04em',
+                        padding: '5px 4px',
                         textAlign: 'center',
-                        lineHeight: 1.1,
-                      }}>
-                        {NET_NAMES[key]}
-                      </span>
+                        fontSize: 10, fontWeight: 800,
+                        color: ns.labelText,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                        borderRight: `1px solid rgba(0,0,0,0.12)`,
+                      }}>DATA</div>
+                      <div style={{
+                        padding: '5px 4px',
+                        textAlign: 'center',
+                        fontSize: 10, fontWeight: 800,
+                        color: ns.labelText,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                      }}>PRICE (₵)</div>
                     </div>
 
                     {/* Bundle rows */}
-                    <div style={{ padding: '6px 5px 8px', flex: 1 }}>
+                    <div style={{ flex: 1 }}>
                       {bundles.map((b, idx) => (
-                        <div key={b.key} style={{
-                          display: 'flex', alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '3.5px 5px',
-                          borderRadius: 5,
-                          background: idx % 2 === 0 ? 'rgba(0,0,0,0.035)' : 'transparent',
-                          marginBottom: 1,
+                        <div key={b.key} className="flyer-col-row" style={{
+                          display: 'grid', gridTemplateColumns: '1fr 1fr',
+                          background: idx % 2 === 0 ? '#f8fafc' : '#ffffff',
                         }}>
-                          <span style={{
+                          <div style={{
+                            padding: '5px 4px',
+                            textAlign: 'center',
                             fontSize: 11, fontWeight: 700,
-                            color: '#1e293b',
+                            color: '#0f172a',
+                            borderRight: '1px solid #e2e8f0',
                           }}>
                             {b.size}
-                          </span>
-                          <span style={{
-                            fontSize: 11, fontWeight: 800,
-                            color: ns.accent,
-                            letterSpacing: '-0.2px',
+                          </div>
+                          <div style={{
+                            padding: '5px 4px',
+                            textAlign: 'center',
+                            fontSize: 11, fontWeight: 700,
+                            color: ns.priceColor,
                           }}>
-                            {fmt(getPrice(b.key, b.cost))}
-                          </span>
+                            {fmt(getPrice(b.key, b.cost)).replace('₵', '₵')}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -673,58 +645,114 @@ export default function AgentStorePage() {
                 );
               })}
             </div>
-            {/* ══ end networks ══ */}
+            {/* ══ end network columns ══ */}
 
-            {/* ── FOOTER ── */}
-            <div className="flyer-stripe-bg" style={{
-              position: 'relative', overflow: 'hidden',
-              padding: '12px 16px 14px',
+            {/* ── FEATURES ROW ── */}
+            <div style={{
+              display: 'flex',
+              borderBottom: '2px solid #1a3faa',
+              background: '#ffffff',
             }}>
-              <div className="flyer-blob-tl" style={{ background: accentColor, width: 80, height: 80, top: -20, left: -20 }} />
-              <div className="flyer-blob-br" style={{ background: accentColor, width: 100, height: 100, bottom: -30, right: -20 }} />
+              {[
+                { icon: '⚡', label: 'FAST\nBROWSING' },
+                { icon: '🛡', label: 'RELIABLE\nCONNECTION' },
+                { icon: '👍', label: 'BEST\nPRICES' },
+              ].map((feat, i) => (
+                <div key={i} style={{
+                  flex: 1,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '10px 8px',
+                  borderRight: i < 2 ? '1px solid #e2e8f0' : 'none',
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: '#1a3faa',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 15, flexShrink: 0,
+                  }}>
+                    {feat.icon}
+                  </div>
+                  <div style={{
+                    fontSize: 9, fontWeight: 800,
+                    color: '#0f172a',
+                    letterSpacing: '0.04em',
+                    lineHeight: 1.3,
+                    whiteSpace: 'pre-line',
+                  }}>
+                    {feat.label}
+                  </div>
+                </div>
+              ))}
+            </div>
 
-              {/* Contact row */}
+            {/* ── CONTACT FOOTER ── */}
+            <div style={{
+              background: '#0f172a',
+              padding: '12px 16px',
+            }}>
+              {/* Contact us row */}
               <div style={{
                 display: 'flex', alignItems: 'center',
-                flexWrap: 'wrap', gap: 10, position: 'relative', zIndex: 1,
-                marginBottom: 8,
+                borderRadius: 8,
+                overflow: 'hidden',
               }}>
-                {agent.whatsapp && (
+                {/* Left: phone */}
+                <div style={{
+                  flex: 1,
+                  background: '#1a3faa',
+                  padding: '12px 14px',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
                   <div style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'rgba(37,211,102,0.15)',
-                    border: '1px solid rgba(37,211,102,0.35)',
-                    borderRadius: 8, padding: '5px 10px',
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: '#ffffff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
                   }}>
-                    <svg width="13" height="13" fill="#25d366" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.549 4.116 1.51 5.849L0 24l6.335-1.662A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.784 9.784 0 01-5.003-1.376l-.36-.214-3.722.977.993-3.634-.234-.374A9.78 9.78 0 012.182 12c0-5.423 4.395-9.818 9.818-9.818 5.424 0 9.818 4.395 9.818 9.818 0 5.424-4.394 9.818-9.818 9.818z"/></svg>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#25d366' }}>{agent.whatsapp}</span>
+                    <svg width="18" height="18" fill="none" stroke="#1a3faa" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                    </svg>
                   </div>
-                )}
-                {agent.phone && agent.phone !== agent.whatsapp && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    background: `${accentColor}18`,
-                    border: `1px solid ${accentColor}35`,
-                    borderRadius: 8, padding: '5px 10px',
-                  }}>
-                    <svg width="12" height="12" fill="none" stroke={accentColor} strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: accentColor }}>{agent.phone}</span>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 1 }}>
+                      CONTACT US
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: '#ffffff', letterSpacing: '0.02em', lineHeight: 1 }}>
+                      {agent.whatsapp || agent.phone || '0540705130'}
+                    </div>
                   </div>
-                )}
-              </div>
+                </div>
 
-              {/* Bottom row: url + powered by */}
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                position: 'relative', zIndex: 1,
-              }}>
-                <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.02em' }}>
-                  admunz.com/store/{agent.slug}
-                </span>
-                <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.03em' }}>
-                  Powered by ADMUNZ · Scan QR to order
-                </span>
+                {/* Right: tagline */}
+                <div style={{
+                  background: '#0f172a',
+                  padding: '12px 14px',
+                  minWidth: 110,
+                  textAlign: 'right',
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#ffffff', lineHeight: 1.3 }}>
+                    STAY CONNECTED.
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#3b82f6', lineHeight: 1.3 }}>
+                    STAY AHEAD.
+                  </div>
+                </div>
               </div>
+            </div>
+
+            {/* ── BOTTOM TAGLINE ── */}
+            <div style={{
+              background: '#1a3faa',
+              padding: '6px 16px',
+              textAlign: 'center',
+            }}>
+              <span style={{
+                fontSize: 9, fontWeight: 700,
+                color: 'rgba(255,255,255,0.7)',
+                letterSpacing: '0.2em', textTransform: 'uppercase',
+              }}>
+                CONNECT MORE. ACHIEVE MORE.
+              </span>
             </div>
 
           </div>
