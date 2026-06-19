@@ -355,22 +355,6 @@ export default function DashboardPage() {
           {/* ── OVERVIEW ── */}
           {tab === 'overview' && (
             <div>
-              {/* Quick Buy — primary action, front and center */}
-              {agent && (
-                <div style={{ marginBottom: 24 }}>
-                  <div className="page-title" style={{ fontSize: 16, marginBottom: 12 }}>⚡ Quick Buy</div>
-                  <QuickBuyPanel
-                    agent={agent}
-                    wallet={wallet}
-                    agentPrices={agentPrices}
-                    orders={orders}
-                    authFetch={authFetch}
-                    toast={toast}
-                    onOrderPlaced={() => loadData(agent.id)}
-                  />
-                </div>
-              )}
-
               <div className="stats-grid">
                 {[
                   { label: 'Total Orders', val: orders.length, sub: `${successOrders.length} successful`, icon: '📦', bg: 'rgba(14,165,233,0.12)', color: 'var(--accent2)' },
@@ -386,6 +370,23 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Quick Buy */}
+              {agent && (
+                <div style={{ marginTop: 24, marginBottom: 24 }}>
+                  <div className="page-title" style={{ fontSize: 16, marginBottom: 12 }}>⚡ Quick Buy</div>
+                  <QuickBuyPanel
+                    agent={agent}
+                    wallet={wallet}
+                    agentPrices={agentPrices}
+                    orders={orders}
+                    authFetch={authFetch}
+                    toast={toast}
+                    onOrderPlaced={() => loadData(agent.id)}
+                  />
+                </div>
+              )}
+
               {/* Onboarding */}
               {onboardProgress < onboardSteps.length && (
                 <div className="card" style={{ marginBottom: 20 }}>
