@@ -105,9 +105,14 @@ export function StoreSettingsTab({ agent, hasPrices, siteUrl, authFetch, toast, 
             <a
               href={flyerUrl}
               target="_blank" rel="noopener noreferrer"
-              className="btn btn-secondary btn-sm"
+              className="btn btn-sm"
+              style={{
+                background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+                color: '#fff',
+                border: 'none',
+              }}
             >
-              🖼 Open Flyer Mode
+              📸 Screenshot Flyer
             </a>
           </div>
 
@@ -122,6 +127,93 @@ export function StoreSettingsTab({ agent, hasPrices, siteUrl, authFetch, toast, 
           </div>
         </div>
       </div>
+
+      {/* ── BIG FLYER CTA ── agents must not miss this ── */}
+      <a
+        href={flyerUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'block',
+          textDecoration: 'none',
+          marginBottom: 16,
+          borderRadius: 'var(--radius-lg)',
+          overflow: 'hidden',
+          position: 'relative',
+          background: 'linear-gradient(135deg, #1a0533 0%, #0d1521 100%)',
+          border: '1px solid rgba(124,58,237,0.35)',
+          boxShadow: '0 4px 24px rgba(124,58,237,0.2)',
+        }}
+      >
+        {/* Decorative background blobs */}
+        <div style={{
+          position: 'absolute', top: -30, right: -30,
+          width: 140, height: 140, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(124,58,237,0.35) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: -20, left: 20,
+          width: 100, height: 100, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(0,212,170,0.2) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+
+        <div style={{
+          position: 'relative', zIndex: 1,
+          padding: '18px 20px',
+          display: 'flex', alignItems: 'center', gap: 16,
+        }}>
+          {/* Camera icon */}
+          <div style={{
+            width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+            background: 'rgba(124,58,237,0.25)',
+            border: '1px solid rgba(124,58,237,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 26,
+          }}>
+            📸
+          </div>
+
+          {/* Text */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontFamily: 'Syne, sans-serif',
+              fontSize: 16, fontWeight: 800,
+              color: '#ffffff',
+              marginBottom: 4,
+              letterSpacing: '-0.2px',
+            }}>
+              Open Screenshot Flyer
+            </div>
+            <div style={{
+              fontSize: 12, color: 'rgba(255,255,255,0.55)',
+              lineHeight: 1.4,
+            }}>
+              All 3 networks side by side — screenshot &amp; share on WhatsApp
+            </div>
+          </div>
+
+          {/* Arrow badge */}
+          <div style={{
+            flexShrink: 0,
+            background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+            borderRadius: 10, padding: '8px 14px',
+            display: 'flex', alignItems: 'center', gap: 6,
+            boxShadow: '0 4px 14px rgba(124,58,237,0.4)',
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap' }}>
+              Open →
+            </span>
+          </div>
+        </div>
+
+        {/* Bottom accent strip */}
+        <div style={{
+          height: 3,
+          background: 'linear-gradient(90deg, #7c3aed, #00d4aa, #7c3aed)',
+        }} />
+      </a>
 
       {/* Customization */}
       <div className="card" style={{ marginBottom: 16 }}>

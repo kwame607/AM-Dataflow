@@ -390,7 +390,7 @@ export default function AgentStorePage() {
               .flyer-toolbar { display: none !important; }
               body { margin: 0; padding: 0; }
             }
-            .flyer-wrap * { font-family: 'Inter', system-ui, sans-serif; box-sizing: border-box; }
+            .flyer-wrap * { font-family: 'Inter', system-ui, sans-serif; box-sizing: border-box; line-height: 1; }
             .flyer-col-row { border-bottom: 1px solid rgba(0,0,0,0.07); }
             .flyer-col-row:last-child { border-bottom: none; }
           `}</style>
@@ -425,7 +425,7 @@ export default function AgentStorePage() {
           ═══════════════════════════════════════════════════════ */}
           <div className="flyer-wrap" style={{
             background: '#ffffff',
-            maxWidth: 480,
+            maxWidth: 420,
             margin: '0 auto',
             border: '1px solid #e2e8f0',
           }}>
@@ -433,7 +433,7 @@ export default function AgentStorePage() {
             {/* ── TOP HEADER: store name + wifi icon ── */}
             <div style={{
               background: '#ffffff',
-              padding: '22px 20px 10px',
+              padding: '12px 16px 8px',
               textAlign: 'center',
               borderBottom: '2px solid #1a3faa',
             }}>
@@ -443,7 +443,7 @@ export default function AgentStorePage() {
               }}>
                 <div style={{ lineHeight: 1 }}>
                   <div style={{
-                    fontSize: 40, fontWeight: 900,
+                    fontSize: 30, fontWeight: 900,
                     color: '#0f172a',
                     letterSpacing: '-1px',
                     lineHeight: 1,
@@ -465,7 +465,7 @@ export default function AgentStorePage() {
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   gap: 1, paddingTop: 4,
                 }}>
-                  <svg width="36" height="28" viewBox="0 0 36 28" fill="none">
+                  <svg width="28" height="22" viewBox="0 0 36 28" fill="none">
                     <path d="M18 22C19.657 22 21 23.343 21 25C21 26.657 19.657 28 18 28C16.343 28 15 26.657 15 25C15 23.343 16.343 22 18 22Z" fill="#3b82f6"/>
                     <path d="M8 14C10.652 11.348 14.12 10 18 10C21.88 10 25.348 11.348 28 14" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
                     <path d="M2 8C6.418 3.582 11.91 1 18 1C24.09 1 29.582 3.582 34 8" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
@@ -476,9 +476,9 @@ export default function AgentStorePage() {
 
               {/* Tagline */}
               <div style={{
-                fontSize: 11, fontWeight: 700, color: '#64748b',
-                letterSpacing: '0.18em', textTransform: 'uppercase',
-                marginTop: 4, marginBottom: 12,
+                fontSize: 9, fontWeight: 700, color: '#64748b',
+                letterSpacing: '0.14em', textTransform: 'uppercase',
+                marginTop: 2, marginBottom: 6,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}>
                 <span style={{ color: '#94a3b8' }}>——</span>
@@ -491,12 +491,12 @@ export default function AgentStorePage() {
                 display: 'inline-block',
                 background: '#1a3faa',
                 color: '#ffffff',
-                fontSize: 13, fontWeight: 800,
+                fontSize: 11, fontWeight: 800,
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
-                padding: '6px 28px',
+                padding: '4px 20px',
                 borderRadius: 4,
-                marginBottom: 14,
+                marginBottom: 8,
               }}>
                 {agent.store_banner_text || 'DATA BUNDLES'}
               </div>
@@ -572,16 +572,15 @@ export default function AgentStorePage() {
                     <div style={{
                       background: ns.headerBg,
                       borderBottom: `2px solid ${ns.headerBorder}`,
-                      padding: '10px 6px',
+                      padding: '5px 4px',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      minHeight: 52,
                     }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={ns.logoSrc}
                         alt={NET_NAMES[key]}
                         style={{
-                          maxHeight: 34, maxWidth: '90%',
+                          maxHeight: 24, maxWidth: '90%',
                           objectFit: 'contain',
                         }}
                         onError={(e) => {
@@ -596,18 +595,18 @@ export default function AgentStorePage() {
                       background: ns.labelBg,
                     }}>
                       <div style={{
-                        padding: '5px 4px',
+                        padding: '3px 3px',
                         textAlign: 'center',
-                        fontSize: 10, fontWeight: 800,
+                        fontSize: 8, fontWeight: 800,
                         color: ns.labelText,
                         letterSpacing: '0.06em',
                         textTransform: 'uppercase',
                         borderRight: `1px solid rgba(0,0,0,0.12)`,
                       }}>DATA</div>
                       <div style={{
-                        padding: '5px 4px',
+                        padding: '3px 3px',
                         textAlign: 'center',
-                        fontSize: 10, fontWeight: 800,
+                        fontSize: 8, fontWeight: 800,
                         color: ns.labelText,
                         letterSpacing: '0.06em',
                         textTransform: 'uppercase',
@@ -622,18 +621,18 @@ export default function AgentStorePage() {
                           background: idx % 2 === 0 ? '#f8fafc' : '#ffffff',
                         }}>
                           <div style={{
-                            padding: '5px 4px',
+                            padding: '2px 3px',
                             textAlign: 'center',
-                            fontSize: 11, fontWeight: 700,
+                            fontSize: 9, fontWeight: 700,
                             color: '#0f172a',
                             borderRight: '1px solid #e2e8f0',
                           }}>
                             {b.size}
                           </div>
                           <div style={{
-                            padding: '5px 4px',
+                            padding: '2px 3px',
                             textAlign: 'center',
-                            fontSize: 11, fontWeight: 700,
+                            fontSize: 9, fontWeight: 700,
                             color: ns.priceColor,
                           }}>
                             {fmt(getPrice(b.key, b.cost)).replace('₵', '₵')}
@@ -660,20 +659,20 @@ export default function AgentStorePage() {
               ].map((feat, i) => (
                 <div key={i} style={{
                   flex: 1,
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '10px 8px',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '6px 5px',
                   borderRight: i < 2 ? '1px solid #e2e8f0' : 'none',
                 }}>
                   <div style={{
-                    width: 32, height: 32, borderRadius: '50%',
+                    width: 22, height: 22, borderRadius: '50%',
                     background: '#1a3faa',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 15, flexShrink: 0,
+                    fontSize: 10, flexShrink: 0,
                   }}>
                     {feat.icon}
                   </div>
                   <div style={{
-                    fontSize: 9, fontWeight: 800,
+                    fontSize: 7, fontWeight: 800,
                     color: '#0f172a',
                     letterSpacing: '0.04em',
                     lineHeight: 1.3,
@@ -688,36 +687,35 @@ export default function AgentStorePage() {
             {/* ── CONTACT FOOTER ── */}
             <div style={{
               background: '#0f172a',
-              padding: '12px 16px',
+              padding: '8px 10px',
             }}>
-              {/* Contact us row */}
               <div style={{
                 display: 'flex', alignItems: 'center',
-                borderRadius: 8,
+                borderRadius: 6,
                 overflow: 'hidden',
               }}>
                 {/* Left: phone */}
                 <div style={{
                   flex: 1,
                   background: '#1a3faa',
-                  padding: '12px 14px',
-                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 10px',
+                  display: 'flex', alignItems: 'center', gap: 7,
                 }}>
                   <div style={{
-                    width: 36, height: 36, borderRadius: '50%',
+                    width: 26, height: 26, borderRadius: '50%',
                     background: '#ffffff',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     flexShrink: 0,
                   }}>
-                    <svg width="18" height="18" fill="none" stroke="#1a3faa" strokeWidth="2" viewBox="0 0 24 24">
+                    <svg width="13" height="13" fill="none" stroke="#1a3faa" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
                     </svg>
                   </div>
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 1 }}>
+                    <div style={{ fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 1 }}>
                       CONTACT US
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: '#ffffff', letterSpacing: '0.02em', lineHeight: 1 }}>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: '#ffffff', letterSpacing: '0.02em', lineHeight: 1 }}>
                       {agent.whatsapp || agent.phone || '0540705130'}
                     </div>
                   </div>
@@ -726,14 +724,14 @@ export default function AgentStorePage() {
                 {/* Right: tagline */}
                 <div style={{
                   background: '#0f172a',
-                  padding: '12px 14px',
-                  minWidth: 110,
+                  padding: '8px 10px',
+                  minWidth: 90,
                   textAlign: 'right',
                 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: '#ffffff', lineHeight: 1.3 }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: '#ffffff', lineHeight: 1.3 }}>
                     STAY CONNECTED.
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: '#3b82f6', lineHeight: 1.3 }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: '#3b82f6', lineHeight: 1.3 }}>
                     STAY AHEAD.
                   </div>
                 </div>
@@ -743,11 +741,11 @@ export default function AgentStorePage() {
             {/* ── BOTTOM TAGLINE ── */}
             <div style={{
               background: '#1a3faa',
-              padding: '6px 16px',
+              padding: '4px 16px',
               textAlign: 'center',
             }}>
               <span style={{
-                fontSize: 9, fontWeight: 700,
+                fontSize: 7, fontWeight: 700,
                 color: 'rgba(255,255,255,0.7)',
                 letterSpacing: '0.2em', textTransform: 'uppercase',
               }}>
