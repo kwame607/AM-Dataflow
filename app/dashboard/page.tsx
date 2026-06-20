@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { getSupabaseClient } from '@/lib/supabase';
 import { BUNDLES, NET_NAMES, getDefaultAdminPrice } from '@/lib/bundles';
 import { fmt, fmtDate, exportCSV } from '@/lib/utils';
@@ -19,6 +19,10 @@ import { StoreSettingsTab } from '@/components/StoreSettingsTab';
 import type { Wallet } from '@/types/wallet';
 import { QuickBuyPanel } from '@/components/QuickBuyPanel';
 import { ActivityAndAchievements } from '@/components/ActivityAndAchievements';
+import { StatsGridSkeleton, QuickBuySkeleton, ActivityAchievementsSkeleton, RecentOrdersSkeleton, AiInsightsSkeleton, CustomerInsightsSkeleton } from '@/components/OverviewSkeletons';
+import { FloatingQuickActions } from '@/components/FloatingQuickActions';
+import { CustomerInsights } from '@/components/CustomerInsights';
+import { AiInsightsWidget } from '@/components/AiInsightsWidget';
 
 type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support' | 'account';
 
@@ -27,9 +31,11 @@ export default function DashboardPage() {
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatTooltip, setChatTooltip] = useState(false);
+  const quickBuyRef = useRef<HTMLDivElement>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [supportView, setSupportView]     = useState<'list'|'new'|'thread'>('list');
   const [lastActiveTicket, setLastActiveTicket] = useState<SupportTicket | null>(null);
@@ -100,11 +106,12 @@ export default function DashboardPage() {
       return all;
     };
 
-    const [ordersAll, agentPricesRes, adminPricesRes, withdrawalsRes] = await Promise.all([
+    const [ordersAll, agentPricesRes, adminPricesRes, withdrawalsRes, walletRes] = await Promise.all([
       fetchAllOrders(),
       fetch(`/api/agents/prices?agentId=${agentId}`).then(r => r.json()).catch(() => []),
       fetch('/api/admin/prices').then(r => r.json()).catch(() => []),
       fetch(`/api/withdrawals?agentId=${agentId}`).then(r => r.json()).catch(() => []),
+      fetch(`/api/wallet?agentId=${agentId}`).then(r => r.json()).catch(() => null),
     ]);
 
     setOrders(ordersAll);
@@ -132,6 +139,7 @@ export default function DashboardPage() {
     });
     setPriceEdits(edits);
     setWithdrawals(Array.isArray(withdrawalsRes) ? withdrawalsRes : []);
+    if (walletRes && walletRes.wallet) setWallet(walletRes.wallet);
   }, []);
 
   useEffect(() => {
@@ -146,6 +154,7 @@ export default function DashboardPage() {
         setAgent(agentData);
         setLoading(false);
         await loadData(agentData.id);
+        setDataLoading(false);
 
         // Poll for unread support messages every 30s
         const fetchUnread = async () => {
@@ -165,6 +174,14 @@ export default function DashboardPage() {
   async function logout() {
     await getSupabaseClient().auth.signOut();
     window.location.href = '/login';
+  }
+
+  function jumpToQuickBuy() {
+    setTab('overview');
+    // Wait a tick for the Overview tab content to mount before scrolling
+    setTimeout(() => {
+      quickBuyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
   }
 
   const successOrders = orders.filter(o => o.status === 'success');
@@ -282,6 +299,13 @@ export default function DashboardPage() {
 
   return (
     <>
+      <style>{`
+        @keyframes contentFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .content-fade-in { animation: contentFadeIn 0.4s ease both; }
+        .content-fade-in.delay-1 { animation-delay: .05s; }
+        .content-fade-in.delay-2 { animation-delay: .1s; }
+        .content-fade-in.delay-3 { animation-delay: .15s; }
+      `}</style>
       <div className="sidebar-layout">
       {/* Sidebar overlay for mobile */}
       {sidebarOpen && <div className="sidebar-overlay show" onClick={() => setSidebarOpen(false)} />}
@@ -356,25 +380,31 @@ export default function DashboardPage() {
           {/* ── OVERVIEW ── */}
           {tab === 'overview' && (
             <div>
-              <div className="stats-grid">
-                {[
-                  { label: 'Total Orders', val: orders.length, sub: `${successOrders.length} successful`, icon: '📦', bg: 'rgba(14,165,233,0.12)', color: 'var(--accent2)' },
-                  { label: 'Total Earned', val: fmt(totalEarned), sub: 'From all sales', accent: true, icon: '📈', bg: 'rgba(16,185,129,0.12)', color: 'var(--ok)' },
-                  { label: 'Available', val: fmt(available), sub: 'Ready to withdraw', accent: true, icon: '₵', bg: 'var(--accent-dim)', color: 'var(--accent)' },
-                  { label: 'Withdrawn', val: fmt(totalWithdrawn), sub: 'To MoMo', icon: '💳', bg: 'rgba(245,158,11,0.12)', color: 'var(--warn)' },
-                ].map(s => (
-                  <div key={s.label} className={`stat-card${s.accent ? ' accent' : ''}`}>
-                    <div className="stat-icon" style={{ background: s.bg, color: s.color, fontSize: 18 }}>{s.icon}</div>
-                    <div className="stat-label">{s.label}</div>
-                    <div className="stat-val">{s.val}</div>
-                    <div className="stat-sub">{s.sub}</div>
-                  </div>
-                ))}
-              </div>
+              {dataLoading ? (
+                <StatsGridSkeleton />
+              ) : (
+                <div className="stats-grid content-fade-in">
+                  {[
+                    { label: 'Total Orders', val: orders.length, sub: `${successOrders.length} successful`, icon: '📦', bg: 'rgba(14,165,233,0.12)', color: 'var(--accent2)' },
+                    { label: 'Total Earned', val: fmt(totalEarned), sub: 'From all sales', accent: true, icon: '📈', bg: 'rgba(16,185,129,0.12)', color: 'var(--ok)' },
+                    { label: 'Available', val: fmt(available), sub: 'Ready to withdraw', accent: true, icon: '₵', bg: 'var(--accent-dim)', color: 'var(--accent)' },
+                    { label: 'Withdrawn', val: fmt(totalWithdrawn), sub: 'To MoMo', icon: '💳', bg: 'rgba(245,158,11,0.12)', color: 'var(--warn)' },
+                  ].map(s => (
+                    <div key={s.label} className={`stat-card${s.accent ? ' accent' : ''}`}>
+                      <div className="stat-icon" style={{ background: s.bg, color: s.color, fontSize: 18 }}>{s.icon}</div>
+                      <div className="stat-label">{s.label}</div>
+                      <div className="stat-val">{s.val}</div>
+                      <div className="stat-sub">{s.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Quick Buy */}
-              {agent && (
-                <div style={{ marginTop: 24, marginBottom: 24 }}>
+              {dataLoading ? (
+                <QuickBuySkeleton />
+              ) : agent && (
+                <div ref={quickBuyRef} className="content-fade-in delay-1" style={{ marginTop: 24, marginBottom: 24 }}>
                   <div className="page-title" style={{ fontSize: 16, marginBottom: 12 }}>⚡ Quick Buy</div>
                   <QuickBuyPanel
                     agent={agent}
@@ -416,7 +446,35 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              <ActivityAndAchievements orders={orders} withdrawals={withdrawals} />
+              {dataLoading ? (
+                <ActivityAchievementsSkeleton />
+              ) : (
+                <div className="content-fade-in delay-2">
+                  <ActivityAndAchievements orders={orders} withdrawals={withdrawals} />
+                </div>
+              )}
+
+              {dataLoading ? (
+                <AiInsightsSkeleton />
+              ) : (
+                <div className="content-fade-in delay-2">
+                  <AiInsightsWidget
+                    orders={orders}
+                    withdrawals={withdrawals}
+                    wallet={wallet}
+                    agentPrices={agentPrices}
+                    adminPrices={adminPrices}
+                  />
+                </div>
+              )}
+
+              {dataLoading ? (
+                <CustomerInsightsSkeleton />
+              ) : (
+                <div className="content-fade-in delay-3">
+                  <CustomerInsights orders={orders} />
+                </div>
+              )}
 
               {/* WhatsApp Community */}
               <a
@@ -435,32 +493,36 @@ export default function DashboardPage() {
               </a>
 
               {/* Recent orders */}
-              <div className="card">
-                <div className="card-header">
-                  <div className="card-title">Recent Orders</div>
-                  <button className="btn btn-secondary btn-sm" onClick={() => setTab('orders')}>View All</button>
-                </div>
-                <div style={{ padding: '0 0 4px' }}>
-                  {orders.length === 0
-                    ? <div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No orders yet</div><div className="empty-text">Share your store to start selling</div></div>
-                    : orders.slice(0, 5).map(o => (
-                      <div key={o.id} style={{ borderBottom: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-                          <NetworkBadge network={o.network} />
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.reference}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{o.size} · {o.phone} · {fmtDate(o.created_at)}</div>
+              {dataLoading ? (
+                <RecentOrdersSkeleton />
+              ) : (
+                <div className="card content-fade-in delay-3">
+                  <div className="card-header">
+                    <div className="card-title">Recent Orders</div>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setTab('orders')}>View All</button>
+                  </div>
+                  <div style={{ padding: '0 0 4px' }}>
+                    {orders.length === 0
+                      ? <div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No orders yet</div><div className="empty-text">Share your store to start selling</div></div>
+                      : orders.slice(0, 5).map(o => (
+                        <div key={o.id} style={{ borderBottom: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                            <NetworkBadge network={o.network} />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.reference}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{o.size} · {o.phone} · {fmtDate(o.created_at)}</div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            <DeliveryBadge status={o.delivery_status} />
+                            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ok)' }}>{fmt(o.agent_profit || 0)}</span>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                          <DeliveryBadge status={o.delivery_status} />
-                          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--ok)' }}>{fmt(o.agent_profit || 0)}</span>
-                        </div>
-                      </div>
-                    ))
-                  }
+                      ))
+                    }
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
           {/* ── MY WALLET ── */}
@@ -727,6 +789,15 @@ export default function DashboardPage() {
           </button>
         ))}
       </nav>
+
+      {/* ── Floating Quick Actions ── */}
+      <FloatingQuickActions
+        hidden={tab === 'support' || dataLoading}
+        onQuickBuy={jumpToQuickBuy}
+        onFundWallet={() => setTab('wallet')}
+        onWithdraw={() => setTab('earnings')}
+        onViewOrders={() => setTab('orders')}
+      />
 
       {/* ── Floating Chat Button ── */}
       {tab !== 'support' && (

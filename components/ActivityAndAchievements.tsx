@@ -186,7 +186,12 @@ export function ActivityAndAchievements({ orders, withdrawals }: ActivityAndAchi
               <div style={{ position: 'absolute', left: 33, top: 14, bottom: 14, width: 2, background: 'var(--border)' }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {visibleFeed.map(ev => (
-                  <div key={ev.id} style={{ display: 'flex', gap: 12, position: 'relative' }}>
+                  <div
+                    key={ev.id}
+                    style={{ display: 'flex', gap: 12, position: 'relative', transition: 'transform .15s ease' }}
+                    onMouseOver={e => (e.currentTarget.style.transform = 'translateX(2px)')}
+                    onMouseOut={e => (e.currentTarget.style.transform = 'translateX(0)')}
+                  >
                     <div style={{
                       width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                       background: 'var(--surface2)', border: '1px solid var(--border)',
@@ -259,8 +264,12 @@ export function ActivityAndAchievements({ orders, withdrawals }: ActivityAndAchi
                   background: unlocked ? t.bg : 'var(--surface2)',
                   border: `1px solid ${unlocked ? t.border : 'var(--border)'}`,
                   opacity: unlocked ? 1 : 0.45,
-                  transition: 'opacity .3s',
-                }}>
+                  transition: 'opacity .3s, transform .15s ease',
+                  cursor: unlocked ? 'default' : 'default',
+                }}
+                  onMouseOver={e => { if (unlocked) e.currentTarget.style.transform = 'scale(1.05)'; }}
+                  onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                >
                   <div style={{ fontSize: 18, marginBottom: 2 }}>{t.icon}</div>
                   <div style={{ fontSize: 9, fontWeight: 700, color: unlocked ? t.color : 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
                     {t.label}
