@@ -85,6 +85,33 @@ export function ActivityAchievementsSkeleton() {
   );
 }
 
+export function RevenueChartSkeleton() {
+  return (
+    <div className="card" style={{ marginTop: 24, marginBottom: 24 }}>
+      <div className="card-header">
+        <div className="skeleton" style={{ width: 130, height: 15 }} />
+      </div>
+      <div className="card-body">
+        <div style={{ display: 'flex', gap: 24, marginBottom: 20 }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i}>
+              <div className="skeleton" style={{ width: 60, height: 10, marginBottom: 6 }} />
+              <div className="skeleton" style={{ width: 70, height: 22 }} />
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 110 }}>
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} style={{ flex: 1, display: 'flex', alignItems: 'flex-end', height: 64 }}>
+              <div className="skeleton" style={{ width: '70%', height: `${30 + (i % 4) * 15}%`, margin: '0 auto', borderRadius: '4px 4px 0 0' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AiInsightsSkeleton() {
   return (
     <div className="card" style={{ marginTop: 24, marginBottom: 24 }}>

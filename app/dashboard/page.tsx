@@ -19,10 +19,11 @@ import { StoreSettingsTab } from '@/components/StoreSettingsTab';
 import type { Wallet } from '@/types/wallet';
 import { QuickBuyPanel } from '@/components/QuickBuyPanel';
 import { ActivityAndAchievements } from '@/components/ActivityAndAchievements';
-import { StatsGridSkeleton, QuickBuySkeleton, ActivityAchievementsSkeleton, RecentOrdersSkeleton, AiInsightsSkeleton, CustomerInsightsSkeleton } from '@/components/OverviewSkeletons';
+import { StatsGridSkeleton, QuickBuySkeleton, ActivityAchievementsSkeleton, RecentOrdersSkeleton, AiInsightsSkeleton, CustomerInsightsSkeleton, RevenueChartSkeleton } from '@/components/OverviewSkeletons';
 import { FloatingQuickActions } from '@/components/FloatingQuickActions';
 import { CustomerInsights } from '@/components/CustomerInsights';
 import { AiInsightsWidget } from '@/components/AiInsightsWidget';
+import { RevenueChart } from '@/components/RevenueChart';
 
 type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support' | 'account';
 
@@ -60,6 +61,7 @@ export default function DashboardPage() {
 
   // Order filter
   const [orderFilter, setOrderFilter] = useState('all');
+  const [orderSearch, setOrderSearch] = useState('');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
 
@@ -284,7 +286,13 @@ export default function DashboardPage() {
 },
   ];
 
-  const filteredOrders = orderFilter === 'all' ? orders : orders.filter(o => o.status === orderFilter);
+  const filteredOrders = orders
+    .filter(o => orderFilter === 'all' || o.status === orderFilter)
+    .filter(o => {
+      if (!orderSearch.trim()) return true;
+      const q = orderSearch.trim().toLowerCase();
+      return o.reference.toLowerCase().includes(q) || o.phone.includes(q);
+    });
 
   if (loading) {
     return (
@@ -305,6 +313,7 @@ export default function DashboardPage() {
         .content-fade-in.delay-1 { animation-delay: .05s; }
         .content-fade-in.delay-2 { animation-delay: .1s; }
         .content-fade-in.delay-3 { animation-delay: .15s; }
+        .content-fade-in.delay-4 { animation-delay: .2s; }
       `}</style>
       <div className="sidebar-layout">
       {/* Sidebar overlay for mobile */}
@@ -366,7 +375,20 @@ export default function DashboardPage() {
   <NotificationBell
     authFetch={authFetch}
     agentId={agent.id}
-    onOpenTicket={(ticketId) => {
+    onOpenTicket={async (ticketId) => {
+      try {
+        const r = await authFetch(`/api/support/tickets?agentId=${agent.id}`);
+        const list = await r.json();
+        const match = Array.isArray(list) ? list.find((t: { id: string }) => t.id === ticketId) : null;
+        if (match) {
+          setLastActiveTicket(match);
+          setSupportView('thread');
+        } else {
+          setSupportView('list');
+        }
+      } catch {
+        setSupportView('list');
+      }
       setTab('support');
     }}
   />
@@ -400,11 +422,19 @@ export default function DashboardPage() {
                 </div>
               )}
 
+              {dataLoading ? (
+                <RevenueChartSkeleton />
+              ) : (
+                <div className="content-fade-in delay-1">
+                  <RevenueChart orders={orders} />
+                </div>
+              )}
+
               {/* Quick Buy */}
               {dataLoading ? (
                 <QuickBuySkeleton />
               ) : agent && (
-                <div ref={quickBuyRef} className="content-fade-in delay-1" style={{ marginTop: 24, marginBottom: 24 }}>
+                <div ref={quickBuyRef} className="content-fade-in delay-2" style={{ marginTop: 24, marginBottom: 24 }}>
                   <div className="page-title" style={{ fontSize: 16, marginBottom: 12 }}>⚡ Quick Buy</div>
                   <QuickBuyPanel
                     agent={agent}
@@ -610,6 +640,14 @@ export default function DashboardPage() {
           {/* ── MY ORDERS ── */}
           {tab === 'orders' && (
             <div>
+              <div style={{ marginBottom: 14 }}>
+                <input
+                  className="form-input"
+                  placeholder="🔍 Search by reference or phone number…"
+                  value={orderSearch}
+                  onChange={e => setOrderSearch(e.target.value)}
+                />
+              </div>
               <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div className="tab-nav">
                   {['all','success','pending','failed'].map(f => (
@@ -622,7 +660,15 @@ export default function DashboardPage() {
               </div>
               <div className="card">
                 {filteredOrders.length === 0
-                  ? <div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No orders found</div></div>
+                  ? (
+                    <div className="empty">
+                      <div className="empty-icon">📋</div>
+                      <div className="empty-title">{orders.length === 0 ? 'No orders yet' : 'No matching orders'}</div>
+                      {orders.length > 0 && (orderSearch || orderFilter !== 'all') && (
+                        <div className="empty-text">Try a different search term or filter</div>
+                      )}
+                    </div>
+                  )
                   : filteredOrders.map(o => {
                     const isOpen = expandedOrderId === o.id;
                     return (
@@ -682,6 +728,8 @@ export default function DashboardPage() {
                   ))}
                 </div>
               </div>
+
+              <RevenueChart orders={orders} metric="profit" title="7-Day Earnings Trend" />
 
               <div className="card" style={{ marginBottom: 20 }}>
                 <div className="card-header">

@@ -1,6 +1,4 @@
 // components/AdminSupportTab.tsx
-// Drop inside app/xena-173424/page.tsx as a new tab
-// Add 'support' to Tab type and navItems
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -10,11 +8,7 @@ import { fmtDate } from '@/lib/utils';
 
 interface AdminSupportTabProps {
   authFetch: (url: string, options?: RequestInit) => Promise<Response>;
-  toast: (
-  msg: string,
-  type?: 'error' | 'success' | 'info' | 'warn',
-  duration?: number
-) => void;
+  toast: (msg: string, type?: 'error' | 'success' | 'info' | 'warn', duration?: number) => void;
 }
 
 export function AdminSupportTab({ authFetch, toast }: AdminSupportTabProps) {
@@ -31,6 +25,8 @@ export function AdminSupportTab({ authFetch, toast }: AdminSupportTabProps) {
   const [attachmentUrl, setAttUrl]  = useState('');
   const [attachmentType, setAttType]= useState('');
   const [previewFile, setPreview]   = useState<string | null>(null);
+  // Mobile: show info panel as a modal instead of side column
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
   const pollRef  = useRef<NodeJS.Timeout | null>(null);
   const bottomRef= useRef<HTMLDivElement>(null);
   const fileRef  = useRef<HTMLInputElement>(null);
@@ -67,6 +63,7 @@ export function AdminSupportTab({ authFetch, toast }: AdminSupportTabProps) {
   async function openTicket(ticket: SupportTicket) {
     setActive(ticket);
     setView('thread');
+    setShowInfoPanel(false);
     setLoading(true);
     await loadMessages(ticket.id);
     setLoading(false);
@@ -81,7 +78,6 @@ export function AdminSupportTab({ authFetch, toast }: AdminSupportTabProps) {
       });
       if (!r.ok) { toast('Update failed', 'error'); return; }
       toast('Ticket updated', 'success');
-      // Refresh active ticket
       const updated = tickets.find(t => t.id === ticketId);
       if (updated && activeTicket?.id === ticketId) {
         setActive({ ...updated, ...updates } as SupportTicket);
@@ -171,7 +167,7 @@ export function AdminSupportTab({ authFetch, toast }: AdminSupportTabProps) {
       </div>
 
       {/* Stat cards */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))', gap:10, marginBottom:20 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(100px,1fr))', gap:10, marginBottom:20 }}>
         {(['all','open','pending','resolved','closed'] as const).map(s => {
           const cfg = s === 'all' ? null : STATUS_CONFIG[s];
           return (
@@ -211,10 +207,10 @@ export function AdminSupportTab({ authFetch, toast }: AdminSupportTabProps) {
                   <tr>
                     <th>Ticket</th>
                     <th>Agent</th>
-                    <th>Category</th>
+                    <th className="mobile-hide">Category</th>
                     <th>Status</th>
-                    <th>Priority</th>
-                    <th>Last Activity</th>
+                    <th className="mobile-hide">Priority</th>
+                    <th className="mobile-hide">Last Activity</th>
                     <th>Unread</th>
                   </tr>
                 </thead>
@@ -229,14 +225,14 @@ export function AdminSupportTab({ authFetch, toast }: AdminSupportTabProps) {
                         <div style={{ fontWeight:600, fontSize:13 }}>{t.agent_name}</div>
                         <div style={{ fontSize:11, color:'var(--text3)' }}>/store/{t.agent_slug}</div>
                       </td>
-                      <td><span style={{ fontSize:12, color:'var(--text2)' }}>{t.category}</span></td>
+                      <td className="mobile-hide"><span style={{ fontSize:12, color:'var(--text2)' }}>{t.category}</span></td>
                       <td><StatusBadge status={t.status} /></td>
-                      <td>
+                      <td className="mobile-hide">
                         <span style={{ fontSize:12, color:PRIORITY_CONFIG[t.priority as TicketPriority]?.color||'var(--text3)', fontWeight:600 }}>
                           {PRIORITY_CONFIG[t.priority as TicketPriority]?.label||t.priority}
                         </span>
                       </td>
-                      <td style={{ fontSize:12, color:'var(--text3)', whiteSpace:'nowrap' }}>{fmtDate(t.last_message_at)}</td>
+                      <td className="mobile-hide" style={{ fontSize:12, color:'var(--text3)', whiteSpace:'nowrap' }}>{fmtDate(t.last_message_at)}</td>
                       <td>
                         {(t.unread_count||0) > 0
                           ? <span style={{ background:'var(--err)', color:'#fff', fontSize:10, fontWeight:800, padding:'2px 8px', borderRadius:100 }}>{t.unread_count}</span>
@@ -256,174 +252,225 @@ export function AdminSupportTab({ authFetch, toast }: AdminSupportTabProps) {
 
   // ── THREAD VIEW ───────────────────────────────────────────
   if (view === 'thread' && activeTicket) return (
-    <div style={{ display:'flex', gap:16, height:'calc(100vh - 140px)', maxHeight:800 }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 140px)', maxHeight:800, position:'relative' }}>
 
-      {/* Left: conversation */}
-      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0 }}>
-        {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14, flexShrink:0 }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => { setView('list'); loadTickets(); }}>← Back</button>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-              <span style={{ fontFamily:'monospace', fontSize:12, color:'var(--accent)', fontWeight:700 }}>{activeTicket.ticket_number}</span>
-              <StatusBadge status={activeTicket.status} />
-              <span style={{ fontSize:11, color:PRIORITY_CONFIG[activeTicket.priority as TicketPriority]?.color }}>{PRIORITY_CONFIG[activeTicket.priority as TicketPriority]?.label} Priority</span>
-            </div>
-            <div style={{ fontWeight:700, fontSize:14, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{activeTicket.subject}</div>
-            <div style={{ fontSize:11, color:'var(--text3)' }}>{activeTicket.agent_name} · {activeTicket.category}</div>
+      {/* ── Thread header ── */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12, flexShrink:0, flexWrap:'wrap' }}>
+        <button className="btn btn-secondary btn-sm" onClick={() => { setView('list'); loadTickets(); }}>← Back</button>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+            <span style={{ fontFamily:'monospace', fontSize:12, color:'var(--accent)', fontWeight:700 }}>{activeTicket.ticket_number}</span>
+            <StatusBadge status={activeTicket.status} />
+            <span style={{ fontSize:11, color:PRIORITY_CONFIG[activeTicket.priority as TicketPriority]?.color }}>{PRIORITY_CONFIG[activeTicket.priority as TicketPriority]?.label} Priority</span>
           </div>
+          <div style={{ fontWeight:700, fontSize:13, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{activeTicket.subject}</div>
+          <div style={{ fontSize:11, color:'var(--text3)' }}>{activeTicket.agent_name} · {activeTicket.category}</div>
         </div>
+        {/* Info button — mobile only, opens side panel as modal */}
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => setShowInfoPanel(true)}
+          style={{ flexShrink:0 }}
+        >
+          ⚙ Details
+        </button>
+      </div>
 
-        {/* Messages */}
-        <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:12, paddingBottom:12 }}>
-          {loading
-            ? <div style={{ textAlign:'center', padding:40 }}><span className="spinner" style={{ margin:'0 auto' }} /></div>
-            : messages.map(msg => {
-              const isAdmin = msg.sender_type === 'admin';
-              return (
-                <div key={msg.id} style={{ display:'flex', flexDirection:'column', alignItems:isAdmin ? 'flex-end' : 'flex-start' }}>
-                  <div style={{ maxWidth:'80%' }}>
-                    <div style={{ fontSize:11, color:'var(--text3)', marginBottom:4, textAlign:isAdmin?'right':'left' }}>
-                      <strong style={{ color:isAdmin?'var(--accent)':'#7dd3fc' }}>
-                        {isAdmin ? 'Admunz Support' : activeTicket.agent_name}
-                      </strong>
-                      {' · '}{fmtDate(msg.created_at)}
-                      {!msg.is_read && !isAdmin && <span style={{ marginLeft:6, fontSize:10, color:'var(--warn)' }}>● unread</span>}
-                    </div>
-                    <div style={{
-                      background: isAdmin ? 'var(--accent-dim)' : 'var(--surface2)',
-                      border:`1px solid ${isAdmin?'rgba(0,212,170,0.25)':'var(--border)'}`,
-                      borderRadius: isAdmin?'16px 16px 4px 16px':'16px 16px 16px 4px',
-                      padding:'10px 14px', fontSize:13, lineHeight:1.6,
-                    }}>
-                      {msg.message}
-                      {msg.attachment_url && msg.attachment_type==='image' && (
-                        <img src={msg.attachment_url} alt="attachment"
-                          style={{ display:'block', marginTop:8, maxWidth:'100%', maxHeight:200, borderRadius:8, cursor:'pointer' }}
-                          onClick={() => window.open(msg.attachment_url, '_blank')}
-                        />
-                      )}
-                      {msg.attachment_url && msg.attachment_type==='file' && (
-                        <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer"
-                          style={{ display:'inline-flex', alignItems:'center', gap:6, marginTop:8, color:'var(--accent)', fontSize:12, fontWeight:600 }}>
-                          📎 View Attachment
-                        </a>
-                      )}
+      {/* ── Main area: messages only (full width on mobile) ── */}
+      <div style={{ display:'flex', gap:16, flex:1, minHeight:0 }}>
+
+        {/* Messages column — always full width on mobile */}
+        <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0 }}>
+
+          {/* Messages scroll area */}
+          <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:10, paddingBottom:10 }}>
+            {loading
+              ? <div style={{ textAlign:'center', padding:40 }}><span className="spinner" style={{ margin:'0 auto' }} /></div>
+              : messages.map(msg => {
+                const isAdmin = msg.sender_type === 'admin';
+                return (
+                  <div key={msg.id} style={{ display:'flex', flexDirection:'column', alignItems:isAdmin ? 'flex-end' : 'flex-start' }}>
+                    <div style={{ maxWidth:'85%' }}>
+                      <div style={{ fontSize:11, color:'var(--text3)', marginBottom:3, textAlign:isAdmin?'right':'left' }}>
+                        <strong style={{ color:isAdmin?'var(--accent)':'#7dd3fc' }}>
+                          {isAdmin ? 'Admunz Support' : activeTicket.agent_name}
+                        </strong>
+                        {' · '}{fmtDate(msg.created_at)}
+                        {!msg.is_read && !isAdmin && <span style={{ marginLeft:6, fontSize:10, color:'var(--warn)' }}>● unread</span>}
+                      </div>
+                      <div style={{
+                        background: isAdmin ? 'var(--accent-dim)' : 'var(--surface2)',
+                        border:`1px solid ${isAdmin?'rgba(0,212,170,0.25)':'var(--border)'}`,
+                        borderRadius: isAdmin?'16px 16px 4px 16px':'16px 16px 16px 4px',
+                        padding:'10px 13px', fontSize:13, lineHeight:1.6,
+                      }}>
+                        {msg.message}
+                        {msg.attachment_url && msg.attachment_type==='image' && (
+                          <img src={msg.attachment_url} alt="attachment"
+                            style={{ display:'block', marginTop:8, maxWidth:'100%', maxHeight:200, borderRadius:8, cursor:'pointer' }}
+                            onClick={() => window.open(msg.attachment_url, '_blank')}
+                          />
+                        )}
+                        {msg.attachment_url && msg.attachment_type==='file' && (
+                          <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer"
+                            style={{ display:'inline-flex', alignItems:'center', gap:6, marginTop:8, color:'var(--accent)', fontSize:12, fontWeight:600 }}>
+                            📎 View Attachment
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
+                );
+              })
+            }
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Reply box */}
+          {activeTicket.status !== 'closed' ? (
+            <div style={{ flexShrink:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:12, marginTop:8 }}>
+              {previewFile && (
+                <div style={{ marginBottom:8, position:'relative', display:'inline-block' }}>
+                  <img src={previewFile} alt="preview" style={{ height:70, borderRadius:8, border:'1px solid var(--border)' }} />
+                  <button onClick={() => { setPreview(null); setAttUrl(''); setAttType(''); }}
+                    style={{ position:'absolute', top:-8, right:-8, width:20, height:20, borderRadius:'50%', background:'var(--err)', color:'#fff', fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor:'pointer' }}>✕</button>
                 </div>
-              );
-            })
-          }
-          <div ref={bottomRef} />
-        </div>
-
-        {/* Reply box */}
-        {activeTicket.status !== 'closed' ? (
-          <div style={{ flexShrink:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:14 }}>
-            {previewFile && (
-              <div style={{ marginBottom:10, position:'relative', display:'inline-block' }}>
-                <img src={previewFile} alt="preview" style={{ height:80, borderRadius:8, border:'1px solid var(--border)' }} />
-                <button onClick={() => { setPreview(null); setAttUrl(''); setAttType(''); }}
-                  style={{ position:'absolute', top:-8, right:-8, width:22, height:22, borderRadius:'50%', background:'var(--err)', color:'#fff', fontSize:12, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor:'pointer' }}>✕</button>
+              )}
+              {attachmentUrl && attachmentType==='file' && (
+                <div style={{ marginBottom:8, fontSize:12, color:'var(--accent)' }}>
+                  📎 File attached
+                  <button onClick={() => { setAttUrl(''); setAttType(''); }} style={{ marginLeft:8, color:'var(--err)', background:'none', border:'none', cursor:'pointer', fontSize:11 }}>Remove</button>
+                </div>
+              )}
+              <textarea className="form-input" rows={2}
+                placeholder="Reply as Admunz Support… (Ctrl+Enter to send)"
+                style={{ resize:'none', marginBottom:8, fontSize:13 }}
+                value={reply} onChange={e => setReply(e.target.value)}
+                onKeyDown={e => { if (e.key==='Enter' && e.ctrlKey) sendReply(); }}
+              />
+              <div style={{ display:'flex', gap:8 }}>
+                <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display:'none' }} onChange={handleFileUpload} />
+                <button className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()} disabled={uploading} style={{ flexShrink:0 }}>
+                  {uploading ? <><span className="spinner" style={{ width:13,height:13 }} /> …</> : '📎'}
+                </button>
+                <button className="btn btn-primary" style={{ flex:1, justifyContent:'center', fontSize:13 }} onClick={sendReply} disabled={sending||(!reply.trim()&&!attachmentUrl)}>
+                  {sending ? <><span className="spinner" /> Sending…</> : 'Send'}
+                </button>
               </div>
-            )}
-            {attachmentUrl && attachmentType==='file' && (
-              <div style={{ marginBottom:10, fontSize:12, color:'var(--accent)' }}>
-                📎 File attached
-                <button onClick={() => { setAttUrl(''); setAttType(''); }} style={{ marginLeft:8, color:'var(--err)', background:'none', border:'none', cursor:'pointer', fontSize:11 }}>Remove</button>
-              </div>
-            )}
-            <textarea className="form-input" rows={3}
-              placeholder="Reply as Admunz Support…"
-              style={{ resize:'none', marginBottom:10 }}
-              value={reply} onChange={e => setReply(e.target.value)}
-              onKeyDown={e => { if (e.key==='Enter' && e.ctrlKey) sendReply(); }}
-            />
-            <div style={{ display:'flex', gap:8 }}>
-              <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display:'none' }} onChange={handleFileUpload} />
-              <button className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-                {uploading ? <><span className="spinner" style={{ width:14,height:14 }} /> Uploading…</> : '📎 Attach'}
-              </button>
-              <button className="btn btn-primary" style={{ flex:1, justifyContent:'center' }} onClick={sendReply} disabled={sending||(!reply.trim()&&!attachmentUrl)}>
-                {sending ? <><span className="spinner" /> Sending…</> : 'Send as Admunz Support'}
-              </button>
             </div>
-          </div>
-        ) : (
-          <div style={{ flexShrink:0, padding:'12px 16px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, color:'var(--text3)', textAlign:'center' }}>
-            🔒 Ticket is closed
-          </div>
-        )}
-      </div>
-
-      {/* Right: ticket info panel */}
-      <div style={{ width:240, flexShrink:0, display:'flex', flexDirection:'column', gap:12 }}>
-        <div className="card">
-          <div className="card-header"><div className="card-title" style={{ fontSize:13 }}>Ticket Details</div></div>
-          <div className="card-body" style={{ fontSize:12, display:'flex', flexDirection:'column', gap:10 }}>
-            {[
-              { label:'Ticket #',  val: activeTicket.ticket_number },
-              { label:'Agent',     val: activeTicket.agent_name || '—' },
-              { label:'Category',  val: activeTicket.category },
-              { label:'Created',   val: fmtDate(activeTicket.created_at) },
-              ...(activeTicket.transaction_reference ? [{ label:'Transaction', val: activeTicket.transaction_reference }] : []),
-            ].map(r => (
-              <div key={r.label}>
-                <div style={{ fontSize:10, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:2 }}>{r.label}</div>
-                <div style={{ fontWeight:600, color:'var(--text)', wordBreak:'break-all' }}>{r.val}</div>
-              </div>
-            ))}
-          </div>
+          ) : (
+            <div style={{ flexShrink:0, padding:'10px 14px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, color:'var(--text3)', textAlign:'center', marginTop:8 }}>
+              🔒 Ticket is closed
+            </div>
+          )}
         </div>
 
-        {/* Status control */}
-        <div className="card">
-          <div className="card-header"><div className="card-title" style={{ fontSize:13 }}>Update Status</div></div>
-          <div className="card-body" style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {(['open','pending','resolved','closed'] as TicketStatus[]).map(s => {
-              const cfg = STATUS_CONFIG[s];
-              const isActive = activeTicket.status === s;
-              return (
-                <button key={s} onClick={() => updateTicket(activeTicket.id, { status: s })} style={{
-                  padding:'8px 12px', borderRadius:8, fontSize:12, fontWeight:600,
-                  background: isActive ? cfg.bg : 'var(--surface2)',
-                  border:`1px solid ${isActive ? cfg.border : 'var(--border)'}`,
-                  color: isActive ? cfg.color : 'var(--text3)',
-                  cursor: isActive ? 'default' : 'pointer',
-                  transition:'all .2s',
-                }}>
-                  {isActive ? '● ' : ''}{cfg.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Priority control */}
-        <div className="card">
-          <div className="card-header"><div className="card-title" style={{ fontSize:13 }}>Priority</div></div>
-          <div className="card-body" style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {(['low','normal','high','urgent'] as TicketPriority[]).map(p => {
-              const cfg = PRIORITY_CONFIG[p];
-              const isActive = activeTicket.priority === p;
-              return (
-                <button key={p} onClick={() => updateTicket(activeTicket.id, { priority: p })} style={{
-                  padding:'8px 12px', borderRadius:8, fontSize:12, fontWeight:600,
-                  background: isActive ? 'rgba(255,255,255,0.06)' : 'var(--surface2)',
-                  border:`1px solid ${isActive ? 'rgba(255,255,255,0.15)' : 'var(--border)'}`,
-                  color: isActive ? cfg.color : 'var(--text3)',
-                  cursor: isActive ? 'default' : 'pointer',
-                }}>
-                  {isActive ? '● ' : ''}{cfg.label}
-                </button>
-              );
-            })}
-          </div>
+        {/* ── Side info panel — desktop only (hidden on mobile via CSS) ── */}
+        <div className="support-side-panel" style={{ width:220, flexShrink:0, display:'flex', flexDirection:'column', gap:10 }}>
+          <InfoPanel activeTicket={activeTicket} tickets={tickets} updateTicket={updateTicket} StatusBadge={StatusBadge} />
         </div>
       </div>
+
+      {/* ── Mobile info panel modal ── */}
+      {showInfoPanel && (
+        <div
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:500, display:'flex', alignItems:'flex-end' }}
+          onClick={() => setShowInfoPanel(false)}
+        >
+          <div
+            style={{ background:'var(--surface)', borderRadius:'20px 20px 0 0', padding:20, width:'100%', maxHeight:'80vh', overflowY:'auto' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+              <div style={{ fontFamily:'Syne,sans-serif', fontSize:16, fontWeight:700 }}>Ticket Details</div>
+              <button onClick={() => setShowInfoPanel(false)} style={{ background:'none', border:'none', color:'var(--text3)', fontSize:18, cursor:'pointer' }}>✕</button>
+            </div>
+            <InfoPanel activeTicket={activeTicket} tickets={tickets} updateTicket={updateTicket} StatusBadge={StatusBadge} />
+          </div>
+        </div>
+      )}
+
+      {/* Hide side panel on small screens via style tag */}
+      <style>{`
+        @media (max-width: 700px) {
+          .support-side-panel { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 
   return null;
+}
+
+// ── Extracted info panel so it renders in both desktop sidebar and mobile modal ──
+function InfoPanel({ activeTicket, tickets, updateTicket, StatusBadge }: {
+  activeTicket: SupportTicket;
+  tickets: SupportTicket[];
+  updateTicket: (id: string, updates: { status?: string; priority?: string }) => void;
+  StatusBadge: ({ status }: { status: string }) => React.ReactElement | null;
+}) {
+  return (
+    <>
+      <div className="card">
+        <div className="card-header"><div className="card-title" style={{ fontSize:13 }}>Ticket Details</div></div>
+        <div className="card-body" style={{ fontSize:12, display:'flex', flexDirection:'column', gap:10 }}>
+          {[
+            { label:'Ticket #',  val: activeTicket.ticket_number },
+            { label:'Agent',     val: activeTicket.agent_name || '—' },
+            { label:'Category',  val: activeTicket.category },
+            { label:'Created',   val: fmtDate(activeTicket.created_at) },
+            ...(activeTicket.transaction_reference ? [{ label:'Transaction', val: activeTicket.transaction_reference }] : []),
+          ].map(r => (
+            <div key={r.label}>
+              <div style={{ fontSize:10, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:2 }}>{r.label}</div>
+              <div style={{ fontWeight:600, color:'var(--text)', wordBreak:'break-all' }}>{r.val}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header"><div className="card-title" style={{ fontSize:13 }}>Update Status</div></div>
+        <div className="card-body" style={{ display:'flex', flexDirection:'column', gap:6 }}>
+          {(['open','pending','resolved','closed'] as TicketStatus[]).map(s => {
+            const cfg = STATUS_CONFIG[s];
+            const isActive = activeTicket.status === s;
+            return (
+              <button key={s} onClick={() => updateTicket(activeTicket.id, { status: s })} style={{
+                padding:'7px 10px', borderRadius:8, fontSize:12, fontWeight:600,
+                background: isActive ? cfg.bg : 'var(--surface2)',
+                border:`1px solid ${isActive ? cfg.border : 'var(--border)'}`,
+                color: isActive ? cfg.color : 'var(--text3)',
+                cursor: isActive ? 'default' : 'pointer',
+                transition:'all .2s',
+              }}>
+                {isActive ? '● ' : ''}{cfg.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header"><div className="card-title" style={{ fontSize:13 }}>Priority</div></div>
+        <div className="card-body" style={{ display:'flex', flexDirection:'column', gap:6 }}>
+          {(['low','normal','high','urgent'] as TicketPriority[]).map(p => {
+            const cfg = PRIORITY_CONFIG[p];
+            const isActive = activeTicket.priority === p;
+            return (
+              <button key={p} onClick={() => updateTicket(activeTicket.id, { priority: p })} style={{
+                padding:'7px 10px', borderRadius:8, fontSize:12, fontWeight:600,
+                background: isActive ? 'rgba(255,255,255,0.06)' : 'var(--surface2)',
+                border:`1px solid ${isActive ? 'rgba(255,255,255,0.15)' : 'var(--border)'}`,
+                color: isActive ? cfg.color : 'var(--text3)',
+                cursor: isActive ? 'default' : 'pointer',
+              }}>
+                {isActive ? '● ' : ''}{cfg.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
 }
