@@ -6,7 +6,7 @@
 
 import React, { useMemo, useState } from 'react';
 import type { Order } from '@/types';
-import { fmt, fmtDate, maskPhone } from '@/lib/utils';
+import { fmt, fmtDate } from '@/lib/utils';
 import { NET_NAMES } from '@/lib/bundles';
 
 interface CustomerInsightsProps {
@@ -139,7 +139,7 @@ export function CustomerInsights({ orders }: CustomerInsightsProps) {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>
-                  {maskPhone(c.phone)}
+                  {c.phone}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
                   {c.orderCount} order{c.orderCount !== 1 ? 's' : ''} · {NET_NAMES[c.favoriteNetwork] || c.favoriteNetwork} · last {fmtDate(c.lastOrderAt)}
