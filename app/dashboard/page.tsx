@@ -829,15 +829,6 @@ export default function DashboardPage() {
       </main>
       </div>{/* end sidebar-layout */}
 
-      <nav className="mobile-nav">
-        {navItems.map(item => (
-          <button key={item.id} className={`mob-btn${tab === item.id ? ' active' : ''}`} onClick={() => setTab(item.id)}>
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
-
       {/* ── Floating Quick Actions ── */}
       <FloatingQuickActions
         hidden={tab === 'support' || dataLoading}
@@ -879,7 +870,7 @@ export default function DashboardPage() {
           onMouseLeave={() => setChatTooltip(false)}
           style={{
             position: 'fixed',
-            bottom: 90,
+            bottom: 24,
             right: 22,
             zIndex: 999,
             width: 52,
