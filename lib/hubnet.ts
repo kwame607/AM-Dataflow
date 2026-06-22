@@ -1,12 +1,8 @@
 /**
  * Hubnet API — lib/hubnet.ts
  *
- * Mirrors the shape of lib/xpresportal.ts so order-placement code can treat
- * both providers interchangeably. See docs: console.hubnet.app
- *
  * Auth: Bearer token in a header literally named "token" (not "Authorization").
- * Rate limit: 5 requests/minute per endpoint — keep this in mind for any
- * future bulk/cron usage.
+ * Rate limit: 5 requests/minute per endpoint.
  */
 
 const HUBNET_BASE = 'https://console.hubnet.app/live/api/context/business';
@@ -20,9 +16,6 @@ function getHeaders() {
   };
 }
 
-// Hubnet only accepts these network tokens on the transaction endpoint.
-// Telecel is NOT included — confirmed unsupported for actual transactions
-// even though it's listed in their network reference table.
 export type HubnetNetwork = 'mtn' | 'at' | 'big-time';
 
 export function isHubnetSupportedNetwork(network: string): network is HubnetNetwork {
@@ -52,20 +45,65 @@ export async function hubnetCheckBalance(): Promise<{ balance: number } | null> 
 
 // ── Order ─────────────────────────────────────────────────────
 interface HubnetOrderParams {
-  network:    HubnetNetwork;
-  phone:      string;   // national format e.g. '0241234567' — 10 digits
-  volumeMB:   number;   // volume IN MEGABYTES (not GB) — Hubnet's unit
-  reference:  string;   // YOUR internal reference (6-25 chars)
-  referrer?:  string;   // optional buyer phone for SMS confirmation
-  webhookUrl?: string;  // optional override
+  network:     HubnetNetwork;
+  phone:       string;
+  volumeMB:    number;
+  reference:   string;
+  referrer?:   string;
+  webhookUrl?: string;
 }
 
 interface HubnetOrderResult {
   success:    boolean;
-  orderId?:   string;   // maps to transaction_id
+  orderId?:   string;
   reference?: string;
   message?:   string;
   raw?:       unknown;
+}
+
+/**
+ * Determines whether a Hubnet API response represents a successfully accepted
+ * order. Hubnet's live responses don't always match their docs exactly, so
+ * this checks multiple signals rather than requiring all of them to match.
+ *
+ * An order is considered accepted if ANY of these are true:
+ *   - status:true AND message:"0000" (documented happy path)
+ *   - status:true AND data.code:"0000" (nested variant seen in practice)
+ *   - status:true AND data.status:true (alternate nesting)
+ *   - status:true AND transaction_id is present and non-empty
+ *     (Hubnet only returns transaction_id on real acceptances)
+ *
+ * Explicit rejections (status:false, or error codes like 1004/1005/1007)
+ * are always treated as failures regardless.
+ */
+function isHubnetSuccess(data: Record<string, unknown>): boolean {
+  // Explicit failure — never override this
+  if (data?.status === false) return false;
+
+  // Explicit error codes — definitely a failure
+  const topCode = String(data?.code ?? '');
+  if (['1004', '1005', '1007'].includes(topCode)) return false;
+
+  // If status is true, check additional signals
+  if (data?.status === true) {
+    // Classic documented path
+    if (data?.message === '0000') return true;
+
+    // transaction_id present = Hubnet internally accepted the order
+    const txId = String(data?.transaction_id ?? '').trim();
+    if (txId && txId !== 'undefined' && txId !== '') return true;
+
+    // Nested data object signals
+    const nested = data?.data as Record<string, unknown> | undefined;
+    if (nested?.code === '0000') return true;
+    if (nested?.status === true) return true;
+
+    // reason field says successful
+    const reason = String(data?.reason ?? '').toLowerCase();
+    if (reason.includes('success')) return true;
+  }
+
+  return false;
 }
 
 export async function hubnetOrder(params: HubnetOrderParams): Promise<HubnetOrderResult> {
@@ -76,8 +114,7 @@ export async function hubnetOrder(params: HubnetOrderParams): Promise<HubnetOrde
     return { success: false, message: 'API key not configured' };
   }
 
-  // Hubnet wants national format (0XXXXXXXXX), not international —
-  // opposite convention from XpresPortal. Normalize defensively.
+  // Hubnet wants national format (0XXXXXXXXX), not international
   const nationalPhone = phone.startsWith('233')
     ? '0' + phone.slice(3)
     : phone;
@@ -104,22 +141,35 @@ export async function hubnetOrder(params: HubnetOrderParams): Promise<HubnetOrde
     });
 
     const text = await res.text();
-    console.log(`[hubnet] HTTP ${res.status} response:`, text);
+
+    // Log the FULL raw response so you can see exactly what Hubnet returns
+    // in your Vercel logs — critical for debugging success detection issues
+    console.log(`[hubnet] HTTP ${res.status} raw response: ${text}`);
 
     let data: Record<string, unknown> = {};
     try { data = JSON.parse(text); } catch { /* non-JSON response */ }
 
-    // Per docs: status:true AND message:"0000" together mean accepted.
-    // status:true alone only means "API call succeeded", not delivery.
-    const success = data?.status === true && data?.message === '0000';
+    const success = isHubnetSuccess(data);
+
+    console.log(`[hubnet] isHubnetSuccess=${success} status=${data?.status} message=${data?.message} transaction_id=${data?.transaction_id}`);
+
+    // Build a useful error message for failed orders
+    let message = 'Order submitted';
+    if (!success) {
+      const nested = data?.data as Record<string, unknown> | undefined;
+      message = String(
+        nested?.message ??
+        data?.reason ??
+        data?.message ??
+        'Unknown error'
+      );
+    }
 
     return {
       success,
-      orderId:   String(data?.transaction_id ?? ''),
+      orderId:   String(data?.transaction_id ?? '').trim() || undefined,
       reference: String(data?.reference ?? reference),
-      message:   success
-        ? 'Order submitted'
-        : String((data?.data as { message?: string })?.message ?? data?.reason ?? 'Unknown error'),
+      message,
       raw: data,
     };
   } catch (e) {
@@ -128,8 +178,10 @@ export async function hubnetOrder(params: HubnetOrderParams): Promise<HubnetOrde
   }
 }
 
-// ── Transaction Status Check ────────────────────────────────────
-// Universal GET endpoint — no network prefix needed, just the reference.
+// ── Transaction Status Check ──────────────────────────────────
+// Use this to poll status for orders that Hubnet accepted but our
+// webhook hasn't confirmed yet, or for orders marked failed that
+// may have actually been processed.
 export async function hubnetOrderStatus(reference: string): Promise<{
   status: string;
   found:  boolean;
@@ -138,7 +190,7 @@ export async function hubnetOrderStatus(reference: string): Promise<{
     const url = `${HUBNET_BASE}/transaction/check-transaction-status?reference=${encodeURIComponent(reference)}`;
     const res = await fetch(url, { method: 'GET', headers: getHeaders(), cache: 'no-store' });
     const data = await res.json();
-    console.log('[hubnet status]', JSON.stringify(data));
+    console.log('[hubnet status check]', JSON.stringify(data));
 
     if (data?.status === true && data?.data?.status) {
       return { status: String(data.data.status).toLowerCase(), found: true };
@@ -155,5 +207,5 @@ export function mapHubnetStatus(raw: string): 'delivered' | 'processing' | 'fail
   const s = raw.toLowerCase();
   if (['delivered', 'success', 'successful', 'completed'].includes(s)) return 'delivered';
   if (['failed', 'cancelled', 'canceled'].includes(s)) return 'failed';
-  return 'processing'; // pending / processing / anything unrecognized
+  return 'processing';
 }
