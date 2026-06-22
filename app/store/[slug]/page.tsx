@@ -40,6 +40,7 @@ export default function AgentStorePage() {
   const [loadingAgent, setLoadingAgent] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [hasPrices, setHasPrices] = useState(false);
+  const [todaySales, setTodaySales] = useState<number | null>(null);
 
   const [currentNet, setCurrentNet] = useState('');
   const [selectedKey, setSelectedKey] = useState('');
@@ -82,6 +83,11 @@ export default function AgentStorePage() {
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoadingAgent(false));
+
+    fetch('/api/stats/today')
+      .then(r => r.json())
+      .then(d => { if (typeof d.count === 'number') setTodaySales(d.count); })
+      .catch(() => {});
   }, [slug]);
 
   // Recover from a previous session where payment may have completed but the
@@ -829,7 +835,9 @@ export default function AgentStorePage() {
             <div className="store-hero-glow" />
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 100, padding: '6px 14px 6px 8px', fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 20 }}>
               <span className="live-dot" />
-              {agentStoreName}
+              {todaySales !== null && todaySales > 0
+                ? `${todaySales} bundle${todaySales === 1 ? '' : 's'} sold today`
+                : agentStoreName}
             </div>
             <h1>Instant Data<br /><span className="hero-accent" style={{ background: `linear-gradient(90deg, ${accentColor}, var(--accent2))`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Delivered Fast</span></h1>
             <p style={{ color: 'var(--text2)', fontSize: 14, maxWidth: 380, margin: '0 auto' }}>
