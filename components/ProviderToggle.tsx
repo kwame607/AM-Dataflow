@@ -1,7 +1,4 @@
 // components/ProviderToggle.tsx
-// Drop into the admin Settings tab to control which delivery provider handles
-// new orders. Telecel is always routed to XpresPortal regardless of this
-// toggle — the label makes that clear to avoid confusion.
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,12 +11,14 @@ interface ProviderToggleProps {
 }
 
 export function ProviderToggle({ authFetch, toast }: ProviderToggleProps) {
-  const [provider, setProvider]   = useState<Provider | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [saving, setSaving]       = useState(false);
+  const [provider, setProvider]         = useState<Provider | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [saving, setSaving]             = useState(false);
   const [xpresBalance, setXpresBalance] = useState<number | null>(null);
   const [hubnetBalance, setHubnetBalance] = useState<number | null>(null);
-  const [loadingBals, setLoadingBals] = useState(false);
+  const [xpresError, setXpresError]     = useState('');
+  const [hubnetError, setHubnetError]   = useState('');
+  const [loadingBals, setLoadingBals]   = useState(false);
 
   useEffect(() => {
     authFetch('/api/admin/provider')
@@ -42,8 +41,8 @@ export function ProviderToggle({ authFetch, toast }: ProviderToggleProps) {
       setProvider(next);
       toast(
         next === 'hubnet'
-          ? '✅ Switched to Hubnet — all new MTN & AirtelTigo orders will route via Hubnet. Telecel stays on XpresPortal.'
-          : '✅ Switched to XpresPortal — all new orders will route via XpresPortal.',
+          ? '✅ Switched to Hubnet — MTN & AirtelTigo orders now route via Hubnet. Telecel stays on XpresPortal.'
+          : '✅ Switched to XpresPortal — all new orders route via XpresPortal.',
         'success',
       );
     } catch { toast('Network error', 'error'); }
@@ -52,14 +51,31 @@ export function ProviderToggle({ authFetch, toast }: ProviderToggleProps) {
 
   async function refreshBalances() {
     setLoadingBals(true);
+    setXpresError('');
+    setHubnetError('');
+
+    // XpresPortal balance — existing public-ish route
     try {
-      const [xpresRes, hubnetRes] = await Promise.all([
-        fetch('/api/hubnet/balance').then(r => r.json()).catch(() => null),
-        authFetch('/api/hubnet/wallet-balance').then(r => r.json()).catch(() => null),
-      ]);
-      if (xpresRes?.balance !== undefined) setXpresBalance(xpresRes.balance);
-      if (hubnetRes?.balance !== undefined) setHubnetBalance(hubnetRes.balance);
-    } finally { setLoadingBals(false); }
+      const r = await fetch('/api/hubnet/balance');
+      const d = await r.json();
+      if (d?.balance !== undefined) setXpresBalance(d.balance);
+      else setXpresError(d?.error || 'Could not fetch balance');
+    } catch { setXpresError('Network error'); }
+
+    // Real Hubnet balance — needs admin auth, use authFetch but strip
+    // Content-Type so it's a clean GET request
+    try {
+      const { data: { session } } = await (await import('@/lib/supabase')).getSupabaseClient().auth.getSession();
+      const token = session?.access_token || '';
+      const r = await fetch('/api/hubnet/wallet-balance', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await r.json();
+      if (d?.balance !== undefined) setHubnetBalance(d.balance);
+      else setHubnetError(d?.error || 'Could not fetch balance');
+    } catch { setHubnetError('Network error'); }
+
+    setLoadingBals(false);
   }
 
   const fmt = (n: number) => `₵${n.toFixed(2)}`;
@@ -116,9 +132,9 @@ export function ProviderToggle({ authFetch, toast }: ProviderToggleProps) {
                     }}>ACTIVE</span>
                   )}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
+                <div style={{ fontSize: 12, color: 'var(--text3)' }}>
                   {p === 'xpresportal'
-                    ? 'MTN · AirtelTigo · Telecel\nAll networks supported'
+                    ? 'MTN · AirtelTigo · Telecel'
                     : 'MTN · AirtelTigo only\nTelecel always via XpresPortal'}
                 </div>
               </button>
@@ -130,8 +146,7 @@ export function ProviderToggle({ authFetch, toast }: ProviderToggleProps) {
         <div className="alert alert-info" style={{ marginBottom: 20, fontSize: 13 }}>
           <span>ℹ️</span>
           <span>
-            <strong>Telecel orders always route through XpresPortal</strong> regardless of the
-            toggle above, since Hubnet does not support Telecel transactions.
+            <strong>Telecel orders always route through XpresPortal</strong> — Hubnet does not support Telecel transactions.
           </span>
         </div>
 
@@ -146,23 +161,15 @@ export function ProviderToggle({ authFetch, toast }: ProviderToggleProps) {
               onClick={refreshBalances}
               disabled={loadingBals}
             >
-              {loadingBals ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Refreshing…</> : '↻ Refresh Both'}
+              {loadingBals
+                ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Refreshing…</>
+                : '↻ Refresh Both'}
             </button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {[
-              {
-                label: 'XpresPortal',
-                balance: xpresBalance,
-                isActive: provider === 'xpresportal',
-                color: 'var(--accent)',
-              },
-              {
-                label: 'Hubnet',
-                balance: hubnetBalance,
-                isActive: provider === 'hubnet',
-                color: '#38bdf8',
-              },
+              { label: 'XpresPortal', balance: xpresBalance, error: xpresError, isActive: provider === 'xpresportal', color: 'var(--accent)' },
+              { label: 'Hubnet',      balance: hubnetBalance, error: hubnetError, isActive: provider === 'hubnet',      color: '#38bdf8' },
             ].map(w => (
               <div key={w.label} style={{
                 background: w.isActive ? 'var(--accent-dim)' : 'var(--surface2)',
@@ -171,12 +178,16 @@ export function ProviderToggle({ authFetch, toast }: ProviderToggleProps) {
                 padding: '14px 16px',
               }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
-                  {w.label}{w.isActive ? ' (active)' : ''}
+                  {w.label}{w.isActive ? ' · active' : ''}
                 </div>
-                <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, color: w.balance !== null ? w.color : 'var(--text3)' }}>
-                  {w.balance !== null ? fmt(w.balance) : '—'}
-                </div>
-                {w.balance !== null && w.balance < 50 && (
+                {w.error ? (
+                  <div style={{ fontSize: 11, color: 'var(--err)', lineHeight: 1.5 }}>⚠ {w.error}</div>
+                ) : (
+                  <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, color: w.balance !== null ? w.color : 'var(--text3)' }}>
+                    {w.balance !== null ? fmt(w.balance) : '—'}
+                  </div>
+                )}
+                {w.balance !== null && w.balance < 50 && !w.error && (
                   <div style={{ fontSize: 11, color: 'var(--err)', marginTop: 4, fontWeight: 600 }}>
                     ⚠️ Low — top up soon
                   </div>
@@ -184,7 +195,7 @@ export function ProviderToggle({ authFetch, toast }: ProviderToggleProps) {
               </div>
             ))}
           </div>
-          {xpresBalance === null && hubnetBalance === null && (
+          {xpresBalance === null && hubnetBalance === null && !xpresError && !hubnetError && (
             <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>
               Click Refresh to load current balances
             </div>
