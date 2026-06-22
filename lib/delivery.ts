@@ -8,7 +8,8 @@
 
 import { xpresOrder } from '@/lib/xpresportal';
 import { hubnetOrder, isHubnetSupportedNetwork } from '@/lib/hubnet';
-import { getXpresParams, getHubnetParams, type Bundle } from '@/lib/bundles';
+import { getXpresParams, getHubnetParams } from "@/lib/bundles";
+import type { Bundle } from "@/types";
 import { resolveProviderForOrder, type DeliveryProvider } from '@/lib/settings';
 
 export interface DeliveryResult {
