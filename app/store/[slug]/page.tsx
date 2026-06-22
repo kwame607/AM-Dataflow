@@ -969,8 +969,15 @@ export default function AgentStorePage() {
                   {orderStep === 1 && (
                     <div>
                       <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
-                        <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800 }}>{selectedBundle.size}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>{NET_NAMES[currentNet]}{selectedBundle.type ? ' · ' + selectedBundle.type : ''} · {selectedBundle.validity}</div>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                          <div>
+                            <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800 }}>{selectedBundle.size}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>{NET_NAMES[currentNet]}{selectedBundle.type ? ' · ' + selectedBundle.type : ''} · {selectedBundle.validity}</div>
+                          </div>
+                          <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>
+                            {fmt(getPrice(selectedBundle.key, selectedBundle.cost))}
+                          </div>
+                        </div>
                       </div>
                       <div className="form-group">
                         <label className="form-label">Recipient Phone Number</label>

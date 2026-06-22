@@ -28,6 +28,23 @@ export default function MainStorePage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
+  // Recover from previous session where payment may have completed but
+  // the page was closed before we could confirm. Nudge with a toast,
+  // ignore anything older than 2 hours as stale.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('admunz_pending_ref');
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { reference: string; savedAt: number };
+      if (Date.now() - (saved.savedAt || 0) > 2 * 60 * 60 * 1000) {
+        localStorage.removeItem('admunz_pending_ref');
+        return;
+      }
+      toast(`You have a pending order (${saved.reference}). Tap Track Order to check its status.`, 'info', 8000);
+    } catch { /* corrupt or unavailable */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [adminPrices, setAdminPrices] = useState<Record<string, number>>(() => {
     const defaults: Record<string, number> = {};
     ALL_BUNDLES.forEach(b => { defaults[b.key] = getDefaultAdminPrice(b.cost); });
@@ -47,6 +64,7 @@ export default function MainStorePage() {
   const [paying, setPaying]       = useState(false);
   const [processing, setProcessing] = useState(false);
   const [successRef, setSuccessRef] = useState('');
+  const [paymentRecoveryRef, setPaymentRecoveryRef] = useState('');
 
   const [trackRef, setTrackRef] = useState('');
   const [trackResult, setTrackResult] = useState<
@@ -149,6 +167,14 @@ export default function MainStorePage() {
         return;
       }
 
+      // Persist reference before opening Paystack — survives a crash/refresh
+      // so the customer can always track their order even if the page closes.
+      try {
+        localStorage.setItem('admunz_pending_ref', JSON.stringify({
+          reference, phone, network, savedAt: Date.now(),
+        }));
+      } catch { /* localStorage unavailable — non-fatal */ }
+
       // 2. Open Paystack popup
       await openPaystack({
         key:         PAYSTACK_KEY,
@@ -176,14 +202,13 @@ export default function MainStorePage() {
             }
 
             if (found) {
-              // Order already saved by webhook — go straight to success
+              clearPendingRef();
               setSuccessRef(paidRef);
               setStep(3);
               return;
             }
 
             // Webhook hasn't arrived yet — call verify as fallback.
-            // Build orderData here using paidRef (Paystack's real reference).
             const orderData = {
               phone,
               network,
@@ -199,16 +224,17 @@ export default function MainStorePage() {
             const result = await verifyRes.json();
 
             if (result.success) {
+              clearPendingRef();
               setSuccessRef(paidRef);
               setStep(3);
             } else {
               toast(result.error || 'Order failed. Contact support with ref: ' + paidRef, 'error');
             }
           } catch {
-            // Even if network fails here, the webhook has the order.
-            setSuccessRef(_ps.reference);
-            setStep(3);
-            toast('Payment received! Ref: ' + _ps.reference, 'success');
+            // Paystack confirmed payment but our network calls failed.
+            // Don't fake a success screen — show a recovery view with the
+            // reference so the customer can track or get help.
+            setPaymentRecoveryRef(_ps.reference);
           } finally {
             setProcessing(false);
             setPaying(false);
@@ -216,15 +242,22 @@ export default function MainStorePage() {
         },
 
         onClose: () => {
+          clearPendingRef();
           setPaying(false);
           toast('Payment cancelled', 'info');
         },
       });
     } catch (e) {
       console.error('Paystack error:', e);
-      toast('Payment error: ' + (e instanceof Error ? e.message : String(e)), 'error');
+      // Outer catch fires before Paystack popup opens — no charge has occurred.
+      toast('Could not start payment — no charge was made. Please check your connection and try again.', 'error');
+      clearPendingRef();
       setPaying(false);
     }
+  }
+
+  function clearPendingRef() {
+    try { localStorage.removeItem('admunz_pending_ref'); } catch { /* non-fatal */ }
   }
 
   async function trackOrder() {
@@ -379,6 +412,56 @@ export default function MainStorePage() {
       )}
 
       {/* ORDER FLOW OVERLAY */}
+      {/* PAYMENT RECOVERY — shown when Paystack confirmed payment but
+          our network calls failed afterward. Reference is kept visible
+          so it's never lost, with a direct path to track or get help. */}
+      {paymentRecoveryRef && (
+        <div className="overlay open">
+          <div className="sheet" style={{ maxWidth: 480 }}>
+            <div className="sheet-body" style={{ textAlign: 'center', padding: '32px 20px' }}>
+              <div style={{ fontSize: 40, marginBottom: 16 }}>⚠️</div>
+              <h3 style={{ fontFamily: 'Syne,sans-serif', fontSize: 20, fontWeight: 800, marginBottom: 10 }}>
+                Payment may have been taken
+              </h3>
+              <p style={{ color: 'var(--text2)', fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
+                We lost connection right after Paystack confirmed your payment. Please check your mobile money balance.
+                If you were charged, your order is safe — use the reference below to track it or contact support.
+              </p>
+              <div className="ref-box">
+                <span className="ref-val">{paymentRecoveryRef}</span>
+                <button className="copy-btn" onClick={() => {
+                  try { navigator.clipboard.writeText(paymentRecoveryRef); }
+                  catch { const el = document.createElement('textarea'); el.value = paymentRecoveryRef; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); }
+                  toast('Reference copied!', 'success', 2000);
+                }}>Copy</button>
+              </div>
+              <button
+                className="btn btn-full"
+                style={{ background: 'linear-gradient(135deg,#00d4aa,#00b894)', color: '#060910', marginTop: 14, justifyContent: 'center', fontWeight: 700 }}
+                onClick={() => { setTrackRef(paymentRecoveryRef); setTrackResult(null); setTrackOpen(true); }}
+              >
+                🔍 Track This Order
+              </button>
+              <a
+                href={waLink(paymentRecoveryRef, '')}
+                className="btn btn-full"
+                style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', marginTop: 8, justifyContent: 'center' }}
+                target="_blank" rel="noopener noreferrer"
+              >
+                💬 WhatsApp Support
+              </a>
+              <button
+                className="btn btn-secondary btn-full"
+                style={{ marginTop: 8 }}
+                onClick={() => { setPaymentRecoveryRef(''); setOrderOpen(false); setStep(1); clearPendingRef(); }}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {orderOpen && selectedBundle && (
         <div className="overlay open" onClick={e => { if (e.target === e.currentTarget) { if (step < 3) { setOrderOpen(false); setPanelOpen(true); } } }}>
           <div className="sheet" style={{ maxWidth: 480 }}>
@@ -397,8 +480,15 @@ export default function MainStorePage() {
               {step === 1 && (
                 <div>
                   <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800 }}>{selectedBundle.size}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>{NET_NAMES[selectedBundle.network]}{selectedBundle.type ? ' · ' + selectedBundle.type : ''} · {selectedBundle.validity}</div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                      <div>
+                        <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800 }}>{selectedBundle.size}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3 }}>{NET_NAMES[selectedBundle.network]}{selectedBundle.type ? ' · ' + selectedBundle.type : ''} · {selectedBundle.validity}</div>
+                      </div>
+                      <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>
+                        {fmt(selectedBundle.customerPays)}
+                      </div>
+                    </div>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Recipient Phone Number</label>
