@@ -12,10 +12,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log('[hubnet webhook] Received:', JSON.stringify(body));
 
-    // Hubnet sends events like "transfer.delivered" and "transfer.processing".
-    // The actual status + reference live under body.data per their sample
-    // payloads — but be defensive and also check top-level in case other
-    // event shapes show up that aren't in the documented samples.
     const event = String(body?.event || '');
     const data  = body?.data || {};
 
@@ -25,8 +21,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    // Prefer the explicit status string from data.status; fall back to
-    // inferring from the event name itself if data.status is missing.
     const rawStatus = String(data.status || '').toLowerCase();
     const inferredFromEvent = event.includes('delivered')
       ? 'delivered'
@@ -50,15 +44,15 @@ export async function POST(req: NextRequest) {
       updatePayload.delivered_at = new Date().toISOString();
     }
 
-    const { error, count } = await supabase
+    const { data: updated, error } = await supabase
       .from('orders')
       .update(updatePayload)
       .eq('reference', reference)
-      .select('id', { count: 'exact' });
+      .select('id');
 
     if (error) {
       console.error('[hubnet webhook] Supabase update error:', error);
-    } else if (!count) {
+    } else if (!updated || updated.length === 0) {
       console.warn(`[hubnet webhook] No order found matching reference ${reference}`);
     } else {
       console.log(`[hubnet webhook] ✅ Updated order ${reference} → ${deliveryStatus}`);
@@ -67,7 +61,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (e) {
     console.error('[hubnet webhook] Error:', e);
-    // Always return 200 so Hubnet doesn't keep retrying on our errors
     return NextResponse.json({ received: true });
   }
 }
