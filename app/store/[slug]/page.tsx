@@ -52,6 +52,7 @@ export default function AgentStorePage() {
   const [paying, setPaying] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [successRef, setSuccessRef] = useState('');
+  const [paymentRecoveryRef, setPaymentRecoveryRef] = useState('');
   const [trackRef, setTrackRef] = useState('');
   const [trackResult, setTrackResult] = useState<
     | { found: false; msg: string }
@@ -82,6 +83,24 @@ export default function AgentStorePage() {
       .catch(() => setNotFound(true))
       .finally(() => setLoadingAgent(false));
   }, [slug]);
+
+  // Recover from a previous session where payment may have completed but the
+  // page was closed/crashed before we could confirm — nudge instead of forcing
+  // a full takeover, and ignore anything older than 2 hours as likely stale.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('admunz_pending_ref');
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { reference: string; savedAt: number };
+      const ageMs = Date.now() - (saved.savedAt || 0);
+      if (ageMs > 2 * 60 * 60 * 1000) {
+        localStorage.removeItem('admunz_pending_ref');
+        return;
+      }
+      toast(`You have a pending order (${saved.reference}). Tap Track Order to check its status.`, 'info', 8000);
+    } catch { /* corrupt or unavailable — ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectedBundle = currentNet ? BUNDLES[currentNet]?.find(b => b.key === selectedKey) : undefined;
   const accentColor = agent?.store_color || '#00d4aa';
@@ -171,6 +190,15 @@ export default function AgentStorePage() {
         return;
       }
 
+      // Persist the reference before opening Paystack — if the page crashes or
+      // the network drops right after payment, this survives a refresh and lets
+      // the customer (or support) recover the order via the Track Order screen.
+      try {
+        localStorage.setItem('admunz_pending_ref', JSON.stringify({
+          reference, phone, network, savedAt: Date.now(),
+        }));
+      } catch { /* localStorage unavailable — non-fatal */ }
+
       await openPaystack({
         key:         PAYSTACK_KEY,
         email:       `${phone}@admunz.com`,
@@ -193,6 +221,7 @@ export default function AgentStorePage() {
             }
 
             if (found) {
+              clearPendingRef();
               setSuccessRef(paidRef);
               setOrderStep(3);
               return;
@@ -214,15 +243,18 @@ export default function AgentStorePage() {
             const result = await verifyRes.json();
 
             if (result.success) {
+              clearPendingRef();
               setSuccessRef(paidRef);
               setOrderStep(3);
             } else {
               toast(result.error || 'Order failed. Contact support with ref: ' + paidRef, 'error');
             }
           } catch {
-            setSuccessRef(_ps.reference);
-            setOrderStep(3);
-            toast('Payment received! Ref: ' + _ps.reference, 'success');
+            // Paystack confirmed payment but our poll/verify calls failed —
+            // money may have left the customer's account. Don't guess; tell
+            // them plainly and keep the reference front and center so it's
+            // never lost, with a direct path to check status or get help.
+            setPaymentRecoveryRef(_ps.reference);
           } finally {
             setProcessing(false);
             setPaying(false);
@@ -230,15 +262,24 @@ export default function AgentStorePage() {
         },
 
         onClose: () => {
+          clearPendingRef();
           setPaying(false);
           toast('Payment cancelled', 'info');
         },
       });
     } catch (e) {
       console.error('Paystack error:', e);
-      toast('Payment error: ' + (e instanceof Error ? e.message : String(e)), 'error');
+      // This catch only fires before Paystack's popup opens (init call failed,
+      // or the script itself errored) — no payment has been taken yet, so the
+      // message should reassure rather than alarm.
+      toast('Could not start payment — no charge was made. Please check your connection and try again.', 'error');
+      clearPendingRef();
       setPaying(false);
     }
+  }
+
+  function clearPendingRef() {
+    try { localStorage.removeItem('admunz_pending_ref'); } catch { /* non-fatal */ }
   }
 
   async function trackOrder() {
@@ -863,6 +904,54 @@ export default function AgentStorePage() {
           )}
 
           {/* Order flow overlay */}
+          {/* PAYMENT RECOVERY — shown if payment was confirmed by Paystack but our
+              poll/verify calls failed afterward. Takes priority over the normal
+              order overlay so the reference is never missed. */}
+          {paymentRecoveryRef && (
+            <div className="overlay open">
+              <div className="sheet" style={{ maxWidth: 480 }}>
+                <div className="sheet-body" style={{ textAlign: 'center', padding: '32px 20px' }}>
+                  <div style={{ fontSize: 40, marginBottom: 16 }}>⚠️</div>
+                  <h3 style={{ fontFamily: 'Syne,sans-serif', fontSize: 20, fontWeight: 800, marginBottom: 10 }}>
+                    Payment may have been taken
+                  </h3>
+                  <p style={{ color: 'var(--text2)', fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
+                    We lost connection right after Paystack confirmed your payment. Please check your mobile money balance.
+                    If you were charged, your order is safe — use the reference below to track it or contact support.
+                  </p>
+                  <div className="ref-box">
+                    <span className="ref-val">{paymentRecoveryRef}</span>
+                    <button className="copy-btn" onClick={() => copyRef(paymentRecoveryRef)}>Copy</button>
+                  </div>
+                  <button
+                    className="btn btn-full"
+                    style={{ background: 'linear-gradient(135deg,#00d4aa,#00b894)', color: '#060910', marginTop: 14, justifyContent: 'center', fontWeight: 700 }}
+                    onClick={() => { setTrackRef(paymentRecoveryRef); setTrackResult(null); setTrackOpen(true); }}
+                  >
+                    🔍 Track This Order
+                  </button>
+                  {agent?.whatsapp && (
+                    <a
+                      href={`https://wa.me/233${agent.whatsapp.replace(/^0/, '')}?text=${encodeURIComponent(`Hi, I need help with a payment that may not have completed. Reference: ${paymentRecoveryRef}`)}`}
+                      className="btn btn-full"
+                      style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', marginTop: 8, justifyContent: 'center' }}
+                      target="_blank" rel="noopener noreferrer"
+                    >
+                      💬 Contact Agent on WhatsApp
+                    </a>
+                  )}
+                  <button
+                    className="btn btn-secondary btn-full"
+                    style={{ marginTop: 8 }}
+                    onClick={() => { setPaymentRecoveryRef(''); setOrderOpen(false); setOrderStep(1); clearPendingRef(); }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {orderOpen && selectedBundle && (
             <div className="overlay open" onClick={e => { if (e.target === e.currentTarget && orderStep < 3) { setOrderOpen(false); setPanelOpen(true); } }}>
               <div className="sheet" style={{ maxWidth: 480 }}>

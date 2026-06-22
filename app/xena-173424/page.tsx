@@ -12,6 +12,7 @@ import { AdminSupportTab } from '@/components/AdminSupportTab';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { AdminAiInsights } from '@/components/AdminAiInsights';
 import { AdminCustomerInsights } from '@/components/AdminCustomerInsights';
+import { ProviderToggle } from '@/components/ProviderToggle';
 
 type Tab = 'overview' | 'orders' | 'agents' | 'prices' | 'withdrawals' | 'settings' | 'finance' | 'support';
 
@@ -718,6 +719,7 @@ export default function AdminPage() {
          {/* SETTINGS */}
 {tab === 'settings' && (
   <>
+    <ProviderToggle authFetch={authFetch} toast={toast} />
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="card-header">
         <div className="card-title">Email Notifications</div>

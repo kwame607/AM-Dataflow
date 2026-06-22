@@ -107,3 +107,36 @@ export function getXpresParams(bundle: Bundle & { network?: string }): {
 
   return { network: net, offerSlug: '', volumeGB };
 }
+
+/**
+ * Maps internal bundle key → Hubnet network token + volume in MB.
+ *
+ * Hubnet's supported transaction network tokens are: mtn, at, big-time.
+ * Telecel is NOT supported on Hubnet's transaction endpoint — callers must
+ * route telecel orders to XpresPortal instead (see lib/settings.ts,
+ * resolveProviderForOrder).
+ *
+ * ASSUMPTION (flagged for verification): mirrors the same >=30GB AirtelTigo
+ * BigTime threshold already used for XpresPortal's offerSlug split, since
+ * Hubnet's docs list "big-time (AirtelTigo)" as a separate network token
+ * from "at" but don't specify their exact GB cutoff anywhere in the PDF.
+ * If Hubnet's real threshold differs, change the `30` below.
+ */
+export function getHubnetParams(bundle: Bundle & { network?: string }): {
+  network: 'mtn' | 'at' | 'big-time' | null; // null = unsupported (telecel)
+  volumeMB: number;
+} {
+  const net = bundle.network || '';
+  const volumeMB = parseInt(bundle.volume || '0', 10);
+  const volumeGB = Math.round(volumeMB / 1000);
+
+  if (net === 'mtn') return { network: 'mtn', volumeMB };
+
+  if (net === 'at') {
+    const isBigTime = volumeGB >= 30;
+    return { network: isBigTime ? 'big-time' : 'at', volumeMB };
+  }
+
+  // telecel and anything else unsupported on Hubnet
+  return { network: null, volumeMB };
+}

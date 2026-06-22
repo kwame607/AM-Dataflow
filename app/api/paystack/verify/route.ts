@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPaystackPayment } from '@/lib/paystack';
-import { xpresOrder } from '@/lib/xpresportal';
+import { deliverBundle } from '@/lib/delivery';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
-import { getBundleByKey, getDefaultAdminPrice, getXpresParams } from '@/lib/bundles';
+import { getBundleByKey, getDefaultAdminPrice } from '@/lib/bundles';
 import { rateLimit, getIp } from '@/lib/rate-limit';
 import { VerifyPaymentSchema } from '@/lib/validate';
 
@@ -125,47 +125,34 @@ export async function POST(req: NextRequest) {
 
     console.log('[verify] Order saved:', order.id, '— now attempting delivery');
 
-    // 7. Attempt XpresPortal delivery
-    const rawUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-    const siteUrl = rawUrl && !rawUrl.includes('localhost')
-      ? rawUrl
-      : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
-
-    const { network: xpresNetwork, offerSlug, volumeGB } = getXpresParams({
-      ...bundle,
-      network: orderData.network,
-    });
-
-    const webhookUrl = siteUrl
-      ? `${siteUrl}/api/xpresportal/webhook?internalRef=${encodeURIComponent(reference)}`
-      : undefined;
-
+    // 7. Attempt delivery — dispatcher picks XpresPortal or Hubnet based on
+    //    the active provider toggle (Telecel always forced to XpresPortal).
     try {
-      const xpresResult = await xpresOrder({
-        network: xpresNetwork,
+      const result = await deliverBundle({
+        bundle,
+        network: orderData.network,
         phone: orderData.phone,
-        volume: volumeGB,
-        offerSlug,
         reference,
-        webhookUrl,
       });
 
-      console.log('[verify] XpresPortal result:', JSON.stringify(xpresResult));
+      console.log('[verify] Delivery result:', JSON.stringify(result));
 
-      if (xpresResult.success) {
+      if (result.success) {
         await supabase.from('orders').update({
           delivery_status: 'processing',
-          hubnet_transaction_id: xpresResult.orderId || xpresResult.reference || null,
+          delivery_provider: result.provider,
+          hubnet_transaction_id: result.orderId || result.reference || null,
         }).eq('id', order.id);
       } else {
-        console.warn('[verify] XpresPortal rejected:', xpresResult.message);
+        console.warn('[verify] Delivery rejected:', result.message);
         await supabase.from('orders').update({
           delivery_status: 'failed',
+          delivery_provider: result.provider,
         }).eq('id', order.id);
       }
-    } catch (xpresErr) {
+    } catch (deliveryErr) {
       // Network/timeout — order is saved, delivery can be retried from admin
-      console.error('[verify] XpresPortal call threw error:', xpresErr);
+      console.error('[verify] Delivery call threw error:', deliveryErr);
       await supabase.from('orders').update({
         delivery_status: 'pending',
       }).eq('id', order.id);
