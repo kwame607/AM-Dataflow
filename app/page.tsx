@@ -630,7 +630,7 @@ export default function MainStorePage() {
           </div>
         </div>
       )}
-
+      <ServiceBanner />
       <ToastContainer />
       
     </>

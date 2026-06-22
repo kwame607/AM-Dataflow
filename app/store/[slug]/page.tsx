@@ -1115,7 +1115,7 @@ export default function AgentStorePage() {
               </div>
             </div>
           )}
-
+	  <ServiceBanner />
           <ToastContainer />
         </>
       )}
