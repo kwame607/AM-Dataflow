@@ -35,6 +35,7 @@ export default function AdminPage() {
   const [savingPrices, setSavingPrices] = useState(false);
   const [bulkMarkup, setBulkMarkup] = useState('');
   const [orderFilter, setOrderFilter] = useState('all');
+  const [orderSearch, setOrderSearch] = useState('');
   const [agentFilter, setAgentFilter] = useState('all');
   const [inactiveDays, setInactiveDays] = useState(30);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
@@ -211,7 +212,20 @@ export default function AdminPage() {
   const todayRevenue = todayOrders.reduce((s, o) => s + (o.admin_price || 0), 0);
   const todayProfit = todayOrders.reduce((s, o) => s + (o.admin_profit || 0), 0);
 
-  const filteredOrders = orderFilter === 'all' ? orders : orders.filter(o => o.status === orderFilter);
+  const filteredOrders = orders.filter(o => {
+    const matchStatus = orderFilter === 'all' || o.status === orderFilter;
+    if (!matchStatus) return false;
+    if (!orderSearch.trim()) return true;
+    const q = orderSearch.trim().toLowerCase();
+    return (
+      o.reference?.toLowerCase().includes(q) ||
+      o.phone?.toLowerCase().includes(q) ||
+      o.network?.toLowerCase().includes(q) ||
+      o.agent_slug?.toLowerCase().includes(q) ||
+      o.size?.toLowerCase().includes(q) ||
+      o.source?.toLowerCase().includes(q)
+    );
+  });
 
   const agentStats = React.useMemo(() => {
     const map: Record<string, {
@@ -461,7 +475,7 @@ export default function AdminPage() {
           {/* ORDERS */}
           {tab === 'orders' && (
             <div>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div className="tab-nav">
                   {['all','success','pending','failed'].map(f => (
                     <button key={f} className={`tab-btn${orderFilter === f ? ' active' : ''}`} onClick={() => setOrderFilter(f)}>
@@ -471,9 +485,36 @@ export default function AdminPage() {
                 </div>
                 <button className="btn btn-secondary btn-sm" onClick={() => exportCSV(filteredOrders as unknown as Record<string, unknown>[], 'all-orders')}>⬇ CSV</button>
               </div>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                  </svg>
+                  <input
+                    className="form-input"
+                    style={{ paddingLeft: 36 }}
+                    placeholder="Search by reference, phone, network, agent, bundle size…"
+                    value={orderSearch}
+                    onChange={e => setOrderSearch(e.target.value)}
+                  />
+                </div>
+                {orderSearch && (
+                  <button className="btn btn-secondary btn-sm" onClick={() => setOrderSearch('')}>
+                    Clear
+                  </button>
+                )}
+                <div style={{ fontSize: 12, color: 'var(--text3)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {filteredOrders.length} of {orders.length} orders
+                </div>
+              </div>
               <div className="card">
                 {filteredOrders.length === 0
-                  ? <div className="empty"><div className="empty-icon">📋</div><div className="empty-title">No orders found</div></div>
+                  ? <div className="empty">
+                      <div className="empty-icon">{orderSearch ? '🔍' : '📋'}</div>
+                      <div className="empty-title">{orderSearch ? 'No orders match your search' : 'No orders found'}</div>
+                      {orderSearch && <div className="empty-text" style={{ marginTop: 8 }}>Try searching by reference, phone number, or network</div>}
+                    </div>
                   : filteredOrders.map(o => {
                     const isOpen = expandedOrderId === o.id;
                     const canRetry = (['failed','pending','processing'].includes(o.delivery_status ?? '') || !o.delivery_status) && o.status === 'success';
