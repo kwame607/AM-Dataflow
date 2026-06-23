@@ -13,6 +13,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { AdminAiInsights } from '@/components/AdminAiInsights';
 import { AdminCustomerInsights } from '@/components/AdminCustomerInsights';
 import { ProviderToggle } from '@/components/ProviderToggle';
+import { DeliverySpeedWidget } from '@/components/DeliverySpeedWidget';
 
 type Tab = 'overview' | 'orders' | 'agents' | 'prices' | 'withdrawals' | 'settings' | 'finance' | 'support';
 
@@ -402,7 +403,10 @@ export default function AdminPage() {
                     <div className="stat-sub">{s.sub}</div>
                   </div>
                 ))}
+               
               </div>
+              
+              <DeliverySpeedWidget />
 
               <AdminAiInsights
                 orders={orders}

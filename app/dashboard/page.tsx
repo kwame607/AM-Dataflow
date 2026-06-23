@@ -24,6 +24,7 @@ import { FloatingQuickActions } from '@/components/FloatingQuickActions';
 import { CustomerInsights } from '@/components/CustomerInsights';
 import { AiInsightsWidget } from '@/components/AiInsightsWidget';
 import { RevenueChart } from '@/components/RevenueChart';
+import { DeliverySpeedWidget } from '@/components/DeliverySpeedWidget';
 
 type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support' | 'account';
 
@@ -429,6 +430,8 @@ export default function DashboardPage() {
                   <RevenueChart orders={orders} />
                 </div>
               )}
+              
+              <DeliverySpeedWidget agentId={agent?.id} />
 
               {/* Quick Buy */}
               {dataLoading ? (

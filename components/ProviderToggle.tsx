@@ -71,9 +71,14 @@ export function ProviderToggle({ authFetch, toast }: ProviderToggleProps) {
         headers: { Authorization: `Bearer ${token}` },
       });
       const d = await r.json();
-      if (d?.balance !== undefined) setHubnetBalance(d.balance);
-      else setHubnetError(d?.error || 'Could not fetch balance');
-    } catch { setHubnetError('Network error'); }
+      if (d?.balance !== undefined) {
+        setHubnetBalance(d.balance);
+      } else {
+        // Show the raw response so you can see exactly what Hubnet returned
+        const rawInfo = d?.rawText ? ` — Raw: ${d.rawText}` : d?.raw ? ` — Raw: ${JSON.stringify(d.raw).slice(0, 120)}` : '';
+        setHubnetError((d?.error || 'Unexpected response') + rawInfo);
+      }
+    } catch (e) { setHubnetError(`Network error: ${(e as Error).message}`); }
 
     setLoadingBals(false);
   }
@@ -181,7 +186,7 @@ export function ProviderToggle({ authFetch, toast }: ProviderToggleProps) {
                   {w.label}{w.isActive ? ' · active' : ''}
                 </div>
                 {w.error ? (
-                  <div style={{ fontSize: 11, color: 'var(--err)', lineHeight: 1.5 }}>⚠ {w.error}</div>
+                  <div style={{ fontSize: 11, color: 'var(--err)', lineHeight: 1.5, wordBreak: 'break-word' }}>⚠ {w.error}</div>
                 ) : (
                   <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, color: w.balance !== null ? w.color : 'var(--text3)' }}>
                     {w.balance !== null ? fmt(w.balance) : '—'}

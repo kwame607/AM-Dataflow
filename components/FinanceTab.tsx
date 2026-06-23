@@ -14,7 +14,7 @@ import type { Order, Withdrawal, Agent } from '@/types';
 import { fmt } from '@/lib/utils';
 import React, { useState, useMemo, useCallback } from 'react';
 
-type Period = 'today' | 'yesterday' | 'week' | 'month' | 'alltime';
+type Period = 'today' | 'yesterday' | 'week' | 'month' | 'alltime' | 'custom';
 
 interface FinanceTabProps {
   orders: Order[];
@@ -132,6 +132,10 @@ function StatRow({ label, value, sub, color, bold }: { label: string; value: str
 
 export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceTabProps) {
   const [period, setPeriod] = useState<Period>('today');
+  const [customMode, setCustomMode]   = useState<'day' | 'range'>('day');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd]     = useState('');
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
   const [showBundles, setShowBundles] = useState(false);
   const [showAgents, setShowAgents] = useState(false);
   const [trendDays, setTrendDays] = useState<7 | 30 | 90>(7);
@@ -168,8 +172,18 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     if (p === 'month') {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }
+    if (p === 'custom') {
+      if (!customStart) return false;
+      if (customMode === 'day') {
+        return ds === customStart;
+      }
+      // range mode
+      const start = new Date(customStart);
+      const end   = customEnd ? new Date(customEnd + 'T23:59:59') : new Date(customStart + 'T23:59:59');
+      return d >= start && d <= end;
+    }
     return true; // alltime
-  }, [todayStr, yesterdayStr, now]); // eslint-disable-line
+  }, [todayStr, yesterdayStr, now, customStart, customEnd, customMode]); // eslint-disable-line
 
   function computeStats(p: Period) {
     const periodOrders = orders.filter(o => inPeriod(o.created_at, p));
@@ -264,11 +278,12 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
   }
 
   const stats      = useMemo(() => computeStats(period),      [orders, withdrawals, agents, period, inPeriod]);   // eslint-disable-line
-  // prevPeriod: alltime compares to month (not alltime — that was a circular bug)
+  // prevPeriod: alltime and custom compare to month as a sensible default
   const prevPeriod: Period = period === 'today' ? 'yesterday'
     : period === 'yesterday' ? 'week'
     : period === 'week' ? 'month'
     : period === 'month' ? 'alltime'
+    : period === 'custom' ? 'month'
     : 'month';
   const prevStats      = useMemo(() => computeStats(prevPeriod),  [orders, withdrawals, agents, prevPeriod, inPeriod]);  // eslint-disable-line
   const todayStats     = useMemo(() => computeStats('today'),     [orders, withdrawals, agents, inPeriod]);               // eslint-disable-line
@@ -421,8 +436,18 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
   }, [alltimeStats, failStats, hubBalance, pendingWdAll, pendingWdCount, netCapital, todayStats, orders, agents]); // eslint-disable-line
 
   // ── Loss alerts (period-based) ────────────────────────────────
-  const periodLabels: Record<Period, string> = { today: 'Today', yesterday: 'Yesterday', week: 'This Week', month: 'This Month', alltime: 'All Time' };
-  const periodLabel = periodLabels[period];
+  const periodLabels: Record<Period, string> = { today: 'Today', yesterday: 'Yesterday', week: 'This Week', month: 'This Month', alltime: 'All Time', custom: 'Custom' };
+  const customLabel = (() => {
+    if (!customStart) return 'Custom';
+    if (customMode === 'day') return new Date(customStart).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (customEnd && customEnd !== customStart) {
+      const s = new Date(customStart).toLocaleDateString('en-GH', { day: 'numeric', month: 'short' });
+      const e = new Date(customEnd).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' });
+      return `${s} – ${e}`;
+    }
+    return new Date(customStart).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' });
+  })();
+  const periodLabel = period === 'custom' ? customLabel : periodLabels[period];
 
   const lossAlerts = useMemo(() => {
     const alerts: { severity: 'error' | 'warn'; msg: string }[] = [];
@@ -469,7 +494,15 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
       [],
       ['=== NETWORK BREAKDOWN ==='],
       ['Network', 'Orders', 'Revenue', 'Cost', 'Admin Profit', 'Success Rate', 'Failures'],
-      ...stats.byNetwork.map(n => [n.net, n.count, n.revenue.toFixed(2), n.cost.toFixed(2), n.profit.toFixed(2), n.successRate.toFixed(1) + '%', n.failures]),
+      ...stats.byNetwork.map(n => [
+  n.net,
+  n.count,
+  n.revenue.toFixed(2),
+  n.cost.toFixed(2),
+  n.profit.toFixed(2),
+  n.successRate.toFixed(1) + '%',
+  n.failures
+]),
       [],
       ['=== BUNDLE PERFORMANCE ==='],
       ['Bundle', 'Network', 'Orders', 'Revenue', 'Cost', 'Agent Comm', 'Admin Profit', 'Margin%'],
@@ -540,19 +573,245 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
             <span style={{ fontFamily: 'Syne,sans-serif', fontSize: 16, fontWeight: 800, color: healthData.score >= 75 ? '#10b981' : healthData.score >= 50 ? '#f59e0b' : '#f43f5e' }}>{healthData.score}</span>
             <span style={{ fontSize: 11, color: 'var(--text3)' }}>Health</span>
           </div>
-          <div className="tab-nav">
-            {(['today', 'yesterday', 'week', 'month', 'alltime'] as Period[]).map(p => (
-              <button key={p} className={`tab-btn${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>{periodLabels[p]}</button>
-            ))}
+
+          {/* ── Period selector ── */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="tab-nav" style={{ marginBottom: 0 }}>
+              {(['today', 'yesterday', 'week', 'month', 'alltime'] as Period[]).map(p => (
+                <button
+                  key={p}
+                  className={`tab-btn${period === p ? ' active' : ''}`}
+                  onClick={() => { setPeriod(p); setShowCustomPicker(false); }}
+                >
+                  {periodLabels[p]}
+                </button>
+              ))}
+              {/* Custom picker trigger */}
+              <button
+                className={`tab-btn${period === 'custom' ? ' active' : ''}`}
+                onClick={() => { setPeriod('custom'); setShowCustomPicker(v => !v); }}
+                style={period === 'custom' ? { color: 'var(--accent)', borderColor: 'var(--accent)' } : {}}
+              >
+                {period === 'custom' && customStart ? `📅 ${customLabel}` : '📅 Custom'}
+              </button>
+            </div>
           </div>
+
           <button className="btn btn-secondary btn-sm" onClick={exportCSV}>⬇ Export CSV</button>
         </div>
+
+        {/* ── Custom date picker panel ── */}
+        {showCustomPicker && (
+          <div style={{
+            marginTop: 12,
+            background: 'var(--surface2)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            padding: '16px 18px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 16,
+            alignItems: 'flex-end',
+          }}>
+            {/* Mode toggle */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                View mode
+              </div>
+              <div style={{ display: 'flex', gap: 4, background: 'var(--surface)', borderRadius: 8, padding: 3, border: '1px solid var(--border)' }}>
+                {(['day', 'range'] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => { setCustomMode(m); if (m === 'day') setCustomEnd(''); }}
+                    style={{
+                      padding: '5px 14px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                      fontSize: 12, fontWeight: 600,
+                      background: customMode === m ? 'var(--accent)' : 'transparent',
+                      color: customMode === m ? '#fff' : 'var(--text3)',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {m === 'day' ? 'Single Day' : 'Date Range'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Date inputs */}
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                  {customMode === 'day' ? 'Date' : 'From'}
+                </div>
+                <input
+                  type="date"
+                  value={customStart}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={e => setCustomStart(e.target.value)}
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    color: 'var(--text)',
+                    fontSize: 13,
+                    fontFamily: 'inherit',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                />
+              </div>
+
+              {customMode === 'range' && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                    To
+                  </div>
+                  <input
+                    type="date"
+                    value={customEnd}
+                    min={customStart}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={e => setCustomEnd(e.target.value)}
+                    style={{
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      padding: '8px 12px',
+                      color: 'var(--text)',
+                      fontSize: 13,
+                      fontFamily: 'inherit',
+                      outline: 'none',
+                      cursor: 'pointer',
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Quick range shortcuts */}
+              {customMode === 'range' && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                    Quick Select
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Last 7d',  days: 7  },
+                      { label: 'Last 14d', days: 14 },
+                      { label: 'Last 30d', days: 30 },
+                      { label: 'Last 90d', days: 90 },
+                    ].map(({ label, days }) => {
+                      const end   = new Date();
+                      const start = new Date();
+                      start.setDate(end.getDate() - (days - 1));
+                      const fmt = (d: Date) => d.toISOString().slice(0, 10);
+                      return (
+                        <button
+                          key={label}
+                          onClick={() => { setCustomStart(fmt(start)); setCustomEnd(fmt(end)); }}
+                          style={{
+                            padding: '5px 10px', borderRadius: 6, border: '1px solid var(--border)',
+                            background: 'var(--surface)', color: 'var(--text2)',
+                            fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                            transition: 'all 0.15s',
+                          }}
+                          onMouseOver={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                          onMouseOut={e  => (e.currentTarget.style.borderColor = 'var(--border)')}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Apply / Clear */}
+            <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'flex-end' }}>
+              {customStart && (
+                <button
+                  onClick={() => { setCustomStart(''); setCustomEnd(''); setPeriod('today'); setShowCustomPicker(false); }}
+                  className="btn btn-secondary btn-sm"
+                >
+                  ✕ Clear
+                </button>
+              )}
+              <button
+                onClick={() => setShowCustomPicker(false)}
+                className="btn btn-primary btn-sm"
+                disabled={!customStart}
+                style={{ opacity: customStart ? 1 : 0.4 }}
+              >
+                ✓ Apply
+              </button>
+            </div>
+
+            {/* Live preview of what period is selected */}
+            {customStart && (
+              <div style={{
+                width: '100%',
+                fontSize: 12, color: 'var(--accent)',
+                fontWeight: 600, paddingTop: 4,
+                borderTop: '1px solid var(--border)',
+              }}>
+                📊 Showing: <strong>{customLabel}</strong>
+                {customMode === 'range' && customStart && customEnd && (
+                  <span style={{ color: 'var(--text3)', fontWeight: 400, marginLeft: 8 }}>
+                    ({Math.round((new Date(customEnd).getTime() - new Date(customStart).getTime()) / 86400000) + 1} days)
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+      {/* END HEADER */}
 
       {/* LOSS ALERTS */}
       {lossAlerts.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
           {lossAlerts.map((a, i) => <AlertBanner key={i} level={a.severity} msg={a.msg} />)}
+        </div>
+      )}
+
+      {/* ── CUSTOM PERIOD BANNER ── */}
+      {period === 'custom' && customStart && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 12, flexWrap: 'wrap',
+          background: 'rgba(0,212,170,0.06)',
+          border: '1px solid rgba(0,212,170,0.2)',
+          borderRadius: 'var(--radius)',
+          padding: '11px 16px',
+          marginBottom: 16,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 18 }}>📅</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>
+                {customLabel}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>
+                {stats.succ.length} successful order{stats.succ.length !== 1 ? 's' : ''} · {fmt(stats.grossRevenue)} revenue · {fmt(stats.netProfit)} profit
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => setShowCustomPicker(v => !v)}
+              className="btn btn-secondary btn-sm"
+            >
+              ✏ Edit Dates
+            </button>
+            <button
+              onClick={() => { setCustomStart(''); setCustomEnd(''); setPeriod('today'); setShowCustomPicker(false); }}
+              className="btn btn-secondary btn-sm"
+              style={{ color: 'var(--err)' }}
+            >
+              ✕ Clear
+            </button>
+          </div>
         </div>
       )}
 
