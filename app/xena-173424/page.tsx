@@ -37,6 +37,7 @@ export default function AdminPage() {
   const [orderFilter, setOrderFilter] = useState('all');
   const [orderSearch, setOrderSearch] = useState('');
   const [agentFilter, setAgentFilter] = useState('all');
+  const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
   const [inactiveDays, setInactiveDays] = useState(30);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
@@ -160,6 +161,22 @@ export default function AdminPage() {
     });
     if (res.ok) { toast(`Agent ${status}`, 'success'); await loadAll(); }
     else toast('Failed', 'error');
+  }
+
+  async function bulkApproveAgents() {
+    if (selectedAgents.size === 0) return;
+    const ids = Array.from(selectedAgents);
+    let succeeded = 0;
+    await Promise.all(ids.map(async id => {
+      const res = await authFetch('/api/agents', {
+        method: 'PATCH',
+        body: JSON.stringify({ id, status: 'active' }),
+      });
+      if (res.ok) succeeded++;
+    }));
+    toast(`Approved ${succeeded} of ${ids.length} agent${ids.length !== 1 ? 's' : ''}`, succeeded === ids.length ? 'success' : 'warn');
+    setSelectedAgents(new Set());
+    await loadAll();
   }
 
   async function deleteAgent(id: string, authUserId: string) {
@@ -568,7 +585,7 @@ export default function AdminPage() {
               <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div className="tab-nav">
                   {(['all','pending','active','suspended','inactive'] as const).map(f => (
-                    <button key={f} className={`tab-btn${agentFilter === f ? ' active' : ''}`} onClick={() => setAgentFilter(f)}>
+                    <button key={f} className={`tab-btn${agentFilter === f ? ' active' : ''}`} onClick={() => { setAgentFilter(f); setSelectedAgents(new Set()); }}>
                       {f.charAt(0).toUpperCase() + f.slice(1)}
                       {f === 'pending' && pendingAgents > 0 && <span style={{ marginLeft: 6, background: 'var(--err)', color: '#fff', borderRadius: 100, fontSize: 10, padding: '1px 5px' }}>{pendingAgents}</span>}
                       {f === 'inactive' && inactiveCount > 0 && <span style={{ marginLeft: 6, background: '#f59e0b', color: '#000', borderRadius: 100, fontSize: 10, padding: '1px 5px' }}>{inactiveCount}</span>}
@@ -581,13 +598,57 @@ export default function AdminPage() {
                   <span>days</span>
                 </div>
               </div>
+
+              {/* Bulk action bar — only visible when pending agents are selected */}
+              {selectedAgents.size > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', marginBottom: 12, background: 'var(--accent-dim)', border: '1px solid rgba(0,212,170,0.3)', borderRadius: 'var(--radius)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
+                    {selectedAgents.size} agent{selectedAgents.size !== 1 ? 's' : ''} selected
+                  </span>
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)' }}
+                    onClick={bulkApproveAgents}
+                  >
+                    ✓ Approve All Selected
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setSelectedAgents(new Set())}
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              )}
               <div className="card">
                 <div className="table-wrap">
                   {filteredAgents.length === 0
                     ? <div className="empty"><div className="empty-icon">👥</div><div className="empty-title">No agents found</div></div>
                     : (
                       <table>
-                        <thead><tr><th>Agent</th><th>Store</th><th>Activity</th><th>Last Sale</th><th>Today</th><th>All-Time</th><th>Status</th><th>Actions</th></tr></thead>
+                        <thead><tr>
+                          <th style={{ width: 36 }}>
+                            {/* Select-all only shown when viewing pending agents */}
+                            {(agentFilter === 'pending' || agentFilter === 'all') && filteredAgents.some(a => a.status === 'pending') && (
+                              <input
+                                type="checkbox"
+                                style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+                                checked={filteredAgents.filter(a => a.status === 'pending').every(a => selectedAgents.has(a.id))}
+                                onChange={e => {
+                                  const pending = filteredAgents.filter(a => a.status === 'pending');
+                                  if (e.target.checked) {
+                                    setSelectedAgents(new Set([...selectedAgents, ...pending.map(a => a.id)]));
+                                  } else {
+                                    const next = new Set(selectedAgents);
+                                    pending.forEach(a => next.delete(a.id));
+                                    setSelectedAgents(next);
+                                  }
+                                }}
+                              />
+                            )}
+                          </th>
+                          <th>Agent</th><th>Store</th><th>Activity</th><th>Last Sale</th><th>Today</th><th>All-Time</th><th>Status</th><th>Actions</th>
+                        </tr></thead>
                         <tbody>
                           {filteredAgents.map(a => {
                             const s = agentStats[a.id];
@@ -595,6 +656,21 @@ export default function AdminPage() {
                             const dot = level === 'active' ? { color: 'var(--ok)', label: 'Active' } : level === 'slow' ? { color: '#f59e0b', label: 'Slow' } : { color: 'var(--err)', label: 'Inactive' };
                             return (
                               <tr key={a.id}>
+                                <td style={{ width: 36 }}>
+                                  {a.status === 'pending' && (
+                                    <input
+                                      type="checkbox"
+                                      style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+                                      checked={selectedAgents.has(a.id)}
+                                      onChange={e => {
+                                        const next = new Set(selectedAgents);
+                                        if (e.target.checked) next.add(a.id);
+                                        else next.delete(a.id);
+                                        setSelectedAgents(next);
+                                      }}
+                                    />
+                                  )}
+                                </td>
                                 <td>
                                   <div style={{ fontWeight: 600 }}>{a.name}</div>
                                   <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.email}</div>
