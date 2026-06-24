@@ -153,7 +153,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
   }, []);
 
   // Stable now reference — prevents all child memos from re-running on every render
-  const now = useMemo(() => new Date(), []); // eslint-disable-line
+  const now = useMemo(() => new Date(), []);
   const todayStr     = now.toISOString().slice(0, 10);
   const yesterdayStr = new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
 
@@ -183,9 +183,9 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
       return d >= start && d <= end;
     }
     return true; // alltime
-  }, [todayStr, yesterdayStr, now, customStart, customEnd, customMode]); // eslint-disable-line
+  }, [todayStr, yesterdayStr, now, customStart, customEnd, customMode]);
 
-  function computeStats(p: Period) {
+  const computeStats = useCallback(function(p: Period) {
     const periodOrders = orders.filter(o => inPeriod(o.created_at, p));
     const succ         = periodOrders.filter(o => o.status === 'success');
     const fail         = periodOrders.filter(o => o.status === 'failed');
@@ -275,9 +275,9 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
       byNetwork, bundles, agentStats,
       totalPeriodOrders: periodOrders.length,
     };
-  }
+  }, [orders, withdrawals, agents, inPeriod]);
 
-  const stats      = useMemo(() => computeStats(period),      [orders, withdrawals, agents, period, inPeriod]);   // eslint-disable-line
+  const stats      = useMemo(() => computeStats(period),      [computeStats, period]);
   // prevPeriod: alltime and custom compare to month as a sensible default
   const prevPeriod: Period = period === 'today' ? 'yesterday'
     : period === 'yesterday' ? 'week'
@@ -285,12 +285,12 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     : period === 'month' ? 'alltime'
     : period === 'custom' ? 'month'
     : 'month';
-  const prevStats      = useMemo(() => computeStats(prevPeriod),  [orders, withdrawals, agents, prevPeriod, inPeriod]);  // eslint-disable-line
-  const todayStats     = useMemo(() => computeStats('today'),     [orders, withdrawals, agents, inPeriod]);               // eslint-disable-line
-  const yesterdayStats = useMemo(() => computeStats('yesterday'), [orders, withdrawals, agents, inPeriod]);               // eslint-disable-line
-  const weekStats      = useMemo(() => computeStats('week'),      [orders, withdrawals, agents, inPeriod]);               // eslint-disable-line
-  const monthStats     = useMemo(() => computeStats('month'),     [orders, withdrawals, agents, inPeriod]);               // eslint-disable-line
-  const alltimeStats   = useMemo(() => computeStats('alltime'),   [orders, withdrawals, agents, inPeriod]);               // eslint-disable-line
+  const prevStats      = useMemo(() => computeStats(prevPeriod),  [computeStats, prevPeriod]);
+  const todayStats     = useMemo(() => computeStats('today'),     [computeStats]);
+  const yesterdayStats = useMemo(() => computeStats('yesterday'), [computeStats]);
+  const weekStats      = useMemo(() => computeStats('week'),      [computeStats]);
+  const monthStats     = useMemo(() => computeStats('month'),     [computeStats]);
+  const alltimeStats   = useMemo(() => computeStats('alltime'),   [computeStats]);
 
   // ── Platform position (always all-time, memoized) ────────────
   const platformPosition = useMemo(() => {
@@ -302,7 +302,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     const totalAgentEarned  = allSucc.reduce((s, o) => s + realAgentProfit(o), 0);
     const agentLiability    = Math.max(0, totalAgentEarned - paidOutAll - pendingWdAll);
     return { allSuccOrders: allSucc, totalAdminProfit, paidOutAll, pendingWdAll, pendingWdCount, totalAgentEarnedAll: totalAgentEarned, agentLiability };
-  }, [orders, withdrawals]); // eslint-disable-line
+  }, [orders, withdrawals]);
 
   const { allSuccOrders, totalAdminProfit, paidOutAll, pendingWdAll, pendingWdCount, totalAgentEarnedAll, agentLiability } = platformPosition;
   const netCapital   = totalAdminProfit;
@@ -322,7 +322,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
         count:   day.length,
       };
     });
-  }, [orders]); // eslint-disable-line
+  }, [orders]);
   const maxRev = Math.max(...last7.map(d => d.revenue), 1);
 
   // ── Trend data ────────────────────────────────────────────────
@@ -337,7 +337,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
       const prof = dayO.reduce((s, o) => s + (o.admin_profit || 0), 0);
       return { ds, label: d.toLocaleDateString('en-GH', { day: 'numeric', month: 'short' }), rev, cost, comm, prof };
     });
-  }, [orders, trendDays]); // eslint-disable-line
+  }, [orders, trendDays]);
   const maxTrendRev = Math.max(...trendData.map(d => d.rev), 1);
 
   // ── Failure stats (all-time) ──────────────────────────────────
@@ -359,7 +359,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     const rate      = orders.length > 0 ? (failed.length / orders.length) * 100 : 0;
     const todayFail = failed.filter(o => o.created_at?.slice(0, 10) === todayStr).length;
     return { failed, byNet, last7f, rate, todayFail };
-  }, [orders]); // eslint-disable-line
+  }, [orders]);
 
   // ── Forecast (last 30 days) ───────────────────────────────────
   const forecast = useMemo(() => {
@@ -378,7 +378,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     const prev7Rev  = last30.slice(0, 7).reduce((s, d) => s + d.rev, 0) / 7;
     const growthRate = prev7Rev > 0 ? ((last7Rev - prev7Rev) / prev7Rev) * 100 : 0;
     return { projRev: avgDailyRev * 30, projProf: avgDailyProf * 30, growthRate, avgDailyRev, avgDailyProf };
-  }, [orders]); // eslint-disable-line
+  }, [orders]);
 
   // ── Health score (all-time metrics only) ─────────────────────
   const healthData = useMemo(() => {
@@ -411,7 +411,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     if (delivFailRate > 0.1)                         reasons.push('High data delivery failure rate');
 
     return { score: Math.round(Math.min(100, Math.max(0, score))), reasons };
-  }, [orders, withdrawals, hubBalance, failStats]); // eslint-disable-line
+  }, [orders, withdrawals, hubBalance, failStats]);
 
   // ── Intelligent alerts ────────────────────────────────────────
   const intelligentAlerts = useMemo(() => {
@@ -433,7 +433,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     }
     if (list.length === 0) list.push({ level: 'info', title: 'All Systems Healthy', detail: 'No critical issues detected at this time.', action: 'Continue monitoring daily.' });
     return list;
-  }, [alltimeStats, failStats, hubBalance, pendingWdAll, pendingWdCount, netCapital, todayStats, orders, agents]); // eslint-disable-line
+  }, [alltimeStats, failStats, hubBalance, pendingWdAll, pendingWdCount, netCapital, todayStats, orders, agents]);
 
   // ── Loss alerts (period-based) ────────────────────────────────
   const periodLabels: Record<Period, string> = { today: 'Today', yesterday: 'Yesterday', week: 'This Week', month: 'This Month', alltime: 'All Time', custom: 'Custom' };
@@ -459,7 +459,7 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
     if (hubBalance !== null && hubBalance < 100) alerts.push({ severity: 'error', msg: `XpresPortal balance critically low: ${fmt(hubBalance)}` });
     if (stats.fail.length > stats.succ.length * 0.2 && stats.fail.length > 0) alerts.push({ severity: 'warn', msg: `High failure rate: ${stats.fail.length} failed vs ${stats.succ.length} successful orders` });
     return alerts;
-  }, [stats, hubBalance, periodLabel]); // eslint-disable-line
+  }, [stats, hubBalance, periodLabel]);
 
   // ── CSV export ────────────────────────────────────────────────
   function exportCSV() {
