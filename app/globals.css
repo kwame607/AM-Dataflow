@@ -1006,29 +1006,6 @@ tbody tr:hover td { background: var(--surface2); }
 .reg-step.active .reg-step-label { color: var(--accent); }
 
 /* ── MOBILE NAV ─────────────────────────────────────────────── */
-.mobile-nav {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  z-index: 100;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  padding: 10px 8px;
-  display: none;
-  justify-content: space-around;
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-}
-@media (max-width: 768px) { .mobile-nav { display: flex; } }
-.mob-btn {
-  display: flex; flex-direction: column;
-  align-items: center; gap: 4px;
-  font-size: 10px; font-weight: 600;
-  color: var(--text3);
-  transition: color 0.18s;
-  padding: 4px 10px;
-  border-radius: 8px;
-}
-.mob-btn.active { color: var(--accent); }
-.mob-btn svg { width: 20px; height: 20px; }
-
 /* ── SKELETON ───────────────────────────────────────────────── */
 .skeleton {
   background: linear-gradient(90deg, var(--surface2) 25%, var(--surface3) 50%, var(--surface2) 75%);
@@ -1064,7 +1041,7 @@ tbody tr:hover td { background: var(--surface2); }
   .topbar-title { font-size: 15px; }
   .main-content { margin-left: 0; }
   .menu-btn { display: flex; }
-  .page-body { padding: 14px 10px 90px; }
+  .page-body { padding: 14px 10px 24px; }
   .page-title { font-size: 18px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .stat-card { padding: 14px 14px; }
@@ -1084,7 +1061,7 @@ tbody tr:hover td { background: var(--surface2); }
 }
 @media (max-width: 400px) {
   .stats-grid { grid-template-columns: 1fr; }
-  .page-body  { padding: 10px 8px 90px; }
+  .page-body  { padding: 10px 8px 24px; }
   .topbar-right { gap: 6px; }
 }
 @media (min-width: 769px) { .desktop-hide { display: none !important; } }
