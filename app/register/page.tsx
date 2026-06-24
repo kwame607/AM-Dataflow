@@ -26,12 +26,51 @@ export default function RegisterPage() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [storeUrl, setStoreUrl] = useState('');
+  const [slugStatus, setSlugStatus] = useState<'idle'|'checking'|'available'|'taken'>('idle');
+  const [whatsappSame, setWhatsappSame] = useState(false);
 
   const set = (k: keyof FormData, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
+
+  // Debounce ref for slug check
+  const slugTimer = typeof window !== 'undefined' ? { current: 0 } : { current: 0 };
+
+  function checkSlugAvailability(slug: string) {
+    if (!slug || slug.length < 3) { setSlugStatus('idle'); return; }
+    setSlugStatus('checking');
+    clearTimeout(slugTimer.current);
+    slugTimer.current = window.setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/agents/check-slug?slug=${encodeURIComponent(slug)}`);
+        const d = await res.json();
+        setSlugStatus(d.available ? 'available' : 'taken');
+      } catch { setSlugStatus('idle'); }
+    }, 500) as unknown as number;
+  }
 
   function autoSlug(name: string) {
     const s = slugify(name);
     set('slug', s);
+    checkSlugAvailability(s);
+  }
+
+  // Password strength scorer (0-4)
+  function passwordStrength(pw: string): { score: number; label: string; color: string } {
+    if (!pw) return { score: 0, label: '', color: 'var(--border)' };
+    let score = 0;
+    if (pw.length >= 8)  score++;
+    if (pw.length >= 12) score++;
+    if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    score = Math.min(4, score);
+    const map = [
+      { label: 'Too short',  color: 'var(--err)'  },
+      { label: 'Weak',       color: 'var(--err)'  },
+      { label: 'Fair',       color: 'var(--warn)' },
+      { label: 'Good',       color: '#60a5fa'     },
+      { label: 'Strong',     color: 'var(--ok)'   },
+    ];
+    return { score, ...map[score] };
   }
 
   function stepClass(n: number) {
@@ -51,6 +90,8 @@ export default function RegisterPage() {
   function validate2() {
     if (!form.storeName.trim()) { setErr('Enter your store name'); return false; }
     if (!form.slug || !/^[a-z0-9]+$/.test(form.slug)) { setErr('Slug: lowercase letters and numbers only'); return false; }
+    if (slugStatus === 'taken') { setErr('That store URL is already taken — choose a different one'); return false; }
+    if (slugStatus === 'checking') { setErr('Please wait — checking if that URL is available'); return false; }
     return true;
   }
 
@@ -162,12 +203,40 @@ export default function RegisterPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Call Number <span style={{ color: 'var(--accent)' }}>*</span></label>
-                <input className="form-input" type="tel" placeholder="0241234567" maxLength={10} value={form.phone} onChange={e => set('phone', e.target.value)} />
+                <input className="form-input" type="tel" placeholder="0241234567" maxLength={10} value={form.phone}
+                  onChange={e => {
+                    set('phone', e.target.value);
+                    if (whatsappSame) set('whatsapp', e.target.value);
+                  }} />
                 <div className="form-hint">Customers will call you on this number</div>
               </div>
               <div className="form-group">
                 <label className="form-label">WhatsApp Number <span style={{ color: 'var(--accent)' }}>*</span></label>
-                <input className="form-input" type="tel" placeholder="0241234567" maxLength={10} value={form.whatsapp} onChange={e => set('whatsapp', e.target.value)} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    id="whatsapp-same"
+                    checked={whatsappSame}
+                    style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+                    onChange={e => {
+                      setWhatsappSame(e.target.checked);
+                      if (e.target.checked) set('whatsapp', form.phone);
+                    }}
+                  />
+                  <label htmlFor="whatsapp-same" style={{ fontSize: 12, color: 'var(--text2)', cursor: 'pointer' }}>
+                    Same as call number
+                  </label>
+                </div>
+                <input
+                  className="form-input"
+                  type="tel"
+                  placeholder="0241234567"
+                  maxLength={10}
+                  value={form.whatsapp}
+                  disabled={whatsappSame}
+                  style={{ opacity: whatsappSame ? 0.5 : 1 }}
+                  onChange={e => set('whatsapp', e.target.value)}
+                />
                 <div className="form-hint">Customers will contact you via this number</div>
               </div>
               {err && <div className="alert alert-error" style={{ marginBottom: 12 }}>{err}</div>}
@@ -193,8 +262,20 @@ export default function RegisterPage() {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--text3)', whiteSpace: 'nowrap' }}>/store/</span>
                   <input className="form-input" placeholder="kofidatahub" value={form.slug}
-                    onChange={e => set('slug', e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20))} />
+                    onChange={e => {
+                      const val = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20);
+                      set('slug', val);
+                      checkSlugAvailability(val);
+                    }} />
                 </div>
+                {/* Slug availability indicator */}
+                {form.slug.length >= 3 && (
+                  <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                    {slugStatus === 'checking' && <><span className="spinner" style={{ width: 12, height: 12 }} /><span style={{ color: 'var(--text3)' }}>Checking availability…</span></>}
+                    {slugStatus === 'available' && <><span style={{ color: 'var(--ok)' }}>✓</span><span style={{ color: 'var(--ok)', fontWeight: 600 }}>Available! This URL is yours.</span></>}
+                    {slugStatus === 'taken' && <><span style={{ color: 'var(--err)' }}>✕</span><span style={{ color: 'var(--err)', fontWeight: 600 }}>Already taken — try a different name</span></>}
+                  </div>
+                )}
               </div>
               {form.slug && (
                 <div className="copy-box" style={{ marginBottom: 16 }}>
@@ -216,6 +297,24 @@ export default function RegisterPage() {
               <div className="form-group">
                 <label className="form-label">Password</label>
                 <input className="form-input" type="password" placeholder="Min 8 characters" value={form.password} onChange={e => set('password', e.target.value)} />
+                {/* Password strength meter */}
+                {form.password.length > 0 && (() => {
+                  const { score, label, color } = passwordStrength(form.password);
+                  return (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                        {[1,2,3,4].map(i => (
+                          <div key={i} style={{
+                            flex: 1, height: 4, borderRadius: 100,
+                            background: i <= score ? color : 'var(--surface3)',
+                            transition: 'background 0.2s',
+                          }} />
+                        ))}
+                      </div>
+                      <div style={{ fontSize: 11, color, fontWeight: 600 }}>{label}</div>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="form-group">
                 <label className="form-label">Confirm Password</label>
