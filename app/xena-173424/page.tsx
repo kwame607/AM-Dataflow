@@ -637,9 +637,9 @@ export default function AdminPage() {
                                 onChange={e => {
                                   const pending = filteredAgents.filter(a => a.status === 'pending');
                                   if (e.target.checked) {
-                                    setSelectedAgents(new Set([...selectedAgents, ...pending.map(a => a.id)]));
+                                    setSelectedAgents(new Set(Array.from(selectedAgents).concat(pending.map(a => a.id))));
                                   } else {
-                                    const next = new Set(selectedAgents);
+                                    const next = new Set(Array.from(selectedAgents));
                                     pending.forEach(a => next.delete(a.id));
                                     setSelectedAgents(next);
                                   }
