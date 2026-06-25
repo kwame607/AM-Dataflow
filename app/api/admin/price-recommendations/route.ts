@@ -167,40 +167,40 @@ Return ONLY valid JSON in this exact format, no other text:
 }`;
 
     // ── 5. Call Gemini 1.5 Flash (free tier) ──────────────────
-    const geminiKey = process.env.GEMINI_API_KEY || '';
-    if (!geminiKey) {
-      return NextResponse.json({ error: 'GEMINI_API_KEY not configured in environment variables' }, { status: 503 });
+    // ── 5. Call Groq (free tier — Llama 3.3 70B) ──────────────
+    const groqKey = process.env.GROQ_API_KEY || '';
+    if (!groqKey) {
+      return NextResponse.json({ error: 'GROQ_API_KEY not configured in environment variables' }, { status: 503 });
     }
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 2000,
-          },
-        }),
-      }
-    );
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${groqKey}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.4,
+        max_tokens: 2000,
+      }),
+    });
 
-    const geminiData = await geminiRes.json();
-    console.log('[price-recommendations] Gemini status:', geminiRes.status);
+    const groqData = await groqRes.json();
+    console.log('[price-recommendations] Groq status:', groqRes.status);
 
-    if (!geminiRes.ok) {
-      console.error('[price-recommendations] Gemini error:', JSON.stringify(geminiData));
-      return NextResponse.json({ error: 'Gemini API error: ' + (geminiData?.error?.message || 'Unknown') }, { status: 502 });
+    if (!groqRes.ok) {
+      console.error('[price-recommendations] Groq error:', JSON.stringify(groqData));
+      return NextResponse.json({ error: 'Groq API error: ' + (groqData?.error?.message || 'Unknown') }, { status: 502 });
     }
 
-    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const rawText = groqData.choices?.[0]?.message?.content || '';
     if (!rawText) {
-      return NextResponse.json({ error: 'Gemini returned empty response' }, { status: 502 });
+      return NextResponse.json({ error: 'Groq returned empty response' }, { status: 502 });
     }
 
-    // Strip markdown fences if Gemini wrapped the JSON
+    // Strip markdown fences if Groq wrapped the JSON
     const clean = rawText.replace(/```json\n?|```\n?/g, '').trim();
     const recommendations = JSON.parse(clean);
 
