@@ -14,6 +14,7 @@ import { AdminAiInsights } from '@/components/AdminAiInsights';
 import { AdminCustomerInsights } from '@/components/AdminCustomerInsights';
 import { ProviderToggle } from '@/components/ProviderToggle';
 import { DeliverySpeedWidget } from '@/components/DeliverySpeedWidget';
+import { PriceRecommendationsWidget } from '@/components/PriceRecommendationsWidget';
 
 type Tab = 'overview' | 'orders' | 'agents' | 'prices' | 'withdrawals' | 'settings' | 'finance' | 'support';
 
@@ -723,6 +724,14 @@ export default function AdminPage() {
           {/* BASE PRICES */}
           {tab === 'prices' && (
             <div>
+            <PriceRecommendationsWidget
+  authFetch={authFetch}
+  toast={toast}
+  onApply={(key, price) => {
+    setStoreEdits(prev => ({ ...prev, [key]: String(price) }));
+    setPriceEdits(prev => ({ ...prev, [key]: String(price) }));
+  }}
+  />
               <div className="alert alert-info" style={{ marginBottom: 16 }}>
                 <span>ℹ</span>
                 <span><strong>My Store Price</strong> = what customers pay on your main ADMUNZ store. <strong>Agent Min</strong> = the lowest price agents are allowed to charge. These are independent — set them separately.</span>

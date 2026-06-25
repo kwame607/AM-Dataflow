@@ -25,6 +25,7 @@ import { CustomerInsights } from '@/components/CustomerInsights';
 import { AiInsightsWidget } from '@/components/AiInsightsWidget';
 import { RevenueChart } from '@/components/RevenueChart';
 import { DeliverySpeedWidget } from '@/components/DeliverySpeedWidget';
+import { PriceRecommendationsWidget } from '@/components/PriceRecommendationsWidget';
 
 type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support' | 'account';
 
@@ -580,6 +581,12 @@ export default function DashboardPage() {
           {/* ── MY PRICES ── */}
           {tab === 'prices' && (
             <div>
+            <PriceRecommendationsWidget
+  agentId={agent?.id}
+  authFetch={authFetch}
+  toast={toast}
+  onApply={(key, price) => setPriceEdits(prev => ({ ...prev, [key]: String(price) }))}
+/>
               <div className="card" style={{ marginBottom: 20 }}>
                 <div className="card-header">
                   <div className="card-title">Bulk Markup</div>
