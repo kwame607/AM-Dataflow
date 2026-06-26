@@ -897,9 +897,31 @@ export default function AdminPage() {
           >
             🔔 Test Low Wallet Alert
           </button>
+          <button
+  className="btn btn-secondary btn-sm"
+  onClick={async () => {
+    const r = await authFetch('/api/cron/daily-summary');
+    const d = await r.json();
+    toast(d.ok ? `Daily summary sent! ${d.orders} orders, GHS ${d.revenue?.toFixed(2)}` : d.error, d.ok ? 'success' : 'error');
+  }}
+>
+  📊 Test Daily Summary
+</button>
+
+<button
+  className="btn btn-secondary btn-sm"
+  onClick={async () => {
+    const r = await authFetch('/api/cron/weekly-summary');
+    const d = await r.json();
+    toast(d.ok ? `Weekly summary sent! ${d.orders} orders, GHS ${d.revenue?.toFixed(2)}` : d.error, d.ok ? 'success' : 'error');
+  }}
+>
+  📈 Test Weekly Summary
+</button>
         </div>
       </div>
     </div>
+    
 
     <div>
       <div className="card" style={{ marginBottom: 16 }}>
