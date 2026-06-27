@@ -15,6 +15,7 @@ import { AdminCustomerInsights } from '@/components/AdminCustomerInsights';
 import { ProviderToggle } from '@/components/ProviderToggle';
 import { DeliverySpeedWidget } from '@/components/DeliverySpeedWidget';
 import { PriceRecommendationsWidget } from '@/components/PriceRecommendationsWidget';
+import { AdminReferralPanel } from '@/components/AdminReferralPanel';
 
 type Tab = 'overview' | 'orders' | 'agents' | 'prices' | 'withdrawals' | 'settings' | 'finance' | 'support';
 
@@ -849,6 +850,7 @@ export default function AdminPage() {
          {/* SETTINGS */}
 {tab === 'settings' && (
   <>
+    <AdminReferralPanel authFetch={authFetch} toast={toast} />
     <ProviderToggle authFetch={authFetch} toast={toast} />
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="card-header">
