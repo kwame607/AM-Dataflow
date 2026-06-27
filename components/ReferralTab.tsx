@@ -22,7 +22,7 @@ interface ReferralData {
 interface Props {
   agentId:   string;
   authFetch: (url: string, options?: RequestInit) => Promise<Response>;
-  toast:     (msg: string, type?: 'success' | 'error' | 'info' | 'warn') => void;
+  toast:     (msg: string, type?: 'success' | 'error' | 'info' | 'warn', duration?: number) => void;
 }
 
 const fmt = (n: number) => `₵${n.toFixed(2)}`;
