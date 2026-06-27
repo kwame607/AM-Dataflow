@@ -1,9 +1,10 @@
+// app/api/agents/register/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
-    const { firstName, lastName, email, phone, whatsapp, storeName, slug, password } = await req.json();
+    const { firstName, lastName, email, phone, whatsapp, storeName, slug, password, referredBy } = await req.json();
 
     if (!firstName || !lastName || !email || !phone || !storeName || !slug || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -17,24 +18,24 @@ export async function POST(req: NextRequest) {
 
     // Check slug uniqueness
     const { data: existingSlug } = await supabase
-      .from('agents')
-      .select('id')
-      .eq('slug', slug)
-      .single();
-
+      .from('agents').select('id').eq('slug', slug).single();
     if (existingSlug) {
       return NextResponse.json({ error: 'This store URL slug is already taken' }, { status: 400 });
     }
 
     // Check email uniqueness
     const { data: existingEmail } = await supabase
-      .from('agents')
-      .select('id')
-      .eq('email', email)
-      .single();
-
+      .from('agents').select('id').eq('email', email).single();
     if (existingEmail) {
       return NextResponse.json({ error: 'An account with this email already exists' }, { status: 400 });
+    }
+
+    // Validate referral slug if provided
+    let validReferredBy: string | null = null;
+    if (referredBy && typeof referredBy === 'string') {
+      const { data: referrer } = await supabase
+        .from('agents').select('id, slug').eq('slug', referredBy).eq('status', 'active').single();
+      if (referrer) validReferredBy = referrer.slug;
     }
 
     // Create Supabase auth user
@@ -48,27 +49,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: authError?.message || 'Failed to create account' }, { status: 500 });
     }
 
-    // Create agent profile
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const { error: agentError } = await supabase.from('agents').insert({
       auth_user_id: authData.user.id,
-      name: `${firstName} ${lastName}`,
+      name:         `${firstName} ${lastName}`,
       email,
       phone,
-      whatsapp: whatsapp || phone,
+      whatsapp:     whatsapp || phone,
       slug,
-      store_name: storeName,
-      status: 'active',
+      store_name:   storeName,
+      status:       'active',
+      referred_by:  validReferredBy,
     });
 
     if (agentError) {
-      console.error('Agent insert error:', agentError);
       await supabase.auth.admin.deleteUser(authData.user.id);
       return NextResponse.json({ error: `Failed to create agent profile: ${agentError.message}` }, { status: 500 });
     }
 
     return NextResponse.json({
-      success: true,
+      success:  true,
       storeUrl: `${siteUrl}/store/${slug}`,
     });
   } catch (e) {

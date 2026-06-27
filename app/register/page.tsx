@@ -1,7 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { slugify } from '@/lib/utils';
 import { useSimpleToast } from '@/components/ui/Toast';
 
@@ -19,8 +20,9 @@ const init: FormData = {
   storeName: '', slug: '', password: '', confirmPassword: '', terms: false,
 };
 
-export default function RegisterPage() {
+function RegisterPageInner() {
   const { toast, ToastContainer } = useSimpleToast();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>(1);
   const [form, setForm] = useState<FormData>(init);
   const [err, setErr] = useState('');
@@ -28,6 +30,19 @@ export default function RegisterPage() {
   const [storeUrl, setStoreUrl] = useState('');
   const [slugStatus, setSlugStatus] = useState<'idle'|'checking'|'available'|'taken'>('idle');
   const [whatsappSame, setWhatsappSame] = useState(false);
+  const [referredBy, setReferredBy] = useState<string | null>(null);
+  const [referrerName, setReferrerName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (!ref) return;
+    setReferredBy(ref);
+    // Verify the referrer exists and get their name for display
+    fetch(`/api/agents/store?slug=${encodeURIComponent(ref)}`)
+      .then(r => r.json())
+      .then(d => { if (d.agent) setReferrerName(d.agent.store_name || d.agent.name); })
+      .catch(() => {});
+  }, [searchParams]);
 
   const set = (k: keyof FormData, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 
@@ -119,6 +134,7 @@ export default function RegisterPage() {
           storeName: form.storeName,
           slug: form.slug,
           password: form.password,
+          referredBy: referredBy || undefined,
         }),
       });
       const data = await res.json();
@@ -152,7 +168,17 @@ export default function RegisterPage() {
         {/* Benefits */}
         <div className="auth-card" style={{ marginBottom: 20 }}>
           <h2 style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, marginBottom: 6 }}>Become a Reseller Agent</h2>
-          <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Get your own branded store and earn on every data sale.</p>
+          <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: referredBy ? 12 : 20 }}>Get your own branded store and earn on every data sale.</p>
+
+          {/* Referral banner */}
+          {referredBy && (
+            <div style={{ background: 'var(--accent-dim)', border: '1px solid rgba(0,212,170,0.3)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+              <span style={{ fontSize: 18 }}>🎁</span>
+              <span style={{ color: 'var(--text)' }}>
+                You were invited by <strong style={{ color: 'var(--accent)' }}>{referrerName || referredBy}</strong>
+              </span>
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {[
               { icon: '🏪', title: 'Your Own Store', text: 'Custom link to share' },
@@ -358,5 +384,13 @@ export default function RegisterPage() {
 
       <ToastContainer />
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg)' }} />}>
+      <RegisterPageInner />
+    </Suspense>
   );
 }

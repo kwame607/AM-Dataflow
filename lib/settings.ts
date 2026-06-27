@@ -3,11 +3,6 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server';
 
 export type DeliveryProvider = 'xpresportal' | 'hubnet';
 
-/**
- * Reads the currently active delivery provider from app_settings.
- * Falls back to 'xpresportal' if the row is missing or the query fails —
- * never silently break order delivery because of a settings hiccup.
- */
 export async function getActiveProvider(): Promise<DeliveryProvider> {
   try {
     const supabase = createSupabaseAdminClient();
@@ -16,13 +11,9 @@ export async function getActiveProvider(): Promise<DeliveryProvider> {
       .select('active_provider')
       .eq('id', 1)
       .single();
-
     if (error || !data?.active_provider) return 'xpresportal';
     return data.active_provider === 'hubnet' ? 'hubnet' : 'xpresportal';
-  } catch (e) {
-    console.error('[settings] getActiveProvider error:', e);
-    return 'xpresportal';
-  }
+  } catch { return 'xpresportal'; }
 }
 
 export async function setActiveProvider(provider: DeliveryProvider): Promise<{ ok: boolean; error?: string }> {
@@ -32,21 +23,38 @@ export async function setActiveProvider(provider: DeliveryProvider): Promise<{ o
       .from('app_settings')
       .update({ active_provider: provider, updated_at: new Date().toISOString() })
       .eq('id', 1);
-
     if (error) return { ok: false, error: error.message };
     return { ok: true };
-  } catch (e) {
-    return { ok: false, error: String(e) };
-  }
+  } catch (e) { return { ok: false, error: String(e) }; }
 }
 
-/**
- * Decides which provider should handle a given order.
- * Telecel is hardcoded to XpresPortal regardless of the toggle — Hubnet's
- * transaction endpoint does not actually accept telecel as a network value,
- * even though their docs list it in the general network reference table.
- */
 export async function resolveProviderForOrder(network: string): Promise<DeliveryProvider> {
   if (network === 'telecel') return 'xpresportal';
   return getActiveProvider();
+}
+
+// ── Referral percentage ───────────────────────────────────────
+export async function getReferralPct(): Promise<number> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data } = await supabase
+      .from('app_settings')
+      .select('referral_pct')
+      .eq('id', 1)
+      .single();
+    return parseFloat(String(data?.referral_pct ?? 10));
+  } catch { return 10; }
+}
+
+export async function setReferralPct(pct: number): Promise<{ ok: boolean; error?: string }> {
+  if (pct < 0 || pct > 50) return { ok: false, error: 'Percentage must be between 0 and 50' };
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { error } = await supabase
+      .from('app_settings')
+      .update({ referral_pct: pct, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e) { return { ok: false, error: String(e) }; }
 }
