@@ -438,7 +438,7 @@ export default function DashboardPage() {
 
 {agent && (
   <WhatsAppMessageGenerator
-    agent={{ id: agent.id, name: agent.store_name || agent.name, slug: agent.slug, whatsapp: agent.whatsapp, phone: agent.phone }}
+    agent={{ id: agent.id, name: agent.name, slug: agent.slug, whatsapp: agent.whatsapp, phone: agent.phone }}
     orders={orders}
     agentPrices={agentPrices}
     siteUrl={siteUrl}
