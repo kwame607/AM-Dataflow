@@ -26,6 +26,9 @@ import { AiInsightsWidget } from '@/components/AiInsightsWidget';
 import { RevenueChart } from '@/components/RevenueChart';
 import { DeliverySpeedWidget } from '@/components/DeliverySpeedWidget';
 import { PriceRecommendationsWidget } from '@/components/PriceRecommendationsWidget';
+import { AgentPerformanceCoach } from '@/components/AgentPerformanceCoach';
+import { WhatsAppMessageGenerator } from '@/components/WhatsAppMessageGenerator';
+
 
 type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support' | 'account';
 
@@ -423,7 +426,25 @@ export default function DashboardPage() {
                   ))}
                 </div>
               )}
+		{agent && (
+  <AgentPerformanceCoach
+    agent={{ id: agent.id, name: agent.name, slug: agent.slug }}
+    orders={orders}
+    withdrawals={withdrawals}
+    agentPrices={agentPrices}
+    authFetch={authFetch}
+  />
+)}
 
+{agent && (
+  <WhatsAppMessageGenerator
+    agent={{ id: agent.id, name: agent.store_name || agent.name, slug: agent.slug, whatsapp: agent.whatsapp, phone: agent.phone }}
+    orders={orders}
+    agentPrices={agentPrices}
+    siteUrl={siteUrl}
+    authFetch={authFetch}
+  />
+)}
               {dataLoading ? (
                 <RevenueChartSkeleton />
               ) : (
