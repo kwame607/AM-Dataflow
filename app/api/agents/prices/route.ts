@@ -1,17 +1,50 @@
+// app/api/agents/prices/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
+import { getDefaultAdminPrice } from '@/lib/bundles';
 
 export async function GET(req: NextRequest) {
   const agentId = req.nextUrl.searchParams.get('agentId');
   if (!agentId) return NextResponse.json({ error: 'Missing agentId' }, { status: 400 });
 
   const supabase = createSupabaseAdminClient();
-  const { data } = await supabase
+
+  // Get agent's own prices
+  const { data: agentPrices } = await supabase
     .from('agent_prices')
     .select('*')
     .eq('agent_id', agentId);
 
-  return NextResponse.json(data || []);
+  // Check if this agent was referred by someone who has custom sub-agent floors
+  const { data: agent } = await supabase
+    .from('agents')
+    .select('referred_by')
+    .eq('id', agentId)
+    .single();
+
+  let subagentFloors: Record<string, number> = {};
+
+  if (agent?.referred_by) {
+    const { data: referrer } = await supabase
+      .from('agents')
+      .select('id, can_set_subagent_prices')
+      .eq('slug', agent.referred_by)
+      .single();
+
+    if (referrer?.can_set_subagent_prices) {
+      const { data: floors } = await supabase
+        .from('subagent_floor_prices')
+        .select('bundle_key, agent_floor')
+        .eq('agent_id', referrer.id);
+
+      (floors || []).forEach(f => { subagentFloors[f.bundle_key] = f.agent_floor; });
+    }
+  }
+
+  return NextResponse.json({
+    prices: agentPrices || [],
+    subagentFloors, // referrer's floors = this agent's minimums
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -23,35 +56,57 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
 
-    // Verify agent exists
-    const { data: agent } = await supabase.from('agents').select('id').eq('id', agentId).single();
+    const { data: agent } = await supabase
+      .from('agents').select('id, referred_by').eq('id', agentId).single();
     if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
 
-    // Get admin prices as floor
+    // Get admin floors
     const { data: adminPrices } = await supabase.from('admin_prices').select('*');
-    const floorMap: Record<string, number> = {};
+    const adminMap: Record<string, number> = {};
     (adminPrices || []).forEach((p: { bundle_key: string; selling_price: number }) => {
-      floorMap[p.bundle_key] = p.selling_price;
+      adminMap[p.bundle_key] = p.selling_price;
     });
+
+    // Get sub-agent floors from referrer (if any)
+    let subagentFloors: Record<string, number> = {};
+    if (agent.referred_by) {
+      const { data: referrer } = await supabase
+        .from('agents')
+        .select('id, can_set_subagent_prices')
+        .eq('slug', agent.referred_by)
+        .single();
+
+      if (referrer?.can_set_subagent_prices) {
+        const { data: floors } = await supabase
+          .from('subagent_floor_prices')
+          .select('bundle_key, agent_floor')
+          .eq('agent_id', referrer.id);
+        (floors || []).forEach(f => { subagentFloors[f.bundle_key] = f.agent_floor; });
+      }
+    }
 
     const rows = prices.map((p: {
       bundleKey: string; network: string; size: string;
       volume: string; hubnetCost: number; adminPrice: number;
       agentPrice: number; validity: string;
     }) => {
-      const floor = floorMap[p.bundleKey] ?? p.adminPrice;
-      const agentPrice = Math.max(p.agentPrice, floor);
+      // Floor is whichever is higher: admin floor or referrer's sub-agent floor
+      const adminFloor    = adminMap[p.bundleKey] ?? getDefaultAdminPrice(p.hubnetCost);
+      const subFloor      = subagentFloors[p.bundleKey] ?? 0;
+      const effectiveFloor = Math.max(adminFloor, subFloor);
+      const agentPrice    = Math.max(p.agentPrice, effectiveFloor);
+
       return {
-        agent_id: agentId,
-        bundle_key: p.bundleKey,
-        network: p.network,
-        size: p.size,
-        volume: p.volume,
+        agent_id:    agentId,
+        bundle_key:  p.bundleKey,
+        network:     p.network,
+        size:        p.size,
+        volume:      p.volume,
         hubnet_cost: p.hubnetCost,
         admin_price: p.adminPrice,
         agent_price: agentPrice,
-        validity: p.validity,
-        updated_at: new Date().toISOString(),
+        validity:    p.validity,
+        updated_at:  new Date().toISOString(),
       };
     });
 

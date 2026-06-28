@@ -709,6 +709,19 @@ export default function AdminPage() {
                                     {a.status === 'active' && <button className="btn btn-sm" style={{ background: 'var(--warn-dim)', color: 'var(--warn)', border: '1px solid var(--warn)' }} onClick={() => updateAgent(a.id, 'suspended')}>Suspend</button>}
                                     {a.status === 'suspended' && <button className="btn btn-sm" style={{ background: 'var(--ok-dim)', color: 'var(--ok)', border: '1px solid var(--ok)' }} onClick={() => updateAgent(a.id, 'active')}>Reactivate</button>}
                                     <button className="btn btn-sm" style={{ background: 'var(--err-dim)', color: 'var(--err)', border: '1px solid var(--err)' }} onClick={() => deleteAgent(a.id, a.auth_user_id || '')}>Delete</button>
+                                    <button
+  className="btn btn-sm"
+  style={{ background: a.can_set_subagent_prices ? 'var(--ok-dim)' : 'var(--surface2)', color: a.can_set_subagent_prices ? 'var(--ok)' : 'var(--text3)', border: '1px solid var(--border)' }}
+  onClick={async () => {
+    const r = await authFetch('/api/agents/subagent-prices', {
+      method: 'PATCH',
+      body: JSON.stringify({ agentId: a.id, canSet: !a.can_set_subagent_prices }),
+    });
+    if ((await r.json()).success) { toast(`Sub-agent pricing ${!a.can_set_subagent_prices ? 'enabled' : 'disabled'}`, 'success'); await loadAll(); }
+  }}
+>
+  {a.can_set_subagent_prices ? '✓ Sub-Prices On' : 'Sub-Prices Off'}
+</button>
                                   </div>
                                 </td>
                               </tr>

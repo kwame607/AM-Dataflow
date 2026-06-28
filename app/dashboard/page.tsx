@@ -29,8 +29,9 @@ import { PriceRecommendationsWidget } from '@/components/PriceRecommendationsWid
 import { AgentPerformanceCoach } from '@/components/AgentPerformanceCoach';
 import { WhatsAppMessageGenerator } from '@/components/WhatsAppMessageGenerator';
 import { ReferralTab } from '@/components/ReferralTab';
+import { SubAgentPricingTab } from '@/components/SubAgentPricingTab';
 
-type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support' | 'account' | 'referral';
+type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support' | 'account' | 'referral' | 'subagent-prices';
 
 export default function DashboardPage() {
   const { toast, ToastContainer } = useSimpleToast();
@@ -294,6 +295,14 @@ export default function DashboardPage() {
   label: 'Referral',
   icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>,
 },
+// After the referral nav item, add:
+...(agent?.can_set_subagent_prices ? [{
+  id: 'subagent-prices' as Tab,
+  label: 'Sub-Agent Prices',
+  icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+  </svg>,
+}] : []),
   ];
 
   const filteredOrders = orders
@@ -867,6 +876,10 @@ export default function DashboardPage() {
     authFetch={authFetch}
     toast={toast}
   />
+)}
+	   {/* ── SUBAGENT PRICING ── */}
+	   {tab === 'subagent-prices' && agent && (
+  <SubAgentPricingTab agentId={agent.id} authFetch={authFetch} toast={toast} />
 )}
 
         </div>
