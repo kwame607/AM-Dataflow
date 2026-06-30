@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     totalEarned:    parseFloat(totalEarned.toFixed(2)),
+    committed:      0, // bonuses now go straight to wallet, no separate withdrawal commitment tracked here
     available:      wallet?.balance ?? 0,
     earnings:       credited,
     referredAgents: referred || [],
