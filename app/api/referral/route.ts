@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, requireAdmin } from '@/lib/auth-guard';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
-import { getReferralBalance } from '@/lib/referral';
 import { getReferralPct, setReferralPct } from '@/lib/settings';
 
 // GET /api/referral?agentId=xxx — agent fetches their own referral stats
@@ -12,24 +11,22 @@ export async function GET(req: NextRequest) {
   const agentId = params.get('agentId');
   const isAdmin = params.get('admin') === '1';
 
+  const supabase = createSupabaseAdminClient();
+
   if (isAdmin) {
     const auth = await requireAdmin(req);
     if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const supabase = createSupabaseAdminClient();
-
-    // All referral earnings with agent names
     const { data: earnings } = await supabase
       .from('referral_earnings')
       .select(`
-        id, bonus_amount, pct, referred_profit, created_at,
+        id, bonus_amount, pct, referred_profit, created_at, status,
         referrer:referrer_id(id, name, slug),
         referred:referred_id(id, name, slug)
       `)
       .order('created_at', { ascending: false })
       .limit(200);
 
-    // All agents who were referred
     const { data: referredAgents } = await supabase
       .from('agents')
       .select('id, name, slug, referred_by, created_at, status')
@@ -46,10 +43,27 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuth(req);
   if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const balance = await getReferralBalance(agentId);
+  // Build the agent's referral balance directly from referral_earnings
+  // (replaces the old getReferralBalance helper which no longer exists
+  // after lib/referral.ts was rebuilt with the wallet-based money model)
+  const { data: earningsRows } = await supabase
+    .from('referral_earnings')
+    .select('bonus_amount, created_at, referred_id, status')
+    .eq('referrer_id', agentId)
+    .order('created_at', { ascending: false });
 
-  // Also get who this agent has referred
-  const supabase = createSupabaseAdminClient();
+  const credited = (earningsRows || []).filter(e => e.status === 'credited');
+  const totalEarned = credited.reduce((s, e) => s + (e.bonus_amount || 0), 0);
+
+  // Referral bonuses are now credited straight to the agent's wallet
+  // (lib/referral.ts -> creditReferralBonus), so "available" reflects
+  // the same wallet balance rather than a separate withdrawal ledger.
+  const { data: wallet } = await supabase
+    .from('wallets')
+    .select('balance')
+    .eq('agent_id', agentId)
+    .single();
+
   const { data: agent } = await supabase
     .from('agents')
     .select('slug')
@@ -65,10 +79,12 @@ export async function GET(req: NextRequest) {
   const pct = await getReferralPct();
 
   return NextResponse.json({
-    ...balance,
+    totalEarned:    parseFloat(totalEarned.toFixed(2)),
+    available:      wallet?.balance ?? 0,
+    earnings:       credited,
     referredAgents: referred || [],
     pct,
-    referralSlug: agent?.slug || '',
+    referralSlug:   agent?.slug || '',
   });
 }
 
