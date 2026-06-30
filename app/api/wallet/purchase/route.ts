@@ -1,16 +1,4 @@
-// app/api/wallet/purchase/route.ts — NEW FILE
-//
-// Handles placing an order paid for from wallet balance.
-// Mirrors the logic in /api/paystack/verify but skips Paystack entirely:
-// funds are deducted from the wallet atomically, then delivery is attempted
-// via XpresPortal exactly like the Paystack flow.
-//
-// SAFETY: The deduction below is a single conditional UPDATE — it only
-// affects a row if the balance at write-time still matches what was read
-// AND still covers the purchase amount. This is a compare-and-swap pattern
-// that prevents double-spending from two concurrent requests without
-// needing a database transaction or separate RPC function.
-
+// app/api/wallet/purchase/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth-guard';
@@ -18,6 +6,7 @@ import { xpresOrder } from '@/lib/xpresportal';
 import { getBundleByKey, getDefaultAdminPrice, getXpresParams } from '@/lib/bundles';
 import { rateLimit, getIp } from '@/lib/rate-limit';
 import { genRef } from '@/lib/utils';
+import { creditReferralBonus, reverseReferralBonus } from '@/lib/referral';
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
@@ -42,13 +31,6 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
 
-    // ── Ownership check — the authenticated user must own this agent/wallet ──
-    const { data: agentRow } = await supabase.from('agents').select('auth_user_id').eq('id', agentId).single();
-    if (!agentRow || agentRow.auth_user_id !== auth.userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    // ── Resolve pricing exactly like the Paystack verify route ──
     const { data: adminPriceRow } = await supabase
       .from('admin_prices')
       .select('selling_price, admin_profit')
@@ -58,11 +40,10 @@ export async function POST(req: NextRequest) {
     const adminPrice  = adminPriceRow?.selling_price ?? getDefaultAdminPrice(bundle.cost);
     const adminProfit = adminPriceRow?.admin_profit ?? (adminPrice - bundle.cost);
     const finalAgentPrice = agentPrice ?? adminPrice;
-    const agentProfit = source === 'agent' ? finalAgentPrice - adminPrice : 0;
+    const grossAgentProfit = source === 'agent' ? finalAgentPrice - adminPrice : 0;
 
     const reference = genRef('WAL');
 
-    // ── Fetch wallet ─────────────────────────────────────────
     const { data: wallet } = await supabase
       .from('wallets')
       .select('*')
@@ -79,11 +60,6 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // ── ATOMIC DEDUCTION ────────────────────────────────────
-    // Conditional update: only succeeds if balance is still >= amount
-    // at the time of the write. This prevents a race where two
-    // concurrent requests both pass the balance check above but
-    // only one should actually succeed.
     const newBalance = wallet.balance - finalAgentPrice;
     const { data: deducted, error: deductErr } = await supabase
       .from('wallets')
@@ -93,7 +69,7 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', wallet.id)
-      .eq('balance', wallet.balance) // optimistic lock — fails if balance changed since we read it
+      .eq('balance', wallet.balance)
       .gte('balance', finalAgentPrice)
       .select()
       .single();
@@ -104,7 +80,6 @@ export async function POST(req: NextRequest) {
       }, { status: 409 });
     }
 
-    // ── Record the deduction transaction ────────────────────
     const { data: walletTxn, error: txnErr } = await supabase
       .from('wallet_transactions')
       .insert({
@@ -123,7 +98,6 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (txnErr) {
-      // Roll back the deduction since we couldn't record the ledger entry
       await supabase.from('wallets').update({
         balance: wallet.balance,
         total_spent: wallet.total_spent,
@@ -132,7 +106,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to record transaction' }, { status: 500 });
     }
 
-    // ── Create the order (mirrors paystack/verify) ──────────
+    let agentRowId: string | null = null;
+    let referrerAgentId: string | null = null;
+    if (source === 'agent' && agentSlug) {
+      const { data: agentRow } = await supabase.from('agents').select('id, referred_by').eq('slug', agentSlug).single();
+      if (agentRow) {
+        agentRowId = agentRow.id;
+        if (agentRow.referred_by) {
+          const { data: referrer } = await supabase.from('agents').select('id').eq('slug', agentRow.referred_by).single();
+          referrerAgentId = referrer?.id || null;
+        }
+      }
+    }
+
     const { data: order, error: orderErr } = await supabase
       .from('orders')
       .insert({
@@ -146,13 +132,10 @@ export async function POST(req: NextRequest) {
         admin_price: adminPrice,
         admin_profit: adminProfit,
         agent_price: finalAgentPrice,
-        agent_profit: agentProfit,
-        // Wallet purchases are always self-service: the agent is spending
-        // their own preloaded wallet balance, so agent_id is always the
-        // wallet owner — no slug lookup needed (that pattern is only for
-        // customer-facing storefront orders going through Paystack).
-        agent_id: agentId,
+        agent_profit: grossAgentProfit,
+        agent_id: agentRowId || (source !== 'agent' ? null : agentId),
         agent_slug: agentSlug || null,
+        referrer_agent_id: referrerAgentId,
         source: source || 'agent',
         status: 'success',
         delivery_status: 'pending',
@@ -164,13 +147,27 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (orderErr) {
-      // Refund the wallet since the order failed to save
       await refundWallet(supabase, wallet.id, agentId, finalAgentPrice, reference, 'Order save failed — auto refund');
       console.error('[wallet purchase] order insert error, refunded:', orderErr);
       return NextResponse.json({ error: 'Failed to save order — wallet refunded' }, { status: 500 });
     }
 
-    // ── Attempt delivery ─────────────────────────────────────
+    // Credit referral bonus — deducts from sub-agent's profit, credits referrer's wallet
+    if (agentRowId && grossAgentProfit > 0) {
+      try {
+        const netProfit = await creditReferralBonus(supabase, order.id, agentRowId, grossAgentProfit);
+        if (netProfit !== grossAgentProfit) {
+          const bonusPaid = parseFloat((grossAgentProfit - netProfit).toFixed(2));
+          await supabase.from('orders').update({
+            agent_profit:   netProfit,
+            referral_bonus: bonusPaid,
+          }).eq('id', order.id);
+        }
+      } catch (e) {
+        console.error('[wallet purchase] referral credit error:', e);
+      }
+    }
+
     const rawUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
     const siteUrl = rawUrl && !rawUrl.includes('localhost')
       ? rawUrl
@@ -190,15 +187,15 @@ export async function POST(req: NextRequest) {
           hubnet_transaction_id: xpresResult.orderId || xpresResult.reference || null,
         }).eq('id', order.id);
       } else {
-        // Delivery failed — auto refund the wallet (per refund system requirement)
+        // Delivery failed — auto refund the wallet AND reverse the referral bonus
         await supabase.from('orders').update({ delivery_status: 'failed' }).eq('id', order.id);
         await refundWallet(supabase, wallet.id, agentId, finalAgentPrice, reference, `Refund: delivery failed for ${reference}`);
+        await reverseReferralBonus(supabase, order.id);
       }
     } catch (xpresErr) {
       console.error('[wallet purchase] xpresOrder threw:', xpresErr);
       await supabase.from('orders').update({ delivery_status: 'pending' }).eq('id', order.id);
-      // Leave funds deducted; admin can retry delivery. If retry ultimately
-      // fails, the retry-delivery route should also trigger a refund (see below).
+      // Leave funds deducted; admin can retry delivery via retry-delivery route.
     }
 
     return NextResponse.json({
@@ -212,7 +209,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── Shared refund helper ────────────────────────────────────
 async function refundWallet(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   walletId: string,

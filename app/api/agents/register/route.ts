@@ -16,29 +16,31 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
 
-    // Check slug uniqueness
     const { data: existingSlug } = await supabase
       .from('agents').select('id').eq('slug', slug).single();
     if (existingSlug) {
       return NextResponse.json({ error: 'This store URL slug is already taken' }, { status: 400 });
     }
 
-    // Check email uniqueness
     const { data: existingEmail } = await supabase
       .from('agents').select('id').eq('email', email).single();
     if (existingEmail) {
       return NextResponse.json({ error: 'An account with this email already exists' }, { status: 400 });
     }
 
-    // Validate referral slug if provided
+    // Validate referral slug — silently ignore if invalid, never block registration.
+    // Guard against self-referral (someone manually editing the URL to ?ref=their-own-future-slug,
+    // though normally impossible since the slug doesn't exist yet — still worth guarding).
     let validReferredBy: string | null = null;
     if (referredBy && typeof referredBy === 'string') {
-      const { data: referrer } = await supabase
-        .from('agents').select('id, slug').eq('slug', referredBy).eq('status', 'active').single();
-      if (referrer) validReferredBy = referrer.slug;
+      const cleanRef = referredBy.trim().toLowerCase();
+      if (cleanRef !== slug) {
+        const { data: referrer } = await supabase
+          .from('agents').select('id, slug').eq('slug', cleanRef).eq('status', 'active').single();
+        if (referrer) validReferredBy = referrer.slug;
+      }
     }
 
-    // Create Supabase auth user
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,

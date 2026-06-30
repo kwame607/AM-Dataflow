@@ -1,5 +1,4 @@
 // components/AdminReferralPanel.tsx
-// Drop into the admin Settings tab to manage the referral programme.
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,7 +17,9 @@ const fmt = (n: number) => `₵${n.toFixed(2)}`;
 export function AdminReferralPanel({ authFetch, toast }: Props) {
   const [pct, setPct]               = useState<number>(10);
   const [editPct, setEditPct]       = useState('10');
+  const [enabled, setEnabled]       = useState(true);
   const [savingPct, setSavingPct]   = useState(false);
+  const [savingToggle, setSavingToggle] = useState(false);
   const [referredAgents, setAgents] = useState<ReferredAgent[]>([]);
   const [totalEarnings, setTotal]   = useState(0);
   const [loading, setLoading]       = useState(true);
@@ -35,6 +36,11 @@ export function AdminReferralPanel({ authFetch, toast }: Props) {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    authFetch('/api/admin/referral-settings')
+      .then(r => r.json())
+      .then(d => { if (typeof d.referralEnabled === 'boolean') setEnabled(d.referralEnabled); })
+      .catch(() => {});
   }, [authFetch]);
 
   async function savePct() {
@@ -42,9 +48,9 @@ export function AdminReferralPanel({ authFetch, toast }: Props) {
     if (isNaN(val) || val < 0 || val > 50) { toast('Enter a value between 0 and 50', 'warn'); return; }
     setSavingPct(true);
     try {
-      const r = await authFetch('/api/referral', {
+      const r = await authFetch('/api/admin/referral-settings', {
         method: 'PATCH',
-        body:   JSON.stringify({ pct: val }),
+        body:   JSON.stringify({ referralPct: val }),
       });
       const d = await r.json();
       if (!r.ok) { toast(d.error || 'Failed to save', 'error'); return; }
@@ -54,19 +60,47 @@ export function AdminReferralPanel({ authFetch, toast }: Props) {
     finally { setSavingPct(false); }
   }
 
+  async function toggleEnabled() {
+    setSavingToggle(true);
+    const next = !enabled;
+    try {
+      const r = await authFetch('/api/admin/referral-settings', {
+        method: 'PATCH',
+        body:   JSON.stringify({ referralEnabled: next }),
+      });
+      const d = await r.json();
+      if (!r.ok) { toast(d.error || 'Failed to update', 'error'); return; }
+      setEnabled(next);
+      toast(`Referral programme ${next ? 'enabled' : 'disabled'}`, 'success');
+    } catch { toast('Network error', 'error'); }
+    finally { setSavingToggle(false); }
+  }
+
+  // Margin safety check: warn if pct is high enough that small-margin
+  // bundles could leave sub-agents with near-zero net profit, which
+  // discourages them from selling those bundles at all.
+  const showMarginWarning = pct >= 15;
+
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="card-header">
         <div>
           <div className="card-title">🎁 Referral Programme</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-            Agents earn a % of profit from agents they refer
+            Agents earn a % of profit from sub-agents they refer — deducted from the sub-agent's own profit, not platform margin
           </div>
         </div>
+        <button
+          className="btn btn-sm"
+          style={{ background: enabled ? 'var(--ok-dim)' : 'var(--err-dim)', color: enabled ? 'var(--ok)' : 'var(--err)', border: `1px solid ${enabled ? 'var(--ok)' : 'var(--err)'}` }}
+          onClick={toggleEnabled}
+          disabled={savingToggle}
+        >
+          {savingToggle ? <span className="spinner" style={{ width: 12, height: 12 }} /> : (enabled ? '✓ Enabled' : '✕ Disabled')}
+        </button>
       </div>
       <div className="card-body">
 
-        {/* Stats row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: 10, marginBottom: 20 }}>
           {[
             { label: 'Current Rate',      val: `${pct}%`,                          color: 'var(--accent)' },
@@ -80,7 +114,17 @@ export function AdminReferralPanel({ authFetch, toast }: Props) {
           ))}
         </div>
 
-        {/* Rate editor */}
+        {showMarginWarning && (
+          <div className="alert alert-warn" style={{ marginBottom: 16, fontSize: 13 }}>
+            <span>⚠️</span>
+            <span>
+              At {pct}% referral commission, sub-agents on thin-margin bundles could be left with very little net profit
+              after the bonus is deducted, which may discourage them from selling those bundles. Consider keeping the
+              rate at 10% or below unless your agent margins are comfortably wide.
+            </span>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
           <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>Referral Rate (%)</label>
           <input
@@ -93,10 +137,17 @@ export function AdminReferralPanel({ authFetch, toast }: Props) {
           <button className="btn btn-primary btn-sm" onClick={savePct} disabled={savingPct}>
             {savingPct ? <><span className="spinner" /> Saving…</> : 'Save Rate'}
           </button>
-          <span style={{ fontSize: 12, color: 'var(--text3)' }}>Applies to all future earnings (0–50%)</span>
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>Bonus comes out of the sub-agent's own profit, not your margin</span>
         </div>
 
-        {/* Referral relationships table */}
+        <div className="alert alert-info" style={{ marginBottom: 16, fontSize: 12 }}>
+          <span>ℹ️</span>
+          <span>
+            Agents with <strong>Sub-Agent Pricing</strong> enabled don't earn referral commission — they control their
+            sub-agents' minimum prices instead. The two systems are mutually exclusive per agent.
+          </span>
+        </div>
+
         {referredAgents.length > 0 ? (
           <div className="table-wrap">
             <table>

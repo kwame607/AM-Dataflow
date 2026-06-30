@@ -61,38 +61,48 @@ export async function POST(req: NextRequest) {
     const adminProfit = adminPriceRow?.admin_profit  ?? (adminPrice - bundle.cost);
 
     let agentId: string | null = null;
-    let agentProfit = 0;
+    let referrerAgentId: string | null = null;
+    let grossAgentProfit = 0;
     const agentPrice = orderData.agentPrice ?? adminPrice;
 
     if (orderData.source === 'agent' && orderData.agentSlug) {
       const { data: agent } = await supabase
-        .from('agents').select('id').eq('slug', orderData.agentSlug).single();
+        .from('agents').select('id, referred_by').eq('slug', orderData.agentSlug).single();
       if (agent) {
-        agentId     = agent.id;
-        agentProfit = agentPrice - adminPrice;
+        agentId          = agent.id;
+        grossAgentProfit = agentPrice - adminPrice;
+
+        // Resolve referrer's agent ID for the audit trail column (if any)
+        if (agent.referred_by) {
+          const { data: referrer } = await supabase
+            .from('agents').select('id').eq('slug', agent.referred_by).single();
+          referrerAgentId = referrer?.id || null;
+        }
       }
     }
 
+    // Insert order with gross profit first — may be adjusted below
     const { data: order, error: orderErr } = await supabase
       .from('orders')
       .insert({
         reference,
-        phone:           orderData.phone,
-        network:         orderData.network,
-        bundle_key:      orderData.bundleKey,
-        size:            bundle.size,
-        volume:          bundle.volume,
-        hubnet_cost:     bundle.cost,
-        admin_price:     adminPrice,
-        admin_profit:    adminProfit,
-        agent_price:     agentPrice,
-        agent_profit:    agentProfit,
-        agent_id:        agentId,
-        agent_slug:      orderData.agentSlug || null,
-        source:          orderData.source || 'main',
-        status:          'success',
-        delivery_status: 'pending',
-        paystack_ref:    reference,
+        phone:              orderData.phone,
+        network:            orderData.network,
+        bundle_key:         orderData.bundleKey,
+        size:               bundle.size,
+        volume:             bundle.volume,
+        hubnet_cost:        bundle.cost,
+        admin_price:        adminPrice,
+        admin_profit:       adminProfit,
+        agent_price:        agentPrice,
+        agent_profit:       grossAgentProfit,
+        agent_id:           agentId,
+        agent_slug:         orderData.agentSlug || null,
+        referrer_agent_id:  referrerAgentId,
+        source:             orderData.source || 'main',
+        status:             'success',
+        delivery_status:    'pending',
+        paystack_ref:       reference,
       })
       .select('id')
       .single();
@@ -101,10 +111,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to save order', detail: orderErr.message }, { status: 500 });
     }
 
-    // Credit referral bonus (non-blocking — runs in background)
-    if (agentId && agentProfit > 0) {
-      creditReferralBonus({ orderId: order.id, agentId, agentProfit })
-        .catch(e => console.error('[verify] referral credit error:', e));
+    // Credit referral bonus — deducts from sub-agent's profit, credits referrer's wallet.
+    // Returns the NET profit the sub-agent keeps (may equal gross if no referrer applies).
+    if (agentId && grossAgentProfit > 0) {
+      try {
+        const netProfit = await creditReferralBonus(supabase, order.id, agentId, grossAgentProfit);
+        if (netProfit !== grossAgentProfit) {
+          const bonusPaid = parseFloat((grossAgentProfit - netProfit).toFixed(2));
+          await supabase.from('orders').update({
+            agent_profit:   netProfit,
+            referral_bonus: bonusPaid,
+          }).eq('id', order.id);
+        }
+      } catch (e) {
+        console.error('[verify] referral credit error:', e);
+        // Non-fatal — order keeps gross profit if referral crediting fails
+      }
     }
 
     // Attempt delivery

@@ -9,13 +9,11 @@ export async function GET(req: NextRequest) {
 
   const supabase = createSupabaseAdminClient();
 
-  // Get agent's own prices
   const { data: agentPrices } = await supabase
     .from('agent_prices')
     .select('*')
     .eq('agent_id', agentId);
 
-  // Check if this agent was referred by someone who has custom sub-agent floors
   const { data: agent } = await supabase
     .from('agents')
     .select('referred_by')
@@ -43,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     prices: agentPrices || [],
-    subagentFloors, // referrer's floors = this agent's minimums
+    subagentFloors,
   });
 }
 
@@ -60,14 +58,13 @@ export async function POST(req: NextRequest) {
       .from('agents').select('id, referred_by').eq('id', agentId).single();
     if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
 
-    // Get admin floors
     const { data: adminPrices } = await supabase.from('admin_prices').select('*');
     const adminMap: Record<string, number> = {};
     (adminPrices || []).forEach((p: { bundle_key: string; selling_price: number }) => {
       adminMap[p.bundle_key] = p.selling_price;
     });
 
-    // Get sub-agent floors from referrer (if any)
+    // Get sub-agent floors from referrer (if they have custom pricing enabled)
     let subagentFloors: Record<string, number> = {};
     if (agent.referred_by) {
       const { data: referrer } = await supabase
@@ -90,23 +87,25 @@ export async function POST(req: NextRequest) {
       volume: string; hubnetCost: number; adminPrice: number;
       agentPrice: number; validity: string;
     }) => {
-      // Floor is whichever is higher: admin floor or referrer's sub-agent floor
-      const adminFloor    = adminMap[p.bundleKey] ?? getDefaultAdminPrice(p.hubnetCost);
-      const subFloor      = subagentFloors[p.bundleKey] ?? 0;
+      // Effective Floor = MAX(admin_floor, subagent_floor) — per spec section 5.1
+      const adminFloor     = adminMap[p.bundleKey] ?? getDefaultAdminPrice(p.hubnetCost);
+      const subFloor       = subagentFloors[p.bundleKey] ?? 0;
       const effectiveFloor = Math.max(adminFloor, subFloor);
-      const agentPrice    = Math.max(p.agentPrice, effectiveFloor);
+      const agentPrice     = Math.max(p.agentPrice, effectiveFloor);
+      const floorSource    = subFloor > adminFloor ? 'subagent' : 'admin';
 
       return {
-        agent_id:    agentId,
-        bundle_key:  p.bundleKey,
-        network:     p.network,
-        size:        p.size,
-        volume:      p.volume,
-        hubnet_cost: p.hubnetCost,
-        admin_price: p.adminPrice,
-        agent_price: agentPrice,
-        validity:    p.validity,
-        updated_at:  new Date().toISOString(),
+        agent_id:     agentId,
+        bundle_key:   p.bundleKey,
+        network:      p.network,
+        size:         p.size,
+        volume:       p.volume,
+        hubnet_cost:  p.hubnetCost,
+        admin_price:  p.adminPrice,
+        agent_price:  agentPrice,
+        validity:     p.validity,
+        floor_source: floorSource,
+        updated_at:   new Date().toISOString(),
       };
     });
 
