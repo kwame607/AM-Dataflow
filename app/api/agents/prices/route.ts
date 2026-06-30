@@ -14,19 +14,20 @@ export async function GET(req: NextRequest) {
     .select('*')
     .eq('agent_id', agentId);
 
+  // Use referred_by_id (stable UUID) — not the mutable slug
   const { data: agent } = await supabase
     .from('agents')
-    .select('referred_by')
+    .select('referred_by_id')
     .eq('id', agentId)
     .single();
 
   let subagentFloors: Record<string, number> = {};
 
-  if (agent?.referred_by) {
+  if (agent?.referred_by_id) {
     const { data: referrer } = await supabase
       .from('agents')
       .select('id, can_set_subagent_prices')
-      .eq('slug', agent.referred_by)
+      .eq('id', agent.referred_by_id)
       .single();
 
     if (referrer?.can_set_subagent_prices) {
@@ -39,10 +40,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({
-    prices: agentPrices || [],
-    subagentFloors,
-  });
+  return NextResponse.json({ prices: agentPrices || [], subagentFloors });
 }
 
 export async function POST(req: NextRequest) {
@@ -55,7 +53,11 @@ export async function POST(req: NextRequest) {
     const supabase = createSupabaseAdminClient();
 
     const { data: agent } = await supabase
-      .from('agents').select('id, referred_by').eq('id', agentId).single();
+      .from('agents')
+      .select('referred_by_id')
+      .eq('id', agentId)
+      .single();
+
     if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
 
     const { data: adminPrices } = await supabase.from('admin_prices').select('*');
@@ -64,13 +66,13 @@ export async function POST(req: NextRequest) {
       adminMap[p.bundle_key] = p.selling_price;
     });
 
-    // Get sub-agent floors from referrer (if they have custom pricing enabled)
+    // Get sub-agent floors via stable UUID lookup
     let subagentFloors: Record<string, number> = {};
-    if (agent.referred_by) {
+    if (agent.referred_by_id) {
       const { data: referrer } = await supabase
         .from('agents')
         .select('id, can_set_subagent_prices')
-        .eq('slug', agent.referred_by)
+        .eq('id', agent.referred_by_id)
         .single();
 
       if (referrer?.can_set_subagent_prices) {
@@ -87,7 +89,6 @@ export async function POST(req: NextRequest) {
       volume: string; hubnetCost: number; adminPrice: number;
       agentPrice: number; validity: string;
     }) => {
-      // Effective Floor = MAX(admin_floor, subagent_floor) — per spec section 5.1
       const adminFloor     = adminMap[p.bundleKey] ?? getDefaultAdminPrice(p.hubnetCost);
       const subFloor       = subagentFloors[p.bundleKey] ?? 0;
       const effectiveFloor = Math.max(adminFloor, subFloor);
@@ -113,13 +114,10 @@ export async function POST(req: NextRequest) {
       .from('agent_prices')
       .upsert(rows, { onConflict: 'agent_id,bundle_key' });
 
-    if (error) {
-      console.error('agent_prices upsert error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
   } catch (e) {
-    console.error('agent_prices POST exception:', e);
+    console.error('[agent_prices POST]', e);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

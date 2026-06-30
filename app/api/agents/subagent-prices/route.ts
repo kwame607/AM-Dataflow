@@ -4,38 +4,31 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server';
 import { requireAuth, requireAdmin } from '@/lib/auth-guard';
 import { ALL_BUNDLES, getDefaultAdminPrice } from '@/lib/bundles';
 
-// ── GET — fetch floor prices set by a referring agent ─────────
-// Used by two callers:
-//   1. The referrer themselves (to see/edit their sub-agent floors)
-//   2. A sub-agent (to find out what their minimum prices are)
 export async function GET(req: NextRequest) {
   const params    = req.nextUrl.searchParams;
-  const agentId   = params.get('agentId');   // referrer's ID
-  const subAgent  = params.get('subAgentId'); // sub-agent requesting their floors
+  const agentId   = params.get('agentId');
+  const subAgent  = params.get('subAgentId');
 
   const supabase = createSupabaseAdminClient();
 
-  // Sub-agent looking up their floors based on who referred them
   if (subAgent) {
     const auth = await requireAuth(req);
     if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Find who referred this sub-agent
     const { data: agent } = await supabase
       .from('agents')
-      .select('referred_by')
+      .select('referred_by_id')
       .eq('id', subAgent)
       .single();
 
-    if (!agent?.referred_by) {
+    if (!agent?.referred_by_id) {
       return NextResponse.json({ floors: [], hasCustomFloors: false });
     }
 
-    // Find the referrer
     const { data: referrer } = await supabase
       .from('agents')
       .select('id, can_set_subagent_prices')
-      .eq('slug', agent.referred_by)
+      .eq('id', agent.referred_by_id)
       .single();
 
     if (!referrer || !referrer.can_set_subagent_prices) {
@@ -50,7 +43,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ floors: floors || [], hasCustomFloors: (floors || []).length > 0 });
   }
 
-  // Referrer viewing/editing their own sub-agent floors
   if (agentId) {
     const auth = await requireAuth(req);
     if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -70,7 +62,6 @@ export async function GET(req: NextRequest) {
       .select('*')
       .eq('agent_id', agentId);
 
-    // Also get current admin floors for reference
     const { data: adminPrices } = await supabase
       .from('admin_prices')
       .select('bundle_key, selling_price');
@@ -84,7 +75,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ error: 'Missing agentId or subAgentId' }, { status: 400 });
 }
 
-// ── POST — referrer saves their sub-agent floor prices ────────
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
   if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -97,7 +87,6 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
 
-    // Verify agent is allowed to set sub-agent prices
     const { data: agent } = await supabase
       .from('agents')
       .select('can_set_subagent_prices')
@@ -108,7 +97,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authorised to set sub-agent prices' }, { status: 403 });
     }
 
-    // Get admin floors to enforce minimum
     const { data: adminPrices } = await supabase
       .from('admin_prices')
       .select('bundle_key, selling_price');
@@ -116,13 +104,12 @@ export async function POST(req: NextRequest) {
     const adminMap: Record<string, number> = {};
     (adminPrices || []).forEach(p => { adminMap[p.bundle_key] = p.selling_price; });
 
-    // Build rows — enforce ≥ admin floor
     const rows = prices.map((p: {
       bundleKey: string; network: string; size: string;
       volume: string; hubnetCost: number; agentFloor: number; validity: string;
     }) => {
       const adminFloor = adminMap[p.bundleKey] ?? getDefaultAdminPrice(p.hubnetCost);
-      const agentFloor = Math.max(p.agentFloor, adminFloor); // never below admin floor
+      const agentFloor = Math.max(p.agentFloor, adminFloor);
       return {
         agent_id:    agentId,
         bundle_key:  p.bundleKey,
@@ -149,7 +136,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── PATCH — admin toggles can_set_subagent_prices for an agent ─
+// PATCH — admin toggles can_set_subagent_prices for an agent
 export async function PATCH(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -161,6 +148,25 @@ export async function PATCH(req: NextRequest) {
     }
 
     const supabase = createSupabaseAdminClient();
+
+    // FIRST-LEVEL ONLY: block enabling sub-agent pricing for any agent
+    // who was themselves referred (i.e. they are already a sub-agent).
+    // Only agents who signed up directly via the main store (no referrer)
+    // may be granted sub-agent pricing — prevents 3+ level chains.
+    if (canSet) {
+      const { data: agent } = await supabase
+        .from('agents')
+        .select('referred_by_id')
+        .eq('id', agentId)
+        .single();
+
+      if (agent?.referred_by_id) {
+        return NextResponse.json({
+          error: 'This agent was referred by someone else — sub-agent pricing can only be enabled for agents who signed up directly via the main store (first level only).',
+        }, { status: 400 });
+      }
+    }
+
     const { error } = await supabase
       .from('agents')
       .update({ can_set_subagent_prices: canSet, updated_at: new Date().toISOString() })

@@ -17,6 +17,7 @@ import { DeliverySpeedWidget } from '@/components/DeliverySpeedWidget';
 import { PriceRecommendationsWidget } from '@/components/PriceRecommendationsWidget';
 import { AdminReferralPanel } from '@/components/AdminReferralPanel';
 import { AdminReferralsTab } from '@/components/AdminReferralsTab';
+import { AgentReferralBadge } from '@/components/AgentReferralBadge';
 
 type Tab = 'overview' | 'orders' | 'agents' | 'prices' | 'withdrawals' | 'settings' | 'finance' | 'support' | 'referrals';
 
@@ -680,9 +681,16 @@ export default function AdminPage() {
                                   )}
                                 </td>
                                 <td>
-                                  <div style={{ fontWeight: 600 }}>{a.name}</div>
-                                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.email}</div>
-                                </td>
+  <div style={{ fontWeight: 600 }}>{a.name}</div>
+  <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+    {a.email}
+  </div>
+
+  <AgentReferralBadge
+    referredBy={a.referred_by}
+    referredById={a.referred_by_id}
+  />
+</td>
                                 <td><a href={`/store/${a.slug}`} style={{ color: 'var(--accent)', fontSize: 12 }} target="_blank" rel="noopener noreferrer">/store/{a.slug}</a></td>
                                 <td>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
