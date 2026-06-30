@@ -5,6 +5,7 @@ import { deliverBundle } from '@/lib/delivery';
 import { getBundleByKey } from '@/lib/bundles';
 import { rateLimit, getIp } from '@/lib/rate-limit';
 import { RetryDeliverySchema } from '@/lib/validate';
+import { reverseReferralBonus } from '@/lib/referral';
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req);
@@ -41,23 +42,18 @@ export async function POST(req: NextRequest) {
     const bundle = getBundleByKey(order.bundle_key);
     if (!bundle) return NextResponse.json({ error: 'Bundle not found' }, { status: 400 });
 
-    // Mark as processing while we attempt
     await supabase.from('orders').update({ delivery_status: 'processing' }).eq('id', order.id);
 
-    // Retry re-resolves the provider via the CURRENT toggle/network rules
-    // (not whatever provider failed last time) — this is the whole point of
-    // having two providers: if XpresPortal is stuck, switch to Hubnet and
-    // retry pushes it through the now-active one.
     const result = await deliverBundle({
       bundle,
-      network: order.network,
-      phone: order.phone,
+      network:   order.network,
+      phone:     order.phone,
       reference: order.reference,
     });
 
     if (result.success) {
       await supabase.from('orders').update({
-        delivery_status: 'processing',
+        delivery_status:   'processing',
         delivery_provider: result.provider,
         hubnet_transaction_id: result.orderId || result.reference || null,
       }).eq('id', order.id);
@@ -66,7 +62,6 @@ export async function POST(req: NextRequest) {
         message: `Delivery sent via ${result.provider === 'hubnet' ? 'Hubnet' : 'XpresPortal'} — awaiting confirmation`,
       });
     } else {
-      // Check if the provider is saying it already has this order
       const alreadySubmitted =
         result.message?.toLowerCase().includes('already') ||
         result.message?.toLowerCase().includes('duplicate') ||
@@ -74,7 +69,7 @@ export async function POST(req: NextRequest) {
 
       if (alreadySubmitted) {
         await supabase.from('orders').update({
-          delivery_status: 'processing',
+          delivery_status:   'processing',
           delivery_provider: result.provider,
         }).eq('id', order.id);
         return NextResponse.json({
@@ -84,9 +79,15 @@ export async function POST(req: NextRequest) {
       }
 
       await supabase.from('orders').update({
-        delivery_status: 'failed',
+        delivery_status:   'failed',
         delivery_provider: result.provider,
       }).eq('id', order.id);
+
+      if (order.payment_method === 'wallet') {
+        await refundWalletForOrder(supabase, order);
+        await reverseReferralBonus(supabase, order.id);
+      }
+
       return NextResponse.json({
         success: false,
         message: result.message || `${result.provider === 'hubnet' ? 'Hubnet' : 'XpresPortal'} rejected the request`,
@@ -96,4 +97,38 @@ export async function POST(req: NextRequest) {
     console.error('[retry-delivery]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+async function refundWalletForOrder(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  order: { id: string; agent_id: string | null; agent_price: number; reference: string },
+) {
+  if (!order.agent_id) return;
+
+  const { data: wallet } = await supabase
+    .from('wallets')
+    .select('*')
+    .eq('agent_id', order.agent_id)
+    .single();
+
+  if (!wallet) return;
+
+  const newBalance = wallet.balance + order.agent_price;
+  await supabase.from('wallets').update({
+    balance:     newBalance,
+    total_spent: Math.max(0, wallet.total_spent - order.agent_price),
+    updated_at:  new Date().toISOString(),
+  }).eq('id', wallet.id);
+
+  await supabase.from('wallet_transactions').insert({
+    wallet_id:      wallet.id,
+    agent_id:       order.agent_id,
+    type:           'refund',
+    amount:         order.agent_price,
+    balance_before: wallet.balance,
+    balance_after:  newBalance,
+    reference:      `RFD-${order.reference}`,
+    status:         'success',
+    description:    `Refund: delivery failed after retry for ${order.reference}`,
+  });
 }

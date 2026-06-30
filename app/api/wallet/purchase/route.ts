@@ -2,8 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient } from '@/lib/supabase-server';
 import { requireAuth } from '@/lib/auth-guard';
-import { xpresOrder } from '@/lib/xpresportal';
-import { getBundleByKey, getDefaultAdminPrice, getXpresParams } from '@/lib/bundles';
+import { deliverBundle } from '@/lib/delivery';
+import { getBundleByKey, getDefaultAdminPrice } from '@/lib/bundles';
 import { rateLimit, getIp } from '@/lib/rate-limit';
 import { genRef } from '@/lib/utils';
 import { creditReferralBonus, reverseReferralBonus } from '@/lib/referral';
@@ -152,7 +152,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to save order — wallet refunded' }, { status: 500 });
     }
 
-    // Credit referral bonus — deducts from sub-agent's profit, credits referrer's wallet
     if (agentRowId && grossAgentProfit > 0) {
       try {
         const netProfit = await creditReferralBonus(supabase, order.id, agentRowId, grossAgentProfit);
@@ -168,34 +167,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const rawUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
-    const siteUrl = rawUrl && !rawUrl.includes('localhost')
-      ? rawUrl
-      : process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
-
-    const { network: xpresNetwork, offerSlug, volumeGB } = getXpresParams({ ...bundle, network });
-    const webhookUrl = siteUrl
-      ? `${siteUrl}/api/xpresportal/webhook?internalRef=${encodeURIComponent(reference)}`
-      : undefined;
-
     try {
-      const xpresResult = await xpresOrder({ network: xpresNetwork, phone, volume: volumeGB, offerSlug, reference, webhookUrl });
+      const result = await deliverBundle({ bundle, network, phone, reference });
 
-      if (xpresResult.success) {
+      if (result.success) {
         await supabase.from('orders').update({
-          delivery_status: 'processing',
-          hubnet_transaction_id: xpresResult.orderId || xpresResult.reference || null,
+          delivery_status:   'processing',
+          delivery_provider: result.provider,
+          hubnet_transaction_id: result.orderId || result.reference || null,
         }).eq('id', order.id);
       } else {
-        // Delivery failed — auto refund the wallet AND reverse the referral bonus
-        await supabase.from('orders').update({ delivery_status: 'failed' }).eq('id', order.id);
+        await supabase.from('orders').update({
+          delivery_status:   'failed',
+          delivery_provider: result.provider,
+        }).eq('id', order.id);
         await refundWallet(supabase, wallet.id, agentId, finalAgentPrice, reference, `Refund: delivery failed for ${reference}`);
         await reverseReferralBonus(supabase, order.id);
       }
-    } catch (xpresErr) {
-      console.error('[wallet purchase] xpresOrder threw:', xpresErr);
+    } catch (deliveryErr) {
+      console.error('[wallet purchase] delivery threw:', deliveryErr);
       await supabase.from('orders').update({ delivery_status: 'pending' }).eq('id', order.id);
-      // Leave funds deducted; admin can retry delivery via retry-delivery route.
     }
 
     return NextResponse.json({

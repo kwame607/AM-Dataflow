@@ -26,21 +26,10 @@ export interface Agent {
   whatsapp?: string;
   created_at: string;
   auth_user_id?: string;
-  // Wallet/Flyer Store additions
-  store_description?: string;
-  store_logo_url?: string;
-  store_banner_text?: string;
-  store_color?: string;
-  show_mtn?: boolean;
-  show_at?: boolean;
-  show_telecel?: boolean;
-  // Referral / Sub-agent additions  ← ADD THESE
-  referral_code?: string;
-  referred_by?: string;
-  commission_pct?: number;
-  can_set_subagent_prices?: boolean;
+  // Referral & sub-agent pricing system
+  referred_by?: string | null;              // slug of the agent who referred this one
+  can_set_subagent_prices?: boolean;        // admin-toggled permission
 }
-
 
 export interface AdminPrice {
   id: string;
@@ -69,6 +58,35 @@ export interface AgentPrice {
   agent_profit: number;
   validity: string;
   updated_at: string;
+  floor_source?: 'admin' | 'subagent';
+}
+
+export interface SubAgentFloorPrice {
+  id: string;
+  agent_id: string;       // the referrer who set this floor
+  bundle_key: string;
+  network: string;
+  size: string;
+  volume: string;
+  hubnet_cost: number;
+  admin_floor: number;
+  agent_floor: number;
+  validity: string;
+  updated_at: string;
+}
+
+export interface ReferralEarning {
+  id: string;
+  referrer_id: string;
+  referred_id: string;
+  order_id: string;
+  referred_profit: number;
+  pct: number;
+  bonus_amount: number;
+  status: 'credited' | 'skipped' | 'reversed' | 'frozen';
+  skip_reason?: string | null;
+  reversed_at?: string | null;
+  created_at: string;
 }
 
 export interface Order {
@@ -88,9 +106,14 @@ export interface Order {
   agent_profit: number;
   agent_id?: string;
   agent_slug?: string;
+  referrer_agent_id?: string | null;  // audit trail — who referred the selling agent
+  referral_bonus?: number;            // amount deducted from agent_profit for referral
   source: 'main' | 'agent';
+  payment_method?: 'paystack' | 'wallet';
+  wallet_transaction_id?: string;
   status: 'pending' | 'success' | 'failed' | 'processing';
   delivery_status?: 'pending' | 'processing' | 'delivered' | 'failed';
+  delivery_provider?: 'xpresportal' | 'hubnet';
   delivered_at?: string;
   paystack_ref?: string;
   hubnet_transaction_id?: string;
@@ -100,7 +123,7 @@ export interface Order {
 
 export interface Withdrawal {
   id: string;
-  type: 'admin' | 'agent';
+  type: 'admin' | 'agent' | 'referral';
   agent_id?: string;
   amount: number;
   momo_number: string;
