@@ -10,7 +10,7 @@ import { myZtaOrder } from '@/lib/myztadata';
 import { getXpresParams } from '@/lib/bundles';
 import { resolveProviderForOrder } from '@/lib/settings';
 import { getMyZtaCost } from '@/lib/myztadata-prices';
-import type { Bundle } from '@/types';
+import type { Bundle, HubnetNetwork } from '@/types';
 
 export interface DeliveryResult {
   success:      boolean;
@@ -34,7 +34,7 @@ export async function deliverBundle(params: {
 
   if (provider === 'hubnet') {
     const volumeGB = Math.round(parseInt(bundle.volume || '0', 10) / 1000);
-    const result   = await hubnetOrder({ network, phone, volumeGB, reference });
+    const result   = await hubnetOrder({ network: network as HubnetNetwork, phone, volumeGB, reference });
     return {
       success:     result.success,
       provider:    'hubnet',
