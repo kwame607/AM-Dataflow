@@ -11,14 +11,13 @@ export async function POST(req: NextRequest) {
   const ip = getIp(req);
   const rl = rateLimit(`verify:${ip}`, 10, 60_000);
   if (!rl.allowed) {
-    return NextResponse.json({ error: 'Too many requests. Please wait before trying again.' }, {
-      status: 429,
-      headers: { 'Retry-After': String(rl.retryAfter) },
+    return NextResponse.json({ error: 'Too many requests.' }, {
+      status: 429, headers: { 'Retry-After': String(rl.retryAfter) },
     });
   }
 
   try {
-    const body = await req.json();
+    const body   = await req.json();
     const parsed = VerifyPaymentSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid request', detail: parsed.error.flatten() }, { status: 400 });
@@ -27,8 +26,7 @@ export async function POST(req: NextRequest) {
 
     const paystack = await verifyPaystackPayment(reference);
     if (!paystack.success) {
-      const detail = paystack as { txStatus?: string };
-      const isAbandoned = detail?.txStatus === 'abandoned';
+      const isAbandoned = (paystack as { txStatus?: string }).txStatus === 'abandoned';
       return NextResponse.json({
         error: isAbandoned
           ? 'Payment was not completed. Please try again.'
@@ -42,23 +40,13 @@ export async function POST(req: NextRequest) {
     const supabase = createSupabaseAdminClient();
 
     const { data: existing } = await supabase
-      .from('orders')
-      .select('id, status, delivery_status')
-      .eq('reference', reference)
-      .maybeSingle();
-
-    if (existing) {
-      return NextResponse.json({ success: true, reference, status: existing.status });
-    }
+      .from('orders').select('id, status, delivery_status').eq('reference', reference).maybeSingle();
+    if (existing) return NextResponse.json({ success: true, reference, status: existing.status });
 
     const { data: adminPriceRow } = await supabase
-      .from('admin_prices')
-      .select('selling_price, admin_profit')
-      .eq('bundle_key', orderData.bundleKey)
-      .single();
+      .from('admin_prices').select('selling_price').eq('bundle_key', orderData.bundleKey).single();
 
-    const adminPrice  = adminPriceRow?.selling_price ?? getDefaultAdminPrice(bundle.cost);
-    const adminProfit = adminPriceRow?.admin_profit  ?? (adminPrice - bundle.cost);
+    const adminPrice = adminPriceRow?.selling_price ?? getDefaultAdminPrice(bundle.cost);
 
     let agentId: string | null = null;
     let referrerAgentId: string | null = null;
@@ -67,21 +55,24 @@ export async function POST(req: NextRequest) {
 
     if (orderData.source === 'agent' && orderData.agentSlug) {
       const { data: agent } = await supabase
-        .from('agents').select('id, referred_by').eq('slug', orderData.agentSlug).single();
+        .from('agents').select('id, referred_by_id').eq('slug', orderData.agentSlug).single();
       if (agent) {
         agentId          = agent.id;
+        referrerAgentId  = agent.referred_by_id || null;
         grossAgentProfit = agentPrice - adminPrice;
-
-        // Resolve referrer's agent ID for the audit trail column (if any)
-        if (agent.referred_by) {
-          const { data: referrer } = await supabase
-            .from('agents').select('id').eq('slug', agent.referred_by).single();
-          referrerAgentId = referrer?.id || null;
-        }
       }
     }
 
-    // Insert order with gross profit first — may be adjusted below
+    // Attempt delivery FIRST so we know the actual provider cost
+    // before writing the order row — keeps hubnet_cost accurate.
+    const deliveryResult = await deliverBundle({
+      bundle, network: orderData.network, phone: orderData.phone, reference,
+    });
+
+    // actual_cost: what the provider charged us for this specific delivery
+    const actualCost   = deliveryResult.actual_cost;
+    const adminProfit  = adminPrice - actualCost;
+
     const { data: order, error: orderErr } = await supabase
       .from('orders')
       .insert({
@@ -91,9 +82,9 @@ export async function POST(req: NextRequest) {
         bundle_key:         orderData.bundleKey,
         size:               bundle.size,
         volume:             bundle.volume,
-        hubnet_cost:        bundle.cost,
+        hubnet_cost:        actualCost,        // real cost for this provider
         admin_price:        adminPrice,
-        admin_profit:       adminProfit,
+        admin_profit:       adminProfit,       // recalculated with real cost
         agent_price:        agentPrice,
         agent_profit:       grossAgentProfit,
         agent_id:           agentId,
@@ -101,7 +92,9 @@ export async function POST(req: NextRequest) {
         referrer_agent_id:  referrerAgentId,
         source:             orderData.source || 'main',
         status:             'success',
-        delivery_status:    'pending',
+        delivery_status:    deliveryResult.success ? 'processing' : 'failed',
+        delivery_provider:  deliveryResult.provider,
+        hubnet_transaction_id: deliveryResult.orderId || deliveryResult.reference || null,
         paystack_ref:       reference,
       })
       .select('id')
@@ -111,45 +104,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to save order', detail: orderErr.message }, { status: 500 });
     }
 
-    // Credit referral bonus — deducts from sub-agent's profit, credits referrer's wallet.
-    // Returns the NET profit the sub-agent keeps (may equal gross if no referrer applies).
+    // Credit referral bonus now that order is saved
     if (agentId && grossAgentProfit > 0) {
       try {
         const netProfit = await creditReferralBonus(supabase, order.id, agentId, grossAgentProfit);
         if (netProfit !== grossAgentProfit) {
-          const bonusPaid = parseFloat((grossAgentProfit - netProfit).toFixed(2));
           await supabase.from('orders').update({
             agent_profit:   netProfit,
-            referral_bonus: bonusPaid,
+            referral_bonus: parseFloat((grossAgentProfit - netProfit).toFixed(2)),
           }).eq('id', order.id);
         }
       } catch (e) {
         console.error('[verify] referral credit error:', e);
-        // Non-fatal — order keeps gross profit if referral crediting fails
       }
-    }
-
-    // Attempt delivery
-    try {
-      const result = await deliverBundle({
-        bundle, network: orderData.network, phone: orderData.phone, reference,
-      });
-
-      if (result.success) {
-        await supabase.from('orders').update({
-          delivery_status:   'processing',
-          delivery_provider: result.provider,
-          hubnet_transaction_id: result.orderId || result.reference || null,
-        }).eq('id', order.id);
-      } else {
-        await supabase.from('orders').update({
-          delivery_status:   'failed',
-          delivery_provider: result.provider,
-        }).eq('id', order.id);
-      }
-    } catch (deliveryErr) {
-      console.error('[verify] Delivery error:', deliveryErr);
-      await supabase.from('orders').update({ delivery_status: 'pending' }).eq('id', order.id);
     }
 
     return NextResponse.json({ success: true, reference, status: 'success' });
