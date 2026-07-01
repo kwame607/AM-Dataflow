@@ -13,6 +13,7 @@
 import type { Order, Withdrawal, Agent } from '@/types';
 import { fmt } from '@/lib/utils';
 import React, { useState, useMemo, useCallback } from 'react';
+import { ProviderBreakdown } from '@/components/ProviderBreakdown';
 
 type Period = 'today' | 'yesterday' | 'week' | 'month' | 'alltime' | 'custom';
 
@@ -1132,7 +1133,9 @@ export function FinanceTab({ orders, withdrawals, agents, hubBalance }: FinanceT
           </div>
         </div>
       </div>
-
+	
+	   <ProviderBreakdown orders={orders} />
+	
       {/* ── SECTION 4: NETWORK INTELLIGENCE ── */}
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-header">

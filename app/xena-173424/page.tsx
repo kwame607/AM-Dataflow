@@ -19,6 +19,7 @@ import { AdminReferralPanel } from '@/components/AdminReferralPanel';
 import { AdminReferralsTab } from '@/components/AdminReferralsTab';
 import { AgentReferralBadge } from '@/components/AgentReferralBadge';
 import { BroadcastPanel } from '@/components/BroadcastPanel';
+import { MyZtaPriceSync } from '@/components/MyZtaPriceSync';
 
 type Tab = 'overview' | 'orders' | 'agents' | 'prices' | 'withdrawals' | 'settings' | 'finance' | 'support' | 'referrals';
 
@@ -886,6 +887,7 @@ export default function AdminPage() {
     <AdminReferralPanel authFetch={authFetch} toast={toast} />
     <AdminReferralPanel authFetch={authFetch} toast={toast} />
     <ProviderToggle authFetch={authFetch} toast={toast} />
+    <MyZtaPriceSync authFetch={authFetch} toast={toast} />
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="card-header">
         <div className="card-title">Email Notifications</div>
