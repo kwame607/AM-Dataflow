@@ -34,8 +34,8 @@ export async function deliverBundle(params: {
   const provider = await resolveProviderForOrder(network);
 
   if (provider === 'hubnet') {
-    const volumeGB = Math.round(parseInt(bundle.volume || '0', 10) / 1000);
-    const result   = await hubnetOrder({ network: network as HubnetNetwork, phone, volumeGB, reference });
+    const volumeMB = parseInt(bundle.volume || '0', 10);
+    const result   = await hubnetOrder({ network: network as HubnetNetwork, phone, volumeMB, reference });
     return {
       success:     result.success,
       provider:    'hubnet',
