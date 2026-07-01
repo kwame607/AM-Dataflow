@@ -1,211 +1,184 @@
 // components/ProviderToggle.tsx
+// Drop into admin Settings tab — 3-way provider selector
 'use client';
 
 import { useState, useEffect } from 'react';
 
-type Provider = 'xpresportal' | 'hubnet';
+type Provider = 'xpresportal' | 'hubnet' | 'myztadata';
 
-interface ProviderToggleProps {
+interface Props {
   authFetch: (url: string, options?: RequestInit) => Promise<Response>;
   toast:     (msg: string, type?: 'success' | 'error' | 'info' | 'warn') => void;
 }
 
-export function ProviderToggle({ authFetch, toast }: ProviderToggleProps) {
-  const [provider, setProvider]         = useState<Provider | null>(null);
-  const [loading, setLoading]           = useState(true);
-  const [saving, setSaving]             = useState(false);
-  const [xpresBalance, setXpresBalance] = useState<number | null>(null);
-  const [hubnetBalance, setHubnetBalance] = useState<number | null>(null);
-  const [xpresError, setXpresError]     = useState('');
-  const [hubnetError, setHubnetError]   = useState('');
-  const [loadingBals, setLoadingBals]   = useState(false);
+const PROVIDERS: Array<{
+  id:       Provider;
+  name:     string;
+  icon:     string;
+  networks: string;
+  note:     string;
+  balanceUrl: string | null;
+}> = [
+  {
+    id:         'xpresportal',
+    name:       'XpresPortal',
+    icon:       '⚡',
+    networks:   'MTN · AT · Telecel',
+    note:       'Webhook-based delivery updates. All 3 networks.',
+    balanceUrl: '/api/hubnet/balance',
+  },
+  {
+    id:         'hubnet',
+    name:       'Hubnet',
+    icon:       '🌐',
+    networks:   'MTN · AT · Telecel',
+    note:       'Webhook-based delivery updates. All 3 networks.',
+    balanceUrl: '/api/hubnet/wallet-balance',
+  },
+  {
+    id:         'myztadata',
+    name:       'MyZtaData',
+    icon:       '🚀',
+    networks:   'MTN · Telecel only',
+    note:       'No webhook — delivery status polled automatically. AT orders auto-route to XpresPortal.',
+    balanceUrl: null,
+  },
+];
+
+const fmt = (n: number) => n === -1 ? '—' : `₵${n.toFixed(2)}`;
+
+export function ProviderToggle({ authFetch, toast }: Props) {
+  const [active, setActive]     = useState<Provider>('xpresportal');
+  const [saving, setSaving]     = useState(false);
+  const [balances, setBalances] = useState<Record<string, number | null>>({});
 
   useEffect(() => {
     authFetch('/api/admin/provider')
       .then(r => r.json())
-      .then(d => { if (d.provider) setProvider(d.provider); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .then(d => { if (d.provider) setActive(d.provider); })
+      .catch(() => {});
+
+    // Fetch balances for providers that support it
+    authFetch('/api/hubnet/balance')
+      .then(r => r.json())
+      .then(d => setBalances(prev => ({ ...prev, xpresportal: d.balance ?? null })))
+      .catch(() => {});
+
+    authFetch('/api/hubnet/wallet-balance')
+      .then(r => r.json())
+      .then(d => setBalances(prev => ({ ...prev, hubnet: d.balance ?? null })))
+      .catch(() => {});
   }, [authFetch]);
 
-  async function switchProvider(next: Provider) {
-    if (next === provider || saving) return;
+  async function switchProvider(provider: Provider) {
+    if (provider === active) return;
     setSaving(true);
     try {
       const r = await authFetch('/api/admin/provider', {
         method: 'POST',
-        body:   JSON.stringify({ provider: next }),
+        body:   JSON.stringify({ provider }),
       });
       const d = await r.json();
       if (!r.ok) { toast(d.error || 'Failed to switch provider', 'error'); return; }
-      setProvider(next);
-      toast(
-        next === 'hubnet'
-          ? '✅ Switched to Hubnet — MTN & AirtelTigo orders now route via Hubnet. Telecel stays on XpresPortal.'
-          : '✅ Switched to XpresPortal — all new orders route via XpresPortal.',
-        'success',
-      );
+      setActive(provider);
+      toast(`Switched to ${PROVIDERS.find(p => p.id === provider)?.name}`, 'success');
     } catch { toast('Network error', 'error'); }
     finally { setSaving(false); }
   }
 
-  async function refreshBalances() {
-    setLoadingBals(true);
-    setXpresError('');
-    setHubnetError('');
-
-    // XpresPortal balance — existing public-ish route
+  async function pollMyZtaData() {
+    toast('Polling MyZtaData for status updates…', 'info');
     try {
-      const r = await fetch('/api/hubnet/balance');
+      const r = await authFetch('/api/cron/myztadata-poll');
       const d = await r.json();
-      if (d?.balance !== undefined) setXpresBalance(d.balance);
-      else setXpresError(d?.error || 'Could not fetch balance');
-    } catch { setXpresError('Network error'); }
-
-    // Real Hubnet balance — needs admin auth, use authFetch but strip
-    // Content-Type so it's a clean GET request
-    try {
-      const { data: { session } } = await (await import('@/lib/supabase')).getSupabaseClient().auth.getSession();
-      const token = session?.access_token || '';
-      const r = await fetch('/api/hubnet/wallet-balance', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const d = await r.json();
-      if (d?.balance !== undefined) {
-        setHubnetBalance(d.balance);
-      } else {
-        // Show the raw response so you can see exactly what Hubnet returned
-        const rawInfo = d?.rawText ? ` — Raw: ${d.rawText}` : d?.raw ? ` — Raw: ${JSON.stringify(d.raw).slice(0, 120)}` : '';
-        setHubnetError((d?.error || 'Unexpected response') + rawInfo);
-      }
-    } catch (e) { setHubnetError(`Network error: ${(e as Error).message}`); }
-
-    setLoadingBals(false);
+      toast(`Checked ${d.checked} orders, updated ${d.updated}`, 'success');
+    } catch { toast('Poll failed', 'error'); }
   }
 
-  const fmt = (n: number) => `₵${n.toFixed(2)}`;
-
-  if (loading) return (
-    <div style={{ padding: '20px 0', color: 'var(--text3)', fontSize: 13 }}>Loading provider settings…</div>
-  );
-
   return (
-    <div className="card" style={{ marginBottom: 20 }}>
+    <div className="card" style={{ marginBottom: 16 }}>
       <div className="card-header">
         <div>
-          <div className="card-title">🔀 Delivery Provider</div>
+          <div className="card-title">📡 Delivery Provider</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-            Controls which API handles new data bundle deliveries
+            Active provider handles all new bundle deliveries
           </div>
         </div>
       </div>
-      <div className="card-body">
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* Toggle buttons */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-          {(['xpresportal', 'hubnet'] as Provider[]).map(p => {
-            const isActive = provider === p;
-            const label    = p === 'xpresportal' ? 'XpresPortal' : 'Hubnet';
-            const icon     = p === 'xpresportal' ? '🟢' : '🔵';
-            return (
-              <button
-                key={p}
-                onClick={() => switchProvider(p)}
-                disabled={saving}
-                style={{
-                  flex: 1, minWidth: 160,
-                  padding: '16px 20px',
-                  borderRadius: 'var(--radius)',
-                  border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
-                  background: isActive ? 'var(--accent-dim)' : 'var(--surface2)',
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                  transition: 'all .2s',
-                  textAlign: 'left',
-                  opacity: saving ? 0.6 : 1,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 18 }}>{icon}</span>
-                  <span style={{
-                    fontFamily: 'Syne,sans-serif', fontSize: 16, fontWeight: 800,
-                    color: isActive ? 'var(--accent)' : 'var(--text)',
-                  }}>{label}</span>
-                  {isActive && (
-                    <span style={{
-                      marginLeft: 'auto', fontSize: 10, fontWeight: 800, padding: '2px 8px',
-                      borderRadius: 100, background: 'var(--ok)', color: '#fff',
-                    }}>ACTIVE</span>
+        {PROVIDERS.map(p => {
+          const isActive  = active === p.id;
+          const balance   = balances[p.id];
+
+          return (
+            <div key={p.id} style={{
+              border:       `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+              borderRadius: 'var(--radius)',
+              padding:      '14px 16px',
+              background:   isActive ? 'var(--accent-dim)' : 'var(--surface2)',
+              transition:   'all .2s',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 22 }}>{p.icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'Syne,sans-serif', fontWeight: 700, fontSize: 15 }}>{p.name}</span>
+                    {isActive && (
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 100, background: 'var(--accent)', color: '#060910' }}>
+                        ACTIVE
+                      </span>
+                    )}
+                    {p.id === 'myztadata' && (
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'var(--warn-dim)', color: 'var(--warn)' }}>
+                        NO WEBHOOK
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.networks}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.note}</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                  {p.balanceUrl !== null && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase' }}>Wallet</div>
+                      <div style={{ fontFamily: 'Syne,sans-serif', fontWeight: 800, fontSize: 16, color: balance !== null && balance !== undefined && balance < 100 ? 'var(--err)' : 'var(--accent)' }}>
+                        {balance !== null && balance !== undefined ? fmt(balance) : '—'}
+                      </div>
+                    </div>
                   )}
+                  {p.balanceUrl === null && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase' }}>Balance</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>myztadata.com</div>
+                    </div>
+                  )}
+                  <button
+                    className={`btn btn-sm ${isActive ? 'btn-secondary' : 'btn-primary'}`}
+                    onClick={() => switchProvider(p.id)}
+                    disabled={isActive || saving}
+                    style={{ minWidth: 80 }}
+                  >
+                    {saving && !isActive ? <span className="spinner" style={{ width: 12, height: 12 }} /> : isActive ? '✓ Active' : 'Switch'}
+                  </button>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                  {p === 'xpresportal'
-                    ? 'MTN · AirtelTigo · Telecel'
-                    : 'MTN · AirtelTigo only\nTelecel always via XpresPortal'}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Telecel note */}
-        <div className="alert alert-info" style={{ marginBottom: 20, fontSize: 13 }}>
-          <span>ℹ️</span>
-          <span>
-            <strong>Telecel orders always route through XpresPortal</strong> — Hubnet does not support Telecel transactions.
-          </span>
-        </div>
-
-        {/* Wallet balances */}
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-              Wallet Balances
+              </div>
             </div>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={refreshBalances}
-              disabled={loadingBals}
-            >
-              {loadingBals
-                ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Refreshing…</>
-                : '↻ Refresh Both'}
+          );
+        })}
+
+        {active === 'myztadata' && (
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="alert alert-warn" style={{ flex: 1, fontSize: 12 }}>
+              <span>⚠️</span>
+              <span>MyZtaData has no delivery webhook. AirtelTigo orders auto-route to XpresPortal. Use the poll button or wait for the cron to check delivery status.</span>
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={pollMyZtaData} style={{ flexShrink: 0 }}>
+              ↻ Poll Status Now
             </button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {[
-              { label: 'XpresPortal', balance: xpresBalance, error: xpresError, isActive: provider === 'xpresportal', color: 'var(--accent)' },
-              { label: 'Hubnet',      balance: hubnetBalance, error: hubnetError, isActive: provider === 'hubnet',      color: '#38bdf8' },
-            ].map(w => (
-              <div key={w.label} style={{
-                background: w.isActive ? 'var(--accent-dim)' : 'var(--surface2)',
-                border: `1px solid ${w.isActive ? 'rgba(0,212,170,0.25)' : 'var(--border)'}`,
-                borderRadius: 'var(--radius-sm)',
-                padding: '14px 16px',
-              }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
-                  {w.label}{w.isActive ? ' · active' : ''}
-                </div>
-                {w.error ? (
-                  <div style={{ fontSize: 11, color: 'var(--err)', lineHeight: 1.5, wordBreak: 'break-word' }}>⚠ {w.error}</div>
-                ) : (
-                  <div style={{ fontFamily: 'Syne,sans-serif', fontSize: 22, fontWeight: 800, color: w.balance !== null ? w.color : 'var(--text3)' }}>
-                    {w.balance !== null ? fmt(w.balance) : '—'}
-                  </div>
-                )}
-                {w.balance !== null && w.balance < 50 && !w.error && (
-                  <div style={{ fontSize: 11, color: 'var(--err)', marginTop: 4, fontWeight: 600 }}>
-                    ⚠️ Low — top up soon
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          {xpresBalance === null && hubnetBalance === null && !xpresError && !hubnetError && (
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>
-              Click Refresh to load current balances
-            </div>
-          )}
-        </div>
+        )}
+
       </div>
     </div>
   );
