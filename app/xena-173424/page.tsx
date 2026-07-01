@@ -21,8 +21,9 @@ import { AgentReferralBadge } from '@/components/AgentReferralBadge';
 import { BroadcastPanel } from '@/components/BroadcastPanel';
 import { MyZtaPriceSync } from '@/components/MyZtaPriceSync';
 import { BulkRetryPanel } from '@/components/BulkRetryPanel';
+import { AdminDepositClaims } from '@/components/AdminDepositClaims';
 
-type Tab = 'overview' | 'orders' | 'agents' | 'prices' | 'withdrawals' | 'settings' | 'finance' | 'support' | 'referrals' | 'bulk-retry';
+type Tab = 'overview' | 'orders' | 'agents' | 'prices' | 'withdrawals' | 'settings' | 'finance' | 'support' | 'referrals' | 'bulk-retry' | 'deposits';
 
 export default function AdminPage() {
   const { toast, ToastContainer } = useSimpleToast();
@@ -30,7 +31,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
+  const [pendingClaims, setPendingClaims] = useState(0);
   const [orders, setOrders] = useState<Order[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [adminPrices, setAdminPrices] = useState<AdminPrice[]>([]);
@@ -108,6 +109,11 @@ export default function AdminPage() {
   };
 
   fetchSupportUnread();
+  
+  fetch('/api/wallet/claims?admin=1&status=pending')
+  .then(r => r.json())
+  .then(d => setPendingClaims(Array.isArray(d) ? d.length : 0))
+  .catch(() => {});
 
   const interval = setInterval(fetchSupportUnread, 30000);
 
@@ -331,6 +337,12 @@ export default function AdminPage() {
   id: 'bulk-retry',
   label: 'Bulk Retry',
   icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>,
+},
+{
+  id: 'deposits',
+  label: 'Deposits',
+  icon: <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>,
+  badge: pendingClaims,
 },
   ];
 
@@ -881,6 +893,10 @@ export default function AdminPage() {
     authFetch={authFetch}
     toast={toast}
   />
+)}
+	 {/* wallet deposits */}
+	 {tab === 'deposits' && (
+  <AdminDepositClaims authFetch={authFetch} toast={toast} />
 )}
 	 {/* REFERRALS */}
 	 {tab === 'referrals' && (

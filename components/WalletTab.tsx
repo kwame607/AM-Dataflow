@@ -75,7 +75,7 @@ export function WalletTab({ agent, authFetch, toast, onWalletUpdate }: WalletTab
 
   async function fundWithPaystack() {
     const amount = parseFloat(fundAmount);
-    if (isNaN(amount) || amount < 100) { toast('Minimum top-up is GHS 100', 'warn'); return; }
+    if (isNaN(amount) || amount < 10) { toast('Minimum top-up is GHS 10', 'warn'); return; }
     if (!PAYSTACK_KEY) { toast('Payment not configured. Contact support.', 'error'); return; }
     setFunding(true);
     try {
@@ -243,8 +243,8 @@ export function WalletTab({ agent, authFetch, toast, onWalletUpdate }: WalletTab
         <div className="card-body">
           <div className="form-group">
             <label className="form-label">Amount (GHS)</label>
-            <input className="form-input" type="number" min="100" placeholder="Min: 100.00" value={fundAmount} onChange={e => setFundAmount(e.target.value)} />
-            <div className="form-hint">Minimum top-up is GHS 100.00</div>
+            <input className="form-input" type="number" min="10" placeholder="Min: 10.00" value={fundAmount} onChange={e => setFundAmount(e.target.value)} />
+            <div className="form-hint">Minimum top-up is GHS 10.00</div>
           </div>
           <button className="btn btn-primary btn-full btn-lg" onClick={fundWithPaystack} disabled={funding}>
             {funding ? <><span className="spinner" /> Processing…</> : `Pay ${fundAmount ? fmt(parseFloat(fundAmount) || 0) : ''}`}

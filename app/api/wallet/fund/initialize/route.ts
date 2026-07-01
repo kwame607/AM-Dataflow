@@ -11,7 +11,7 @@ import { z } from 'zod';
 const FundWalletSchema = z.object({
   agentId: z.string().uuid(),
   email: z.string().email(),
-  amount: z.number().min(100).max(50_000), // GHS 100 minimum deposit
+  amount: z.number().min(10).max(50_000), // GHS 100 minimum deposit
 });
 
 export async function POST(req: NextRequest) {

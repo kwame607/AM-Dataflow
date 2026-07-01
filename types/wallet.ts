@@ -63,7 +63,7 @@ export type PaymentMethod = 'paystack' | 'wallet';
 
 // Collection accounts for deposits
 export const COLLECTION_ACCOUNTS = [
-  { network: 'mtn',     label: 'MTN MoMo',         number: '059XXXXXXX', name: 'ADMUNZ Data' },
+  { network: 'mtn',     label: 'MTN MoMo',         number: '0532759082', name: 'KWAME A. EMMANUEL' },
   { network: 'telecel', label: 'Telecel Cash',       number: '020XXXXXXX', name: 'ADMUNZ Data' },
   { network: 'at',      label: 'AirtelTigo Money',   number: '027XXXXXXX', name: 'ADMUNZ Data' },
 ] as const;
