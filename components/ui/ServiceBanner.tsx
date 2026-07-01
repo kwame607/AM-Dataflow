@@ -25,7 +25,7 @@ export default function ServiceBanner() {
           background: 'var(--surface)',
           border: '1px solid var(--border)',
           borderRadius: 'var(--radius-xl)',
-          maxWidth: 520,
+          maxWidth: 500,
           width: '100%',
           overflow: 'hidden',
           boxShadow: '0 20px 50px rgba(0,0,0,.25)',
@@ -34,14 +34,14 @@ export default function ServiceBanner() {
         {/* Header */}
         <div
           style={{
-            background: '#f59e0b',
+            background: '#16a34a',
             padding: '16px 20px',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
           }}
         >
-          <span style={{ fontSize: 22 }}>⚠️</span>
+          <span style={{ fontSize: 22 }}>🟢</span>
 
           <div>
             <div
@@ -51,7 +51,7 @@ export default function ServiceBanner() {
                 fontSize: 16,
               }}
             >
-              MTN Service Update
+              MTN Service Restored
             </div>
 
             <div
@@ -60,7 +60,7 @@ export default function ServiceBanner() {
                 fontSize: 13,
               }}
             >
-              Temporary delay in MTN order processing
+              Yello Portal is back online
             </div>
           </div>
         </div>
@@ -72,54 +72,19 @@ export default function ServiceBanner() {
               color: 'var(--text)',
               lineHeight: 1.7,
               fontSize: 14,
-              marginBottom: 16,
+              marginBottom: 18,
             }}
           >
-            MTN is currently carrying out maintenance and system upgrades.
-            During this period, new MTN orders may experience temporary delays.
+            The MTN Yello Portal has been restored. We are currently processing
+            all previously placed pending orders before accepting new MTN
+            orders.
           </p>
 
           <div
             style={{
-              background: 'var(--surface2)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-md)',
-              padding: '16px',
-              marginBottom: 18,
-              lineHeight: 1.7,
-              fontSize: 14,
-              color: 'var(--text2)',
-            }}
-          >
-            ✅ Orders marked <strong>Delivered</strong> have been successfully
-            processed.
-            <br />
-            <br />
-            🔒 Your funds are safe and no orders will be lost.
-            <br />
-            <br />
-            ⏳ Pending orders will be automatically delivered once MTN services
-            are restored.
-          </div>
-
-          <p
-            style={{
-              color: 'var(--text)',
-              lineHeight: 1.7,
-              fontSize: 14,
-              marginBottom: 18,
-            }}
-          >
-            We are closely monitoring the situation and will provide updates
-            immediately when normal service resumes. We sincerely apologize for
-            any inconvenience and appreciate your patience and understanding.
-          </p>
-
-          <div
-            style={{
-              background: 'rgba(34,197,94,.12)',
-              border: '1px solid rgba(34,197,94,.2)',
-              color: '#16a34a',
+              background: 'rgba(245,158,11,.12)',
+              border: '1px solid rgba(245,158,11,.2)',
+              color: '#b45309',
               padding: '14px',
               borderRadius: 'var(--radius-md)',
               fontSize: 13,
@@ -127,15 +92,15 @@ export default function ServiceBanner() {
               lineHeight: 1.6,
             }}
           >
-             Thank you for choosing ADMUNZ. We appreciate your continued
-            support.
+            ⏳ Please bear with us while we clear the pending queue. New MTN
+            orders will resume shortly.
           </div>
 
           <button
             className="btn btn-primary btn-full"
             onClick={() => setVisible(false)}
           >
-            I Understand
+            Got it
           </button>
         </div>
       </div>
