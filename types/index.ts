@@ -28,6 +28,7 @@ export interface Agent {
   auth_user_id?: string;
   // Referral & sub-agent pricing system
   referred_by?: string | null;              // slug of the agent who referred this one
+  referred_by_id?: string | null;           // stable UUID of the referrer (add this line)
   can_set_subagent_prices?: boolean;        // admin-toggled permission
 }
 
