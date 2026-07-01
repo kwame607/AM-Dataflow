@@ -19,7 +19,6 @@ const NETWORK_ID_MAP: Record<string, number> = {
 
 function getHeaders() {
   const key = process.env.MYZTADATA_API_KEY;
-  console.log('[myztadata] key present:', !!key, 'length:', key?.length);
   if (!key) console.error('[myztadata] ⚠️  MYZTADATA_API_KEY is not set!');
   return {
     'x-api-key':    key || '',
@@ -62,7 +61,14 @@ export async function myZtaFetchPackages(): Promise<MyZtaPackage[]> {
       headers: getHeaders(),
       cache:   'no-store',
     });
-    const data = await res.json();
+    const text = await res.text();
+    console.log('[myztadata] fetchPackages status:', res.status, 'content-type:', res.headers.get('content-type'));
+    console.log('[myztadata] fetchPackages raw (first 300):', text.slice(0, 300));
+    let data: unknown;
+    try { data = JSON.parse(text); } catch {
+      console.error('[myztadata] fetchPackages not JSON');
+      return [];
+    }
     if (!Array.isArray(data)) {
       console.error('[myztadata] fetchPackages unexpected response:', data);
       return [];
