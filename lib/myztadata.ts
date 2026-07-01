@@ -19,6 +19,7 @@ const NETWORK_ID_MAP: Record<string, number> = {
 
 function getHeaders() {
   const key = process.env.MYZTADATA_API_KEY;
+  console.log('[myztadata] key present:', !!key, 'length:', key?.length);
   if (!key) console.error('[myztadata] ⚠️  MYZTADATA_API_KEY is not set!');
   return {
     'x-api-key':    key || '',
