@@ -10,7 +10,8 @@ import { myZtaOrder } from '@/lib/myztadata';
 import { getXpresParams } from '@/lib/bundles';
 import { resolveProviderForOrder } from '@/lib/settings';
 import { getMyZtaCost } from '@/lib/myztadata-prices';
-import type { Bundle, HubnetNetwork } from '@/types';
+import type { Bundle } from '@/types';
+import type { HubnetNetwork } from '@/lib/hubnet';
 
 export interface DeliveryResult {
   success:      boolean;
