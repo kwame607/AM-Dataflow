@@ -881,6 +881,8 @@ export default function AdminPage() {
          {/* SETTINGS */}
 {tab === 'settings' && (
   <>
+    <BroadcastPanel authFetch={authFetch} toast={toast} />
+    <AdminReferralPanel authFetch={authFetch} toast={toast} />
     <AdminReferralPanel authFetch={authFetch} toast={toast} />
     <ProviderToggle authFetch={authFetch} toast={toast} />
     <div className="card" style={{ marginBottom: 16 }}>
