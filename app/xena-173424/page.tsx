@@ -18,6 +18,7 @@ import { PriceRecommendationsWidget } from '@/components/PriceRecommendationsWid
 import { AdminReferralPanel } from '@/components/AdminReferralPanel';
 import { AdminReferralsTab } from '@/components/AdminReferralsTab';
 import { AgentReferralBadge } from '@/components/AgentReferralBadge';
+import { BroadcastPanel } from '@/components/BroadcastPanel';
 
 type Tab = 'overview' | 'orders' | 'agents' | 'prices' | 'withdrawals' | 'settings' | 'finance' | 'support' | 'referrals';
 
