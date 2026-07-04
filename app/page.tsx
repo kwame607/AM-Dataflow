@@ -73,6 +73,9 @@ export default function MainStorePage() {
     | { found: true; order: { reference: string; phone: string; network: string; size: string; status: string; delivery_status: string; created_at: string; buyer_name?: string } }
     | null
   >(null);
+  const [trackMode, setTrackMode]     = useState<'ref' | 'phone'>('ref');
+  const [trackPhone, setTrackPhone]   = useState('');
+  const [phoneOrders, setPhoneOrders] = useState<Array<{ reference: string; network: string; size: string; delivery_status: string; created_at: string; agent_price: number }> | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/prices')
@@ -278,6 +281,17 @@ export default function MainStorePage() {
       }
     } catch {
       setTrackResult({ found: false, msg: 'Error checking status. Try again.' });
+    }
+  }
+
+  async function trackByPhone() {
+    if (!trackPhone.trim()) return;
+    try {
+      const res  = await fetch(`/api/orders/track-by-phone?phone=${encodeURIComponent(trackPhone.trim())}`);
+      const data = await res.json();
+      setPhoneOrders(data.orders || []);
+    } catch {
+      setPhoneOrders([]);
     }
   }
 
@@ -563,70 +577,117 @@ export default function MainStorePage() {
               <button className="close-btn" onClick={() => setTrackOpen(false)}>✕</button>
             </div>
             <div className="sheet-body">
-              <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 18 }}>Enter your transaction reference to check delivery status.</p>
-              <div className="form-group">
-                <label className="form-label">Transaction Reference</label>
-                <input className="form-input" placeholder="e.g. DF-XXXX-XXXX" value={trackRef} onChange={e => setTrackRef(e.target.value)} />
+              {/* Mode toggle */}
+              <div className="tab-nav" style={{ marginBottom: 16 }}>
+                <button className={`tab-btn${trackMode === 'ref' ? ' active' : ''}`} onClick={() => { setTrackMode('ref'); setTrackResult(null); }}>By Reference</button>
+                <button className={`tab-btn${trackMode === 'phone' ? ' active' : ''}`} onClick={() => { setTrackMode('phone'); setPhoneOrders(null); }}>By Phone</button>
               </div>
-              {trackResult && !trackResult.found && (
-                <div className="alert alert-error" style={{ marginBottom: 12 }}>{trackResult.msg}</div>
-              )}
-              {trackResult && trackResult.found && (() => {
-                const o = trackResult.order;
-                const payOk = o.status === 'success';
-                const dlv = o.delivery_status || 'pending';
-                const dlvMap: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-                  delivered:  { label: 'Delivered',  color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✓' },
-                  pending:    { label: 'Processing',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
-                  processing: { label: 'Processing',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
-                  failed:     { label: 'Placed',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
-                };
-                const d = dlvMap[dlv] ?? dlvMap.pending;
-                return (
-                  <div style={{ marginBottom: 16, borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
-                    <div style={{ background: 'var(--surface2)', padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text3)' }}>{o.reference}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>{fmtDate(o.created_at)}</span>
-                    </div>
-                    <div style={{ padding: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px', fontSize: 13 }}>
-                      <div>
-                        <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Bundle</div>
-                        <div style={{ fontWeight: 700 }}>{o.size}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{NET_NAMES[o.network] || o.network}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Phone</div>
-                        <div style={{ fontWeight: 700 }}>{o.phone}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Payment</div>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 100, fontSize: 12, fontWeight: 700, background: payOk ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: payOk ? '#10b981' : '#ef4444' }}>
-                          <span>{payOk ? '✓' : '✕'}</span>{payOk ? 'Paid' : 'Unpaid'}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Data Delivery</div>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 100, fontSize: 12, fontWeight: 700, background: d.bg, color: d.color }}>
-                          <span>{d.icon}</span>{d.label}
-                        </div>
-                      </div>
-                    </div>
-                    {(dlv === 'pending' || dlv === 'processing') && (
-                      <div style={{ padding: '0 14px 14px', fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
-                        ⏱ Data is on its way — check your phone balance. Usually delivered within 5–60 mins.
-                      </div>
-                    )}
-                    {dlv === 'failed' && (
-                      <div style={{ padding: '0 14px 14px' }}>
-                        <a href={waLink(o.reference, o.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-sm" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
-                          💬 Contact Support on WhatsApp
-                        </a>
-                      </div>
-                    )}
+
+              {trackMode === 'ref' ? (
+                <>
+                  <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 18 }}>Enter your transaction reference to check delivery status.</p>
+                  <div className="form-group">
+                    <label className="form-label">Transaction Reference</label>
+                    <input className="form-input" placeholder="e.g. DF-XXXX-XXXX" value={trackRef} onChange={e => setTrackRef(e.target.value)} />
                   </div>
-                );
-              })()}
-              <button className="btn btn-primary btn-full" onClick={trackOrder}>Check Status</button>
+                  {trackResult && !trackResult.found && (
+                    <div className="alert alert-error" style={{ marginBottom: 12 }}>{trackResult.msg}</div>
+                  )}
+                  {trackResult && trackResult.found && (() => {
+                    const o = trackResult.order;
+                    const payOk = o.status === 'success';
+                    const dlv = o.delivery_status || 'pending';
+                    const dlvMap: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+                      delivered:  { label: 'Delivered',  color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: '✓' },
+                      pending:    { label: 'Processing',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+                      processing: { label: 'Processing',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+                      failed:     { label: 'Placed',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏳' },
+                    };
+                    const d = dlvMap[dlv] ?? dlvMap.pending;
+                    return (
+                      <div style={{ marginBottom: 16, borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                        <div style={{ background: 'var(--surface2)', padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text3)' }}>{o.reference}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text3)' }}>{fmtDate(o.created_at)}</span>
+                        </div>
+                        <div style={{ padding: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px', fontSize: 13 }}>
+                          <div>
+                            <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Bundle</div>
+                            <div style={{ fontWeight: 700 }}>{o.size}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{NET_NAMES[o.network] || o.network}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Phone</div>
+                            <div style={{ fontWeight: 700 }}>{o.phone}</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Payment</div>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 100, fontSize: 12, fontWeight: 700, background: payOk ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: payOk ? '#10b981' : '#ef4444' }}>
+                              <span>{payOk ? '✓' : '✕'}</span>{payOk ? 'Paid' : 'Unpaid'}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Data Delivery</div>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 100, fontSize: 12, fontWeight: 700, background: d.bg, color: d.color }}>
+                              <span>{d.icon}</span>{d.label}
+                            </div>
+                          </div>
+                        </div>
+                        {(dlv === 'pending' || dlv === 'processing') && (
+                          <div style={{ padding: '0 14px 14px', fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
+                            ⏱ Data is on its way — check your phone balance. Usually delivered within 5–60 mins.
+                          </div>
+                        )}
+                        {dlv === 'failed' && (
+                          <div style={{ padding: '0 14px 14px' }}>
+                            <a href={waLink(o.reference, o.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-sm" style={{ background: 'rgba(37,211,102,0.15)', border: '1px solid rgba(37,211,102,0.3)', color: '#25d366', display: 'inline-flex', width: '100%', justifyContent: 'center' }}>
+                              💬 Contact Support on WhatsApp
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  <button className="btn btn-primary btn-full" onClick={trackOrder}>Check Status</button>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 18 }}>Enter the phone number you bought data for to see all your orders.</p>
+                  <div className="form-group">
+                    <label className="form-label">Phone Number</label>
+                    <input className="form-input" type="tel" placeholder="0241234567" maxLength={10} value={trackPhone} onChange={e => setTrackPhone(e.target.value)} onKeyDown={e => e.key === 'Enter' && trackByPhone()} />
+                  </div>
+                  {phoneOrders !== null && phoneOrders.length === 0 && (
+                    <div className="alert alert-error" style={{ marginBottom: 12 }}>No orders found for this number.</div>
+                  )}
+                  {phoneOrders && phoneOrders.length > 0 && (
+                    <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {phoneOrders.map(o => {
+                        const dlvColors: Record<string, { color: string; label: string }> = {
+                          delivered:  { color: '#10b981', label: '✓ Delivered' },
+                          processing: { color: '#f59e0b', label: '⏳ Processing' },
+                          pending:    { color: '#f59e0b', label: '⏳ Processing' },
+                          failed:     { color: '#f59e0b', label: '⏳ Placed' },
+                        };
+                        const dlv = dlvColors[o.delivery_status] || dlvColors.pending;
+                        return (
+                          <a key={o.reference} href={`/receipt/${o.reference}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 'var(--radius)', background: 'var(--surface2)', border: '1px solid var(--border)', textDecoration: 'none', color: 'var(--text)' }}>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: 14 }}>{o.size} · {NET_NAMES[o.network] || o.network}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{new Date(o.created_at).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: dlv.color }}>{dlv.label}</div>
+                              <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 2 }}>View Receipt →</div>
+                            </div>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <button className="btn btn-primary btn-full" onClick={trackByPhone}>Find My Orders</button>
+                </>
+              )}
             </div>
           </div>
         </div>
