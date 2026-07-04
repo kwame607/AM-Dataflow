@@ -4,17 +4,20 @@ import { createServerClient } from '@supabase/ssr';
 export function getAdminEmails(): string[] {
   const fromEnv = process.env.ADMIN_EMAILS || '';
   const extra = fromEnv.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-  const legacy = [
-    process.env.ADMIN_EMAIL,
-    // NOTE: never use NEXT_PUBLIC_ here — it would embed the admin email in the client JS bundle
-    'kwameadom607@gmail.com',
-  ].filter(Boolean).map(e => (e as string).toLowerCase());
+
+  // Legacy single email env var — still supported
+  const legacy = process.env.ADMIN_EMAIL
+    ? [process.env.ADMIN_EMAIL.toLowerCase()]
+    : [];
+
+  // NOTE: no hardcoded emails here — add all admin emails to
+  // ADMIN_EMAILS env var in Vercel (comma-separated):
+  // ADMIN_EMAILS=you@gmail.com,other@gmail.com
   return Array.from(new Set([...extra, ...legacy]));
 }
 
 export async function getSessionUser(req: NextRequest) {
-  // Prefer Authorization header (sent explicitly by client)
-  const authHeader = req.headers.get('authorization') || '';
+  const authHeader  = req.headers.get('authorization') || '';
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
   const supabase = createServerClient(
