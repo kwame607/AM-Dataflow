@@ -859,22 +859,25 @@ export default function DashboardPage() {
 )}
 
           {/* ── MY STORE ── */}
-          {tab === 'store' && agent && (
-  <StoreSettingsTab
-    agent={agent}
-    hasPrices={Object.keys(agentPrices).length > 0}
-    siteUrl={siteUrl}
-    authFetch={authFetch}
-    toast={toast}
-    onGoToPrices={() => setTab('prices')}
-    onAgentUpdate={() => loadData(agent.id)}
-  />
-   <BundleLinks
-  agentSlug={agent.slug}
-  agentPrices={agentPrices}
-  siteUrl={siteUrl}
-  toast={toast}
-/>
+         {tab === 'store' && agent && (
+  <>
+    <StoreSettingsTab
+      agent={agent}
+      hasPrices={Object.keys(agentPrices).length > 0}
+      siteUrl={siteUrl}
+      authFetch={authFetch}
+      toast={toast}
+      onGoToPrices={() => setTab('prices')}
+      onAgentUpdate={() => loadData(agent.id)}
+    />
+
+    <BundleLinks
+      agentSlug={agent.slug}
+      agentPrices={agentPrices}
+      siteUrl={siteUrl}
+      toast={toast}
+    />
+  </>
 )}
 	   {/* ── REFERRALS ── */}
 	   {tab === 'referral' && agent && (
