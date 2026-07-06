@@ -30,6 +30,7 @@ import { AgentPerformanceCoach } from '@/components/AgentPerformanceCoach';
 import { WhatsAppMessageGenerator } from '@/components/WhatsAppMessageGenerator';
 import { ReferralTab } from '@/components/ReferralTab';
 import { SubAgentPricingTab } from '@/components/SubAgentPricingTab';
+import { BundleLinks } from '@/components/BundleLinks';
 
 type Tab = 'overview' | 'wallet' | 'prices' | 'orders' | 'earnings' | 'store' | 'support' | 'account' | 'referral' | 'subagent-prices';
 
@@ -868,6 +869,12 @@ export default function DashboardPage() {
     onGoToPrices={() => setTab('prices')}
     onAgentUpdate={() => loadData(agent.id)}
   />
+   <BundleLinks
+  agentSlug={agent.slug}
+  agentPrices={agentPrices}
+  siteUrl={siteUrl}
+  toast={toast}
+/>
 )}
 	   {/* ── REFERRALS ── */}
 	   {tab === 'referral' && agent && (

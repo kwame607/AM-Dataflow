@@ -916,7 +916,7 @@ export default function AdminPage() {
   <>
     <BroadcastPanel authFetch={authFetch} toast={toast} />
     <AdminReferralPanel authFetch={authFetch} toast={toast} />
-    <AdminReferralPanel authFetch={authFetch} toast={toast} />
+    
     <ProviderToggle authFetch={authFetch} toast={toast} />
     <MyZtaPriceSync authFetch={authFetch} toast={toast} />
     <div className="card" style={{ marginBottom: 16 }}>
@@ -929,6 +929,13 @@ export default function AdminPage() {
         </p>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button className="btn btn-secondary btn-sm" onClick={async () => {
+  const r = await authFetch('/api/cron/reconcile');
+  const d = await r.json();
+  toast(`Reconciled — ${d.retriedOk} retried, ${d.flagged} flagged`, 'success');
+}}>
+  🔄 Run Reconciliation Now
+</button>
           <button
             className="btn btn-secondary btn-sm"
             onClick={async () => {
@@ -987,6 +994,7 @@ export default function AdminPage() {
 >
   📈 Test Weekly Summary
 </button>
+
         </div>
       </div>
     </div>

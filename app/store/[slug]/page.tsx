@@ -10,6 +10,7 @@ import { useSimpleToast } from '@/components/ui/Toast';
 import ServiceBanner from '@/components/ui/ServiceBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
+
 interface AgentInfo {
   id: string; name: string; store_name?: string; slug: string; phone?: string; whatsapp?: string;
   store_description?: string;
@@ -92,6 +93,21 @@ export default function AgentStorePage() {
       .then(d => { if (typeof d.count === 'number') setTodaySales(d.count); })
       .catch(() => {});
   }, [slug]);
+  
+  useEffect(() => {
+  const bundleParam = searchParams.get('bundle');
+  if (!bundleParam || !agent) return;
+
+  const allNetworks = Object.keys(BUNDLES);
+  for (const net of allNetworks) {
+    const found = BUNDLES[net].find(b => b.key === bundleParam);
+    if (found) {
+      setCurrentNet(net);
+      selectBundle(found.key);
+      break;
+    }
+  }
+}, [agent, searchParams]);
 
   // Recover from a previous session where payment may have completed but the
   // page was closed/crashed before we could confirm — nudge instead of forcing
