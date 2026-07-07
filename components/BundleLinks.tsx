@@ -36,7 +36,7 @@ export function BundleLinks({ agentSlug, agentPrices, siteUrl, toast }: Props) {
       el.select(); document.execCommand('copy');
       document.body.removeChild(el);
     }
-    toast('Bundle link copied!', 'success', 2000);
+    toast('Bundle link copied!', 'success');
   }
 
   function getQRUrl(bundleKey: string) {
