@@ -131,7 +131,11 @@ export default function DashboardPage() {
 
     const agpMap: Record<string, number> = {};
     const edits: Record<string, string> = {};
-    (Array.isArray(agentPricesRes) ? agentPricesRes : []).forEach((p: AgentPrice) => {
+    // Handle both old flat array and new { prices, subagentFloors } shape
+    const agentPricesList = Array.isArray(agentPricesRes)
+      ? agentPricesRes
+      : Array.isArray(agentPricesRes?.prices) ? agentPricesRes.prices : [];
+    agentPricesList.forEach((p: AgentPrice) => {
       agpMap[p.bundle_key] = p.agent_price;
       edits[p.bundle_key] = String(p.agent_price);
     });
