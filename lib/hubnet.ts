@@ -84,8 +84,21 @@ function isHubnetSuccess(data: Record<string, unknown>): boolean {
   const topCode = String(data?.code ?? '');
   if (['1004', '1005', '1007'].includes(topCode)) return false;
 
-  // If status is true, check additional signals
-  if (data?.status === true) {
+  // FIX: Hubnet doesn't always send status as a boolean — live responses have
+  // been observed with status as the string "success"/"successful"/"completed".
+  // The old check `data?.status === true` is strict-equality across types, so
+  // it silently evaluated to false for these responses and caused genuinely
+  // successful orders to be marked as failed.
+  const statusRaw = data?.status;
+  const statusStr = typeof statusRaw === 'string' ? statusRaw.toLowerCase() : '';
+
+  // Explicit string failure signals
+  if (['failed', 'false', 'error', 'rejected'].includes(statusStr)) return false;
+
+  const statusOk = statusRaw === true || ['success', 'successful', 'completed', 'ok'].includes(statusStr);
+
+  // If status indicates success (boolean true OR a recognized success string), check additional signals
+  if (statusOk) {
     // Classic documented path
     if (data?.message === '0000') return true;
 
@@ -97,6 +110,8 @@ function isHubnetSuccess(data: Record<string, unknown>): boolean {
     const nested = data?.data as Record<string, unknown> | undefined;
     if (nested?.code === '0000') return true;
     if (nested?.status === true) return true;
+    const nestedStatusStr = typeof nested?.status === 'string' ? nested.status.toLowerCase() : '';
+    if (['success', 'successful', 'completed', 'ok'].includes(nestedStatusStr)) return true;
 
     // reason field says successful
     const reason = String(data?.reason ?? '').toLowerCase();

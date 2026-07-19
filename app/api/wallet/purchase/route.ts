@@ -20,7 +20,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { agentId, phone, network, bundleKey, source, agentSlug, agentPrice } = body;
+    // SECURITY FIX: agentPrice used to be taken directly from the request body
+    // and used as-is to deduct from the wallet, with no server-side check that
+    // it was >= the admin floor. That let a crafted request set an arbitrary
+    // (even negative-margin) price. It's no longer read from the body at all —
+    // the real price is looked up from the agent's own saved price row below.
+    const { agentId, phone, network, bundleKey, source, agentSlug } = body;
 
     if (!agentId || !phone || !network || !bundleKey) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -31,11 +36,35 @@ export async function POST(req: NextRequest) {
 
     const supabase = createSupabaseAdminClient();
 
+    // SECURITY FIX: this ownership check was missing entirely. Without it,
+    // any authenticated agent could pass a *different* agent's agentId in the
+    // body and this route would happily deduct from that other agent's wallet.
+    const { data: agentRow } = await supabase
+      .from('agents').select('auth_user_id').eq('id', agentId).single();
+    if (!agentRow || agentRow.auth_user_id !== auth.userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { data: adminPriceRow } = await supabase
       .from('admin_prices').select('selling_price').eq('bundle_key', bundleKey).single();
 
-    const adminPrice      = adminPriceRow?.selling_price ?? getDefaultAdminPrice(bundle.cost);
-    const finalAgentPrice = agentPrice ?? adminPrice;
+    const adminPrice = adminPriceRow?.selling_price ?? getDefaultAdminPrice(bundle.cost);
+
+    // SECURITY FIX: agentPrice is now derived server-side from the agent's own
+    // saved price row (set via /api/agents/prices, which already enforces the
+    // floor at save time). We clamp to adminPrice again here as a second line
+    // of defense in case a saved row predates a floor change.
+    let finalAgentPrice = adminPrice;
+    if (source === 'agent') {
+      const { data: savedPrice } = await supabase
+        .from('agent_prices')
+        .select('agent_price')
+        .eq('agent_id', agentId)
+        .eq('bundle_key', bundleKey)
+        .single();
+      finalAgentPrice = Math.max(savedPrice?.agent_price ?? adminPrice, adminPrice);
+    }
+
     const grossAgentProfit = source === 'agent' ? finalAgentPrice - adminPrice : 0;
 
     const reference = genRef('WAL');
