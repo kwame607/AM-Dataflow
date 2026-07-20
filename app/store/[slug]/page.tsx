@@ -9,6 +9,7 @@ import { openPaystack } from '@/lib/paystack';
 import { useSimpleToast } from '@/components/ui/Toast';
 import ServiceBanner from '@/components/ui/ServiceBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { PhoneVerifiedHint } from '@/components/ui/PhoneVerifiedHint';
 
 
 interface AgentInfo {
@@ -1022,6 +1023,7 @@ export default function AgentStorePage() {
                         <label className="form-label">Recipient Phone Number</label>
                         <input className="form-input" type="tel" placeholder="0241234567" maxLength={10} value={phone} onChange={e => onPhoneChange(e.target.value)} />
                         {phoneHint && <div className="form-hint" style={{ color: phoneHint.ok ? 'var(--ok)' : 'var(--warn)' }}>{phoneHint.text}</div>}
+                        <PhoneVerifiedHint phone={phone} />
                       </div>
                       <button className="btn btn-primary btn-full btn-lg" onClick={goStep2}>Continue</button>
                     </div>

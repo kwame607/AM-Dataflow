@@ -36,6 +36,7 @@ export default function ReceiptPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [numberVerified, setNumberVerified] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!ref) return;
@@ -50,6 +51,12 @@ export default function ReceiptPage() {
             const agentData = await agentRes.json();
             if (agentData.agent) setAgent(agentData.agent);
           }
+          // Check whether this number is already "known" (verified) based on
+          // order history — informational only, never blocks rendering.
+          fetch(`/api/orders/number-status?phone=${encodeURIComponent(data.order.phone)}`)
+            .then(r => r.json())
+            .then(d => setNumberVerified(!!d.verified))
+            .catch(() => setNumberVerified(null));
         } else {
           setNotFound(true);
         }
@@ -244,6 +251,18 @@ export default function ReceiptPage() {
               },
               { label: 'Bundle',       value: <strong style={{ color: '#f1f5f9' }}>{order.size}</strong> },
               { label: 'Sent To',      value: <strong style={{ color: '#f1f5f9', fontFamily: 'monospace' }}>{order.phone}</strong> },
+              ...(numberVerified !== null ? [{
+                label: 'Number Status',
+                value: numberVerified ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 100, fontSize: 12, fontWeight: 700, background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
+                    ✓ Verified
+                  </span>
+                ) : (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 100, fontSize: 12, fontWeight: 700, background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
+                    🆕 New number
+                  </span>
+                ),
+              }] : []),
               { label: 'Amount Paid', value: <strong style={{ color: '#00d4aa', fontFamily: 'Syne,sans-serif', fontSize: 16 }}>{fmt(order.agent_price || order.admin_price || 0)}</strong> },
               { label: 'Date & Time',  value: <span style={{ color: '#94a3b8', fontSize: 12 }}>{fmtDate(order.created_at)}</span> },
               { label: 'Store',        value: <span style={{ color: '#94a3b8' }}>{storeName}</span> },
@@ -255,11 +274,11 @@ export default function ReceiptPage() {
                   </span>
                 ),
               },
-            ].map((row, i) => (
+            ].map((row, i, arr) => (
               <div key={row.label} className="row-animate" style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 0',
-                borderBottom: i < 6 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                 animationDelay: `${i * 0.05}s`,
               }}>
                 <span style={{ fontSize: 13, color: '#64748b' }}>{row.label}</span>

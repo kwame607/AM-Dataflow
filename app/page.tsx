@@ -10,6 +10,7 @@ import { useSimpleToast } from '@/components/ui/Toast';
 import Image from 'next/image';
 import ServiceBanner from '@/components/ui/ServiceBanner';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { PhoneVerifiedHint } from '@/components/ui/PhoneVerifiedHint';
 
 
 interface SelectedBundle extends Bundle {
@@ -517,6 +518,7 @@ export default function MainStorePage() {
                     <label className="form-label">Recipient Phone Number</label>
                     <input className="form-input" type="tel" placeholder="0241234567" maxLength={10} value={phone} onChange={e => onPhoneChange(e.target.value)} />
                     {phoneHint && <div className="form-hint" style={{ color: phoneHint.ok ? 'var(--ok)' : 'var(--warn)' }}>{phoneHint.text}</div>}
+                    <PhoneVerifiedHint phone={phone} />
                   </div>
                   {step1Err && <div className="alert alert-error" style={{ marginBottom: 12 }}>{step1Err}</div>}
                   <button className="btn btn-primary btn-full btn-lg" onClick={goStep2}>Continue</button>
