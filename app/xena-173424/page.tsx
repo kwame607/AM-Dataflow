@@ -257,6 +257,36 @@ export default function AdminPage() {
     );
   });
 
+  // ── Known-provider map (H / X / Both) ─────────────────────────────────
+  // Built entirely client-side from orders already loaded in state — no
+  // extra API calls needed. A phone counts as "known" on a provider if it
+  // has at least one order that provider accepted (processing or
+  // delivered); a straight-up 'failed' delivery doesn't count, since a
+  // rejection doesn't prove the number is in that provider's submitted
+  // verification database.
+  const phoneProviderMap = React.useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    orders.forEach(o => {
+      if (!o.phone) return;
+      if (o.delivery_status === 'processing' || o.delivery_status === 'delivered') {
+        if (!map[o.phone]) map[o.phone] = new Set();
+        if (o.delivery_provider) map[o.phone].add(o.delivery_provider);
+      }
+    });
+    return map;
+  }, [orders]);
+
+  function getProviderBadge(phone: string): { label: string; full: string; color: string; bg: string } | null {
+    const set = phoneProviderMap[phone];
+    if (!set || set.size === 0) return null;
+    const hasHubnet = set.has('hubnet');
+    const hasXpres  = set.has('xpresportal');
+    if (hasHubnet && hasXpres) return { label: 'Both', full: 'Known on Hubnet + XpresPortal', color: '#a78bfa', bg: 'rgba(167,139,250,0.15)' };
+    if (hasHubnet)             return { label: 'H',    full: 'Known on Hubnet',                color: '#38bdf8', bg: 'rgba(56,189,248,0.15)' };
+    if (hasXpres)              return { label: 'X',    full: 'Known on XpresPortal',            color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' };
+    return null;
+  }
+
   const agentStats = React.useMemo(() => {
     const map: Record<string, {
       totalOrders: number; totalRevenue: number; totalProfit: number;
@@ -578,6 +608,14 @@ export default function AdminPage() {
                             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{fmtDate(o.created_at)}</div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            {(() => {
+                              const pb = getProviderBadge(o.phone);
+                              return pb ? (
+                                <span title={pb.full} style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 100, background: pb.bg, color: pb.color, flexShrink: 0 }}>
+                                  {pb.label}
+                                </span>
+                              ) : null;
+                            })()}
                             <DeliveryBadge status={o.delivery_status} />
                             <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{fmt(o.agent_price || o.admin_price || 0)}</span>
                             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--text3)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
@@ -592,6 +630,19 @@ export default function AdminPage() {
                             <div><span style={{ color: 'var(--text3)' }}>Delivery</span><br /><DeliveryBadge status={o.delivery_status} /></div>
                             <div><span style={{ color: 'var(--text3)' }}>Source</span><br /><strong>{o.source || 'main'}</strong></div>
                             <div><span style={{ color: 'var(--text3)' }}>Your Profit</span><br /><strong style={{ color: 'var(--ok)' }}>{fmt(o.admin_profit || 0)}</strong></div>
+                            <div style={{ gridColumn: '1/-1' }}>
+                              <span style={{ color: 'var(--text3)' }}>Known On</span><br />
+                              {(() => {
+                                const pb = getProviderBadge(o.phone);
+                                return pb ? (
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 100, fontSize: 12, fontWeight: 700, background: pb.bg, color: pb.color, marginTop: 2 }}>
+                                    {pb.full}
+                                  </span>
+                                ) : (
+                                  <strong style={{ color: 'var(--text3)', fontWeight: 500 }}>New number — no prior successful delivery on file</strong>
+                                );
+                              })()}
+                            </div>
                             {(canRetry || canMarkDone) && (
                               <div style={{ gridColumn: '1/-1', display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
                                 {canRetry && <button className="btn btn-sm" style={{ background: 'rgba(239,68,68,.15)', color: '#f87171', border: '1px solid rgba(239,68,68,.4)' }} onClick={() => retryDelivery(o.id)}>↺ Retry Delivery</button>}
