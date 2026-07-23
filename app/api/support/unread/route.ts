@@ -101,10 +101,24 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // ── Total shown on the badge ──────────────────────────────────────────
+    // For admin: use ONLY the ticket-based awaiting-reply count above.
+    // support_notifications rows for target_type='admin' only ever get
+    // marked read via the notification bell's "mark as read" actions — and
+    // the admin dashboard doesn't render a bell at all, so those rows can
+    // never be cleared and just accumulate forever (every single agent
+    // reply ever sent adds one). Including them here was the real source
+    // of a badge number that never matched "have I actually replied to
+    // everyone" — it was really just counting lifetime agent-reply events,
+    // not anything currently outstanding.
+    // Agent side is unaffected: agents DO have a working NotificationBell,
+    // so their notificationCount can genuinely be cleared and stays valid.
+    const total = isAdmin ? msgCount : (notifCount || 0) + msgCount;
+
     return NextResponse.json({
       notificationCount: notifCount || 0,
       messageCount:      msgCount,
-      total:             (notifCount || 0) + msgCount,
+      total,
     });
   } catch (e) {
     console.error('[support unread]', e);
