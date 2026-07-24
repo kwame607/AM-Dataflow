@@ -34,6 +34,35 @@ import { createSupabaseAdminClient } from '@/lib/supabase-server';
 import type { Bundle } from '@/types';
 import type { HubnetNetwork } from '@/lib/hubnet';
 
+// ── Temporary testing override for brand-new numbers ────────────────────
+// Default behavior for a number with no order history anywhere is Hubnet
+// (see routing priority above). To temporarily send new numbers to
+// XpresPortal instead — e.g. to capture the raw "not verified" rejection
+// JSON for a genuinely new number — set NEW_NUMBER_TEST_PROVIDER=xpresportal
+// in Vercel's environment variables. Remove the var (or set it back to
+// "hubnet") to return to normal behavior. No code change needed either way.
+const NEW_NUMBER_TEST_PROVIDER = (process.env.NEW_NUMBER_TEST_PROVIDER || 'hubnet').toLowerCase();
+
+// ── XpresPortal "not verified" rejection signature ───────────────────────
+// Confirmed live response shape (2026-07-24), HTTP 422:
+//   { success:false, code:"RECIPIENT_NOT_VERIFIED_FOR_RESTRICTED_MTN_PROVIDER",
+//     type:"RECIPIENT_NOT_ELIGIBLE_FOR_RESTRICTED_MTN_UP2U", billable:false,
+//     retryAllowed:false }
+// Matched on the stable `code`/`type` identifiers, not the human-readable
+// `error` sentence, since wording can change but these identifiers are the
+// actual machine-readable signal. billable:false confirms no charge was
+// made, so falling back to another provider is safe.
+const XPRES_NOT_VERIFIED_CODES = new Set(['RECIPIENT_NOT_VERIFIED_FOR_RESTRICTED_MTN_PROVIDER']);
+const XPRES_NOT_VERIFIED_TYPES = new Set(['RECIPIENT_NOT_ELIGIBLE_FOR_RESTRICTED_MTN_UP2U']);
+
+function isXpresNotVerifiedRejection(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return false;
+  const r = raw as Record<string, unknown>;
+  const code = typeof r.code === 'string' ? r.code : '';
+  const type = typeof r.type === 'string' ? r.type : '';
+  return XPRES_NOT_VERIFIED_CODES.has(code) || XPRES_NOT_VERIFIED_TYPES.has(type);
+}
+
 export interface DeliveryResult {
   success:      boolean;
   provider:     'xpresportal' | 'hubnet' | 'myztadata';
@@ -47,6 +76,8 @@ export interface DeliveryResult {
   autoRoutedToXpres?: boolean;
   /** true if this number has no order history on file — routed to Hubnet by default */
   isNewNumber?: boolean;
+  /** true if XpresPortal rejected this number as unverified and it was automatically retried via Hubnet instead */
+  xpresRejectedUnverified?: boolean;
 }
 
 // ── Known-on-XpresPortal notification cooldown ──────────────────────────
@@ -111,6 +142,7 @@ async function deliverViaXpresPortal(
   network: string,
   phone: string,
   reference: string,
+  allowHubnetFallback: boolean = true,
 ): Promise<DeliveryResult> {
   const rawUrl  = process.env.NEXT_PUBLIC_SITE_URL || '';
   const siteUrl = rawUrl && !rawUrl.includes('localhost')
@@ -123,6 +155,21 @@ async function deliverViaXpresPortal(
     : undefined;
 
   const result = await xpresOrder({ network: xpresNetwork, phone, volume: volumeGB, offerSlug, reference, webhookUrl });
+
+  // ── Auto-fallback: XpresPortal rejected this number as unverified ───────
+  // (their own equivalent of the MTN/AT/Telecel restriction this whole
+  // number-history feature exists to work around). billable:false on their
+  // side confirms no charge was made, so it's safe to immediately retry via
+  // Hubnet instead of leaving this order sitting as failed.
+  // Disabled when allowHubnetFallback=false — used for manual/forced admin
+  // retries where the point is to actually see XpresPortal's raw response,
+  // not have it silently swapped for a Hubnet delivery.
+  if (allowHubnetFallback && !result.success && isXpresNotVerifiedRejection(result.raw)) {
+    console.log(`[delivery] XpresPortal rejected ${phone} as unverified — auto-falling back to Hubnet for ${reference}`);
+    const hubnetResult = await deliverViaHubnet(bundle, network, phone, reference);
+    return { ...hubnetResult, xpresRejectedUnverified: true };
+  }
+
   return {
     success:     result.success,
     provider:    'xpresportal',
@@ -165,12 +212,25 @@ async function deliverViaConfiguredProvider(
 }
 
 export async function deliverBundle(params: {
-  bundle:      Bundle & { network?: string };
-  network:     string;
-  phone:       string;
-  reference:   string;
+  bundle:         Bundle & { network?: string };
+  network:        string;
+  phone:          string;
+  reference:      string;
+  /** Bypasses ALL auto-routing/history logic entirely and delivers via this
+   *  specific provider. Used for manual admin retries — e.g. testing
+   *  whether XpresPortal accepts a number regardless of what your own
+   *  order history says about it, since your history is only a proxy for
+   *  each provider's own separate verification database, not the actual
+   *  ground truth. */
+  forceProvider?: 'hubnet' | 'xpresportal' | 'myztadata';
 }): Promise<DeliveryResult> {
-  const { bundle, network, phone, reference } = params;
+  const { bundle, network, phone, reference, forceProvider } = params;
+
+  if (forceProvider) {
+    if (forceProvider === 'hubnet')    return deliverViaHubnet(bundle, network, phone, reference);
+    if (forceProvider === 'myztadata') return deliverViaMyZtaData(bundle, network, phone, reference);
+    return deliverViaXpresPortal(bundle, network, phone, reference, false); // false = no auto-fallback; we want to see XpresPortal's actual result
+  }
 
   // ── Check this number's history across our own providers ────────────────
   // Wrapped defensively — if this lookup fails for any reason, delivery
@@ -206,9 +266,13 @@ export async function deliverBundle(params: {
     result = await deliverViaHubnet(bundle, network, phone, reference);
     autoRoutedToHubnet = true;
   } else {
-    // Brand new number — always Hubnet, ignoring the toggle, since
-    // XpresPortal reliability for unproven numbers isn't trusted yet.
-    result = await deliverViaHubnet(bundle, network, phone, reference);
+    // Brand new number — normally always Hubnet, ignoring the toggle,
+    // since XpresPortal reliability for unproven numbers isn't trusted yet.
+    // Can be temporarily overridden to XpresPortal via the
+    // NEW_NUMBER_TEST_PROVIDER env var — see note near the top of this file.
+    result = NEW_NUMBER_TEST_PROVIDER === 'xpresportal'
+      ? await deliverViaXpresPortal(bundle, network, phone, reference)
+      : await deliverViaHubnet(bundle, network, phone, reference);
     isNewNumber = true;
   }
 
