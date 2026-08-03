@@ -22,6 +22,7 @@ import { BroadcastPanel } from '@/components/BroadcastPanel';
 import { MyZtaPriceSync } from '@/components/MyZtaPriceSync';
 import { BulkRetryPanel } from '@/components/BulkRetryPanel';
 import { AdminDepositClaims } from '@/components/AdminDepositClaims';
+import { PaystackReconcilePanel } from '@/components/PaystackReconcilePanel';
 
 type Tab = 'overview' | 'orders' | 'agents' | 'prices' | 'withdrawals' | 'settings' | 'finance' | 'support' | 'referrals' | 'bulk-retry' | 'deposits';
 
@@ -967,6 +968,7 @@ export default function AdminPage() {
   <>
     <BroadcastPanel authFetch={authFetch} toast={toast} />
     <AdminReferralPanel authFetch={authFetch} toast={toast} />
+    <PaystackReconcilePanel authFetch={authFetch} toast={toast} />
     
     <ProviderToggle authFetch={authFetch} toast={toast} />
     <MyZtaPriceSync authFetch={authFetch} toast={toast} />
