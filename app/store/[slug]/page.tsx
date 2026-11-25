@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { NetworkLogo } from '@/components/ui/NetworkLogo';
 import { useParams, useSearchParams } from 'next/navigation';
+import { useNetworkStatus } from '@/lib/useNetworkStatus';
 import { BUNDLES, NET_NAMES, ALL_BUNDLES, getDefaultAdminPrice } from '@/lib/bundles';
 import { fmt, genRef, detectNetwork } from '@/lib/utils';
 import { openPaystack } from '@/lib/paystack';
@@ -25,6 +26,7 @@ interface AgentInfo {
 interface PriceMap { [bundleKey: string]: number }
 
 export default function AgentStorePage() {
+  const netStatus = useNetworkStatus();
   const params = useParams();
   const searchParams = useSearchParams();
   const slug = params?.slug as string;
@@ -97,18 +99,22 @@ export default function AgentStorePage() {
   
   useEffect(() => {
   const bundleParam = searchParams.get('bundle');
-  if (!bundleParam || !agent) return;
+  if (!bundleParam || !agent || !netStatus.loaded) return;
 
   const allNetworks = Object.keys(BUNDLES);
   for (const net of allNetworks) {
     const found = BUNDLES[net].find(b => b.key === bundleParam);
     if (found) {
+      if (netStatus.isDisabled(net)) {
+        toast(netStatus.messageFor(net), 'info');
+        break;
+      }
       setCurrentNet(net);
       selectBundle(found.key);
       break;
     }
   }
-}, [agent, searchParams]);
+}, [agent, searchParams, netStatus.loaded]);
 
   // Recover from a previous session where payment may have completed but the
   // page was closed/crashed before we could confirm — nudge instead of forcing
@@ -391,7 +397,7 @@ export default function AgentStorePage() {
     { key: 'at',      sub: 'AT iShare & BigTime — 90 days',     visible: agent.show_at !== false },
     { key: 'telecel', sub: 'Group Share bundles — 90 days',     visible: agent.show_telecel !== false },
   ];
-  const networks = allNetworks.filter(n => n.visible);
+  const networks = allNetworks.filter(n => n.visible && !netStatus.isDisabled(n.key));
 
   // Per-network style config used in flyer mode
   const NET_STYLE: Record<string, { bg: string; text: string; accent: string; initials: string }> = {

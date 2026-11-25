@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, getIp } from '@/lib/rate-limit';
 import { InitializePaymentSchema } from '@/lib/validate';
+import { isNetworkDisabled } from '@/lib/network-status';
 
 export async function POST(req: NextRequest) {
   // Rate limit: 10 payment initializations per minute per IP
@@ -22,6 +23,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid request', detail: parsed.error.flatten() }, { status: 400 });
     }
     const { email, amount, reference, metadata } = parsed.data;
+
+    // Network maintenance switch — block before any payment is started
+    const netCheck = await isNetworkDisabled(metadata.network);
+    if (netCheck.disabled) {
+      return NextResponse.json({ error: netCheck.message, networkDisabled: true }, { status: 403 });
+    }
 
     const secretKey = process.env.PAYSTACK_SECRET_KEY;
     if (!secretKey) {

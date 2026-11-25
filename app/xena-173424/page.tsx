@@ -18,6 +18,7 @@ import { PriceRecommendationsWidget } from '@/components/PriceRecommendationsWid
 import { AdminReferralPanel } from '@/components/AdminReferralPanel';
 import { AdminReferralsTab } from '@/components/AdminReferralsTab';
 import { AgentReferralBadge } from '@/components/AgentReferralBadge';
+import { NetworkAvailabilityPanel } from '@/components/NetworkAvailabilityPanel';
 import { BroadcastPanel } from '@/components/BroadcastPanel';
 import { MyZtaPriceSync } from '@/components/MyZtaPriceSync';
 import { BulkRetryPanel } from '@/components/BulkRetryPanel';
@@ -966,6 +967,7 @@ export default function AdminPage() {
          {/* SETTINGS */}
 {tab === 'settings' && (
   <>
+    <NetworkAvailabilityPanel authFetch={authFetch} toast={toast} />
     <BroadcastPanel authFetch={authFetch} toast={toast} />
     <AdminReferralPanel authFetch={authFetch} toast={toast} />
     <PaystackReconcilePanel authFetch={authFetch} toast={toast} />
