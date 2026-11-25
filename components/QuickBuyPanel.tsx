@@ -25,8 +25,19 @@ interface QuickBuyPanelProps {
 
 const NET_COLORS: Record<string, string> = { mtn: '#f59e0b', at: '#3b82f6', telecel: '#ef4444' };
 
+import { useNetworkStatus } from '@/lib/useNetworkStatus';
+
 export function QuickBuyPanel({ agent, wallet, agentPrices, orders, authFetch, toast, onOrderPlaced }: QuickBuyPanelProps) {
+  const netStatus = useNetworkStatus();
   const [network, setNetwork] = useState('mtn');
+  // If the selected network gets switched off, jump to the first available one
+  useEffect(() => {
+    if (netStatus.loaded && netStatus.isDisabled(network)) {
+      const next = (['mtn', 'at', 'telecel'] as const).find(n => !netStatus.isDisabled(n));
+      if (next) { setNetwork(next); setBundleKey(''); }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [netStatus.loaded, netStatus.disabled.join(',')]);
   const [bundleKey, setBundleKey] = useState('');
   const [phone, setPhone] = useState('');
   const [showRecents, setShowRecents] = useState(false);
@@ -222,7 +233,7 @@ export function QuickBuyPanel({ agent, wallet, agentPrices, orders, authFetch, t
 
       {/* Network pills */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {(['mtn', 'at', 'telecel'] as const).map(net => {
+        {(['mtn', 'at', 'telecel'] as const).filter(n => !netStatus.isDisabled(n)).map(net => {
           const active = network === net;
           return (
             <button

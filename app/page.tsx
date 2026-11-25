@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { NetworkLogo } from '@/components/ui/NetworkLogo';
+import { useNetworkStatus } from '@/lib/useNetworkStatus';
 import { BUNDLES, NET_NAMES, ALL_BUNDLES, getDefaultAdminPrice } from '@/lib/bundles';
 import { genRef, detectNetwork, fmt, fmtDate } from '@/lib/utils';
 import { openPaystack } from '@/lib/paystack';
@@ -24,6 +25,7 @@ const STORE_NAME = 'ADMUNZ';
 const PAYSTACK_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '';
 
 export default function MainStorePage() {
+  const netStatus = useNetworkStatus();
   const { toast, ToastContainer } = useSimpleToast();
 
   const [mounted, setMounted] = useState(false);
@@ -303,7 +305,7 @@ export default function MainStorePage() {
     { key: 'mtn',     sub: 'Non-expiry data bundles — 90 days' },
     { key: 'at',      sub: 'AT iShare & BigTime — 90 days' },
     { key: 'telecel', sub: 'Group Share bundles — 90 days' },
-  ];
+  ].filter(n => !netStatus.isDisabled(n.key)); // hidden while switched off in admin
 
   // ── Loading skeleton ────────────────────────────────────────────────────────
   if (!mounted) return (

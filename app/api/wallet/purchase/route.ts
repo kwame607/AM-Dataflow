@@ -6,6 +6,7 @@ import { deliverBundle } from '@/lib/delivery';
 import { getBundleByKey, getDefaultAdminPrice } from '@/lib/bundles';
 import { rateLimit, getIp } from '@/lib/rate-limit';
 import { genRef } from '@/lib/utils';
+import { isNetworkDisabled } from '@/lib/network-status';
 import { creditReferralBonus, reverseReferralBonus } from '@/lib/referral';
 
 export async function POST(req: NextRequest) {
@@ -33,6 +34,14 @@ export async function POST(req: NextRequest) {
 
     const bundle = getBundleByKey(bundleKey);
     if (!bundle) return NextResponse.json({ error: 'Invalid bundle' }, { status: 400 });
+
+    // Network maintenance switch — block before any wallet deduction
+    for (const n of [network, bundleKey.split('_')[0]]) {
+      const netCheck = await isNetworkDisabled(n);
+      if (netCheck.disabled) {
+        return NextResponse.json({ error: netCheck.message, networkDisabled: true }, { status: 403 });
+      }
+    }
 
     const supabase = createSupabaseAdminClient();
 
